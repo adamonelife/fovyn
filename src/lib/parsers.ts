@@ -1,4 +1,4 @@
-import type { Exercise, LoggedExercise, ProgressionType, TrackingType, WorkoutTemplateRow } from "@/types/training";
+import type { Exercise, ExerciseRule, LoggedExercise, ProgressionType, RuleType, TrackingType, WorkoutTemplateRow } from "@/types/training";
 
 function key(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -36,8 +36,19 @@ export function parseExercises(rows: string[][]): Exercise[] {
     incrementKg: num(r.incrementkg) ?? 0,
     progressionType: (r.progressiontype || "Fixed") as ProgressionType,
     active: yes(r.active),
-    trackingType: (r.trackingtype || "Reps") as TrackingType,
+    trackingType: (r.trackingtype || r.measurementtype || "Reps") as TrackingType,
   })).filter((exercise) => exercise.exerciseId);
+}
+
+export function parseRules(rows: string[][]): ExerciseRule[] {
+  return rowsToObjects(rows).map((r) => ({
+    ruleId: r.ruleid,
+    exerciseId: r.exerciseid,
+    ruleType: (r.ruletype || "PROGRESS") as RuleType,
+    condition: r.condition || "",
+    action: r.action || "",
+    active: yes(r.active),
+  })).filter((rule) => rule.exerciseId && rule.active);
 }
 
 export function parseTemplates(rows: string[][]): WorkoutTemplateRow[] {

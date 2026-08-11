@@ -1,5 +1,15 @@
 export type TrackingType = "Reps" | "Seconds" | "Minutes" | "Distance";
-export type ProgressionType = "Double Progression" | "Rep Progression" | "Fixed";
+export type ProgressionType = "Double Progression" | "Rep Progression" | "Weighted Progression" | "Capped Progression" | "Quality" | "Fixed";
+export type RuleType = "PROGRESS" | "HARD_CAP" | "EQUIPMENT_CAP" | "QUALITY" | "TIME_CAP" | "REP_CAP" | "FIXED";
+
+export interface ExerciseRule {
+  ruleId: string;
+  exerciseId: string;
+  ruleType: RuleType;
+  condition: string;
+  action: string;
+  active: boolean;
+}
 
 export interface Exercise {
   exerciseId: string;
@@ -49,6 +59,7 @@ export interface WorkoutExercise {
   slotName: string;
   group: string;
   exercise: Exercise;
+  rule?: ExerciseRule | null;
   last: LoggedExercise | null;
   target: SetPerformance[];
 }
@@ -58,7 +69,7 @@ export interface BuiltWorkout {
   variant: string;
   exercises: WorkoutExercise[];
   exerciseLibrary: Exercise[];
-  exerciseSnapshots?: Record<string, { last: LoggedExercise | null; target: SetPerformance[] }>;
+  exerciseSnapshots?: Record<string, { last: LoggedExercise | null; target: SetPerformance[]; rule?: ExerciseRule | null }>;
 }
 
 export interface SaveWorkoutPayload {

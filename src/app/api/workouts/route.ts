@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readSheet, sheetName } from "@/lib/googleSheets";
-import { parseExercises, parseLog, parseTemplates } from "@/lib/parsers";
+import { parseExercises, parseLog, parseRules, parseTemplates } from "@/lib/parsers";
 import { buildWorkout, calculateTarget, latestForExercise } from "@/lib/gymEngine";
 
 export const runtime = "nodejs";
@@ -10,19 +10,23 @@ export async function GET(request: NextRequest) {
     const workoutType = request.nextUrl.searchParams.get("type") || "Pull";
     const variant = request.nextUrl.searchParams.get("variant") || "A";
 
-    const [exerciseRows, templateRows, logRows] = await Promise.all([
+    const [exerciseRows, templateRows, logRows, ruleRows] = await Promise.all([
       readSheet(`${sheetName("SHEET_EXERCISES", "Exercise Library")}!A:Z`),
       readSheet(`${sheetName("SHEET_TEMPLATES", "Workout Templates")}!A:Z`),
       readSheet(`${sheetName("SHEET_LOG", "Workout Log")}!A:Z`),
+      readSheet(`${sheetName("SHEET_RULES", "Rules")}!A:Z`),
     ]);
 
     const exercises = parseExercises(exerciseRows).filter((exercise) => exercise.active);
     const templates = parseTemplates(templateRows);
     const logs = parseLog(logRows);
-    const workout = buildWorkout(workoutType, variant, templates, exercises, logs);
+    const rules = parseRules(ruleRows);
+    const rulesByExercise = new Map(rules.map((rule) => [rule.exerciseId, rule]));
+    const workout = buildWorkout(workoutType, variant, templates, exercises, logs, rules);
     const exerciseSnapshots = Object.fromEntries(exercises.map((exercise) => {
       const last = latestForExercise(logs, exercise.exerciseId);
-      return [exercise.exerciseId, { last, target: calculateTarget(exercise, last) }];
+      const rule = rulesByExercise.get(exercise.exerciseId) ?? null;
+      return [exercise.exerciseId, { last, rule, target: calculateTarget(exercise, last, rule) }];
     }));
 
     return NextResponse.json({ workoutType, variant, exercises: workout, exerciseLibrary: exercises, exerciseSnapshots });
