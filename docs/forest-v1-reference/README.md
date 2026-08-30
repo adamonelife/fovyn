@@ -16,7 +16,7 @@ The following override is authoritative:
 - Brand case: **Fovyn**, not all capitals
 - Logo: the existing approved growing-F asset already used by the application
 - Visual system: the previously approved Forbair charcoal, warm stone, forest-green, moss/leaf green and restrained lime identity
-- Tagline: **Build More Good Days.**
+- Tagline: **Grow More Good Days.**
 
 The name changes to Fovyn. The visual identity is not redesigned.
 
@@ -45,8 +45,12 @@ Forest Lab remains available for regression/QA only.
 | [05-legendary-trees.png](boards/05-legendary-trees.png) | Four long-term Legendary Trees | 1536×1024 | `6aa3e47a38b69ec3a172770babe714fedd1f2c1fa4647632f20b2475dc113a51` |
 | [06-growth-tree-ladder-milestones.png](boards/06-growth-tree-ladder-milestones.png) | Canonical 27-stage sequence and milestone direction | 1312×1199 | `ef958f34a62704141d8b8089888d8144731cc6cbc64cd03dca95e8e5cd0b180a` |
 | [07-growth-tree-ladder-consistency.png](boards/07-growth-tree-ladder-consistency.png) | Canonical silhouettes and consistency direction | 1536×1024 | `214122be3e333dfdea916a1eddc3aace0f94732e90862eafad898e3d17d108e5` |
+| [08-forest-first-home-desktop.png](boards/08-forest-first-home-desktop.png) | Finished-V1 desktop Home hierarchy and composition | 1536×1024 | `858b616ae4721e975ac3a72273167206d246438ce5f81800acc3a84a905c5c3b` |
+| [09-forest-first-home-mobile.png](boards/09-forest-first-home-mobile.png) | Finished-V1 mobile Home, Quick Input and deeper-module pattern | 853×1844 | `3f7f6ef6d75adfc1aebe915e778b9af27d46881fb7ad69fe0bfc550fd0c4a731` |
 
 These are flattened concept boards, not renderer-ready production assets.
+
+The locked Forest-first Home UX amendment is recorded in [FOREST_FIRST_HOME_AMENDMENT.md](FOREST_FIRST_HOME_AMENDMENT.md).
 
 ## Canonical 27-stage Growth Tree ladder
 

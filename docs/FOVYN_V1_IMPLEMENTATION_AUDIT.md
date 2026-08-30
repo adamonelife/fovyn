@@ -44,7 +44,7 @@ The implementation should proceed as complete vertical journeys, not as 32 indep
 | 14 | Social | **PLACEHOLDER / INERT** | Generic string quick-log only. | Event/category/who/duration/notes/alcohol/social-link model without duplicate records. |
 | 15 | Alcohol | **PLACEHOLDER / INERT** | Generic string quick-log only. | Explicit none, amount spent, duration, occasion, exception, History and behavioural rule calculations. |
 | 16 | Supplements / medication / recovery | **PLACEHOLDER / INERT** | Generic string quick-log only. | User items/protocols/schedules, one-tap states, temporary lifecycle and History. |
-| 17 | Home / Today | **PLACEHOLDER / INERT** | Forest opens and Round-Up modal opens; four compact widgets show static content and have no actions. | Query real due state; make every widget actionable; quick logs, corrections, Goal detail, recent-record editing and explicit unavailable states. |
+| 17 | Home / Today | **PLACEHOLDER / INERT** | Forest opens and Round-Up modal opens; four compact widgets show static content and have no actions. | First complete a fast functional Today surface. After functional V1 and the Forest renderer are stable, integrate the real Forest as the responsive Home focal point without slowing navigation or Quick Input. |
 | 18 | Daily Round-Up | **PLACEHOLDER / INERT** | Modal state works, but Confirm only closes it. Options do not match directive exactly. | Real unresolved-item summary, Bad/OK/Great rating, negative habits, save/confirm/edit/recalculate and separation from Goal achievement. |
 | 19 | Modes | **PLACEHOLDER / INERT** | Three local buttons and a multiplier unit test. | Persisted configurable Modes, dated activation, Goal/routine overrides, protected pauses and return-to-Normal semantics. |
 | 20 | Goal Sets | **PLACEHOLDER / INERT** | One hard-coded set. | CRUD, Goal membership, periods, reuse, history, completion and derived overall achievement. |
@@ -128,6 +128,8 @@ The implementation should proceed as complete vertical journeys, not as 32 indep
 - [ ] Implement unresolved items and Daily Round-Up confirmation/edit/recalculation.
 - [ ] Keep Home compact and responsive.
 
+This section completes the practical Home journey now. The locked Forest-first composition is a later integration step after the Forest renderer and real Forest state exist; it must not delay this functional gate.
+
 **Exit:** no polished inert controls remain on Home.
 
 ### Section G — Unified History, search and correction engine
@@ -166,7 +168,7 @@ Complete one at a time using the same end-to-end contract:
 
 ### Stored future Forest package
 
-The approved Forest V1 visual boards and canonical specification are preserved in [`docs/forest-v1-reference`](forest-v1-reference/README.md). They are locked for later implementation and do not change this week's functional V1 priorities. The product name is Fovyn while the previously approved Forbair visual identity remains authoritative.
+The approved Forest V1 visual boards, canonical specification and [Forest-first Home amendment](forest-v1-reference/FOREST_FIRST_HOME_AMENDMENT.md) are preserved in [`docs/forest-v1-reference`](forest-v1-reference/README.md). They are locked for later implementation and do not change this week's functional V1 priorities. The product name is Fovyn while the previously approved Forbair visual identity remains authoritative.
 
 ### Section J — Planning and feedback systems
 
@@ -188,6 +190,17 @@ The approved Forest V1 visual boards and canonical specification are preserved i
 - [ ] Reduced motion and accessibility checks.
 
 **Exit:** V1 is usable on phone and desktop, installed or refreshed, with honest failure states.
+
+### Deferred final-V1 integration — Forest-first Home
+
+- [ ] Begin only after functional V1 and the Forest renderer are complete and stable.
+- [ ] Integrate real Forest state into Home rather than a separate artificial showcase.
+- [ ] Desktop: immersive canvas with restrained functional overlays.
+- [ ] Mobile: Forest hero, immediate Today controls and Quick Input bottom sheet/overlay.
+- [ ] New users begin in the Nursery; no artificial mature Forest.
+- [ ] Add subtle, non-blocking reactions to qualifying records.
+- [ ] Verify direct module navigation remains faster than or equal to the pre-Forest flow.
+- [ ] Run performance, responsive and Forest Lab QA before final polish.
 
 ### Section L — End-to-end acceptance and production launch
 
