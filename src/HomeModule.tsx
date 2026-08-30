@@ -2,7 +2,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {Activity,Check,ChevronRight,Leaf,Plus,Target,X} from 'lucide-react';
 import {completeOnboarding,expectedToday,loadHome,saveRoundup,type HomeData} from './homeRepository';
 
-const climateLabel=(value:string)=>value==='high_demand'?'High demand':value[0].toUpperCase()+value.slice(1);
+const climateLabel=(value:string)=>value[0].toUpperCase()+value.slice(1);
 
 function Onboarding({choose}:{choose:(destination:'Goals'|'Log')=>void}){const[choice,setChoice]=useState<'Goals'|'Log'>();const proceed=()=>{if(choice)choose(choice)};return <section className="onboarding"><Leaf/><p className="eyebrow">WELCOME TO FOVYN</p><h1>Grow More Good Days.</h1><p>Begin with one real thing. Nothing artificial will be added to your Forest.</p><div><button className={choice==='Goals'?'active':''} onClick={()=>setChoice('Goals')}><Target/><b>Plant a Goal</b><small>Create your first Goal. It will begin as a Seed and default to Primary.</small></button><button className={choice==='Log'?'active':''} onClick={()=>setChoice('Log')}><Activity/><b>Log Something</b><small>Configure or record the first thing you want Fovyn to remember.</small></button></div><button className="onboarding-next" disabled={!choice} onClick={proceed}>Continue <ChevronRight/></button></section>}
 
