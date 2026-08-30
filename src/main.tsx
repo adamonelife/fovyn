@@ -15,6 +15,7 @@ import './track-manager.css';
 import './habits-v1.css';
 import './metrics-v1.css';
 import './home.css';
+import './all-log.css';
 import WorkoutModule from './WorkoutModule';
 import GoalsModule from './GoalsModule';
 import SettingsModule from './SettingsModule';
