@@ -8,13 +8,13 @@
   "theme_color": "#17191b",
   "icons": [
     {
-      "src": "/brand/forbair-app-icon-charcoal.png?v=5",
+      "src": "/brand/forbair-app-icon-charcoal.png?v=6",
       "sizes": "1254x1254",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/brand/forbair-app-icon-charcoal.png?v=5",
+      "src": "/brand/forbair-app-icon-charcoal.png?v=6",
       "sizes": "1254x1254",
       "type": "image/png",
       "purpose": "maskable"
