@@ -23,9 +23,9 @@ import {deriveEnvironment, ForestState} from './forestEngine';
 import {ModuleDefinition, modules, starterRecords, TrackingRecord} from './modules';
 import {exportPayload, goalSets, reviews} from './planning';
 
-type Page = 'Home'|'Track'|'Goals'|'History'|'Account';
+type Page = 'Home'|'Log'|'Goals'|'History'|'Account';
 const nav: {name:Page, icon: typeof Home}[] = [
-  {name:'Home',icon:Home},{name:'Track',icon:Activity},{name:'Goals',icon:Target},{name:'History',icon:History},{name:'Account',icon:UserRound}
+  {name:'Home',icon:Home},{name:'Log',icon:Activity},{name:'Goals',icon:Target},{name:'History',icon:History},{name:'Account',icon:UserRound}
 ];
 
 function Mark(){return <div className="mark" aria-label="Fovyn"><img src="/brand/forbair-mark.png" alt="Fovyn growing F"/></div>}
@@ -41,8 +41,8 @@ function ForestWindow({openLab}:{openLab:()=>void}){
 
 function DailyRoundUp({close}:{close:()=>void}){const [day,setDay]=useState('Good');const [note,setNote]=useState('');return <div className="sheet-shade" onMouseDown={close}><section className="roundup-sheet" onMouseDown={e=>e.stopPropagation()}><button className="sheet-close" onClick={close}><X/></button><p className="eyebrow">DAILY ROUND-UP</p><h2>How did today feel?</h2><p>A short reflection closes the day. It does not grade your worth.</p><div className="day-options">{['Hard','OK','Good','Great'].map(x=><button className={day===x?'active':''} onClick={()=>setDay(x)} key={x}>{x}</button>)}</div><label>Anything worth remembering?<textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Optional note…"/></label><div className="roundup-summary"><Check/><span><b>Today is a Day Present</b><small>Your meaningful activity has already counted.</small></span></div><button className="save-record" onClick={close}>Confirm {day}</button></section></div>}
 
-function HomePage({openForest}:{openForest:()=>void}){const [roundup,setRoundup]=useState(false);
-  return <><header className="top"><div><p className="eyebrow">SUNDAY · 30 AUGUST</p><h1>Good morning, Adam.</h1></div><button className="avatar">AB</button></header>
+function HomePage({openForest,openLog}:{openForest:()=>void;openLog:()=>void}){const [roundup,setRoundup]=useState(false);
+  return <><header className="top"><div><p className="eyebrow">HOME · TODAY</p><h1>Grow More Good Days.</h1></div><button className="soft-button" onClick={openLog}><Plus/> Log</button></header><section className="climate-strip"><span>CURRENT CLIMATE</span><b>Normal</b><small>Adjust in Account when life changes.</small></section>
   <ForestWindow openLab={openForest}/>
   <div className="section-title"><div><p className="eyebrow">TODAY</p><h2>Small steps, clearly seen.</h2></div><button className="round" onClick={()=>setRoundup(true)}>Daily round-up</button></div>
   <div className="module-grid">
@@ -130,7 +130,7 @@ function ForestLab({close}:{close:()=>void}){
  </aside><div className="lab-stage"><button className="device">Desktop · 1440 × 900</button><div className="stag"><div className="antlers">⌇⌇</div><div className="stag-body"/><span>{wildlife}</span></div><p>Health · Autumn · Sunrise · Mist</p></div></div>
 }
 
-function App(){const [page,setPage]=useState<Page>('Home');const [lab,setLab]=useState(false);const [forest,setForest]=useState(false);const [search,setSearch]=useState(false);const content=page==='Home'?<HomePage openForest={()=>setForest(true)}/>:page==='Track'?<TrackHub/>:page==='Goals'?<GoalsModule/>:page==='History'?<HistoryPage/>:page==='Account'?<SettingsModule/>:<Placeholder page={page}/>;return <div className="app"><aside className="rail"><Mark/><nav>{nav.map(n=><button key={n.name} onClick={()=>setPage(n.name)} className={page===n.name?'active':''}><n.icon/><span>{n.name}</span></button>)}</nav><button className="rail-search" onClick={()=>setSearch(true)}><Search/><span>Search</span></button><button className="lab-link" onClick={()=>setLab(true)}><FlaskConical/><span>Forest Lab</span></button></aside><main>{content}</main><button className="add" onClick={()=>setSearch(true)}><Search/></button><nav className="bottom">{nav.map(n=><button key={n.name} onClick={()=>setPage(n.name)} className={page===n.name?'active':''}><n.icon/><span>{n.name}</span></button>)}</nav>{search&&<SearchOverlay close={()=>setSearch(false)}/>} {forest&&<ForestView close={()=>setForest(false)}/>} {lab&&<ForestLab close={()=>setLab(false)}/>}</div>}
+function App(){const [page,setPage]=useState<Page>('Home');const [lab,setLab]=useState(false);const [forest,setForest]=useState(false);const [search,setSearch]=useState(false);const content=page==='Home'?<HomePage openForest={()=>setForest(true)} openLog={()=>setPage('Log')}/>:page==='Log'?<TrackHub/>:page==='Goals'?<GoalsModule/>:page==='History'?<HistoryPage/>:page==='Account'?<SettingsModule/>:<Placeholder page={page}/>;return <div className="app"><aside className="rail"><Mark/><nav>{nav.map(n=><button key={n.name} onClick={()=>setPage(n.name)} className={page===n.name?'active':''}><n.icon/><span>{n.name}</span></button>)}</nav><button className="rail-search" onClick={()=>setSearch(true)}><Search/><span>Search</span></button><button className="lab-link" onClick={()=>setLab(true)}><FlaskConical/><span>Forest Lab</span></button></aside><main>{content}</main><button className="add" onClick={()=>setPage('Log')} aria-label="Log"><Plus/></button><nav className="bottom">{nav.map(n=><button key={n.name} onClick={()=>setPage(n.name)} className={page===n.name?'active':''}><n.icon/><span>{n.name}</span></button>)}</nav>{search&&<SearchOverlay close={()=>setSearch(false)}/>} {forest&&<ForestView close={()=>setForest(false)}/>} {lab&&<ForestLab close={()=>setLab(false)}/>}</div>}
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
 if('serviceWorker'in navigator&&import.meta.env.PROD)navigator.serviceWorker.register('/sw.js');

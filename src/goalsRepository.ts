@@ -12,14 +12,14 @@ export async function goalOwner(){
 export type AreaRow={key:string;name:string;position:number};
 export type UnitRow={key:string;measurement_type:MeasurementType;symbol:string;name:string;system:string;position:number};
 export type SubcategoryRow={id:string;area_key:string;name:string;archived_at:string|null};
-export type GoalRow={id:string;title:string;description:string|null;area_key:string;subcategory_id:string|null;status:'active'|'resting'|'completed'|'ended'|'archived';goal_kind:'permanent'|'finite'|'maintenance';negotiability:'negotiable'|'non_negotiable';starts_on:string;ends_on:string|null;created_at:string};
+export type GoalRow={id:string;title:string;description:string|null;area_key:string;subcategory_id:string|null;status:'active'|'dormant'|'completed'|'ended'|'archived';presentation_priority:'primary'|'secondary';goal_kind:'permanent'|'finite'|'maintenance';negotiability:'negotiable'|'non_negotiable';starts_on:string;ends_on:string|null;created_at:string};
 export type RuleRow={id:string;goal_id:string;measurement_type:MeasurementType;unit_key:string|null;custom_unit:string|null;target_operator:TargetOperator;target_min:number;target_max:number|null;period:GoalPeriod;aggregation:Aggregation;effective_from:string;effective_to:string|null};
 export type RecordRow={id:string;value:number;occurred_at:string;note:string|null;corrected_at:string|null;deleted_at:string|null;unit_key:string|null;custom_unit:string|null};
 export type GoalBundle=GoalRow&{rule:RuleRow|null;ruleHistory:RuleRow[];records:RecordRow[];tracker_id:string|null};
 
 export type GoalInput={
   title:string;description?:string;areaKey:string;subcategoryId?:string;
-  goalKind:GoalRow['goal_kind'];negotiability:GoalRow['negotiability'];startsOn:string;endsOn?:string;
+  goalKind:GoalRow['goal_kind'];priority:GoalRow['presentation_priority'];negotiability:GoalRow['negotiability'];startsOn:string;endsOn?:string;
   measurementType:MeasurementType;unitKey?:string;customUnit?:string;
   operator:TargetOperator;targetMin:number;targetMax?:number;period:GoalPeriod;aggregation:Aggregation;
 };
@@ -58,7 +58,7 @@ export async function listGoals():Promise<GoalBundle[]>{
 
 export async function createGoal(input:GoalInput){
   const owner=await goalOwner();
-  const goal=await supabase!.from('goals').insert({owner_id:owner.id,title:input.title,description:input.description||null,area_key:input.areaKey,subcategory_id:input.subcategoryId||null,goal_kind:input.goalKind,negotiability:input.negotiability,starts_on:input.startsOn,ends_on:input.endsOn||null}).select('id').single();
+  const goal=await supabase!.from('goals').insert({owner_id:owner.id,title:input.title,description:input.description||null,area_key:input.areaKey,subcategory_id:input.subcategoryId||null,goal_kind:input.goalKind,presentation_priority:input.priority,negotiability:input.negotiability,starts_on:input.startsOn,ends_on:input.endsOn||null}).select('id').single();
   fail('Create Goal',goal.error);
   if(!goal.data)throw new Error('Create Goal returned no record.');
   const goalId=goal.data.id;
@@ -75,7 +75,7 @@ export async function createGoal(input:GoalInput){
 
 export async function updateGoal(goal:GoalBundle,input:GoalInput){
   const owner=await goalOwner();
-  fail('Update Goal',(await supabase!.from('goals').update({title:input.title,description:input.description||null,area_key:input.areaKey,subcategory_id:input.subcategoryId||null,goal_kind:input.goalKind,negotiability:input.negotiability,starts_on:input.startsOn,ends_on:input.endsOn||null,updated_at:new Date().toISOString()}).eq('id',goal.id).eq('owner_id',owner.id)).error);
+  fail('Update Goal',(await supabase!.from('goals').update({title:input.title,description:input.description||null,area_key:input.areaKey,subcategory_id:input.subcategoryId||null,goal_kind:input.goalKind,presentation_priority:input.priority,negotiability:input.negotiability,starts_on:input.startsOn,ends_on:input.endsOn||null,updated_at:new Date().toISOString()}).eq('id',goal.id).eq('owner_id',owner.id)).error);
   if(goal.tracker_id) fail('Update tracker',(await supabase!.from('trackers').update({name:input.title,area_key:input.areaKey,subcategory_id:input.subcategoryId||null,measurement_type:input.measurementType,unit_key:input.measurementType==='custom'?null:input.unitKey,custom_unit:input.measurementType==='custom'?input.customUnit:null,updated_at:new Date().toISOString()}).eq('id',goal.tracker_id)).error);
   if(goal.rule){
     const effective=new Date().toISOString().slice(0,10);
@@ -91,6 +91,8 @@ export async function updateGoal(goal:GoalBundle,input:GoalInput){
 
 export async function setGoalStatus(goal:GoalBundle,status:GoalRow['status']){
   const owner=await goalOwner();
+  if(status==='dormant') fail('Begin dormancy',(await supabase!.from('goal_dormancy_periods').insert({goal_id:goal.id,owner_id:owner.id})).error);
+  if(status==='active'&&goal.status==='dormant') fail('End dormancy',(await supabase!.from('goal_dormancy_periods').update({awakened_at:new Date().toISOString()}).eq('goal_id',goal.id).eq('owner_id',owner.id).is('awakened_at',null)).error);
   fail('Update Goal status',(await supabase!.from('goals').update({status,completed_at:status==='completed'?new Date().toISOString():null,archived_at:status==='archived'?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq('id',goal.id).eq('owner_id',owner.id)).error);
 }
 
