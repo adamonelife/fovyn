@@ -5,7 +5,7 @@ const fail = (label:string,error:{message:string}|null) => { if(error) throw new
 export async function goalOwner(){
   if(!supabase) throw new Error('Fovyn is not connected to Supabase.');
   const {data,error}=await supabase.auth.getUser();
-  if(error||!data.user) throw new Error('Sign in to manage Goals.');
+  if(error||!data.user) throw new Error('Sign in to manage your Fovyn data.');
   return data.user;
 }
 
