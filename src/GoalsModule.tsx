@@ -51,7 +51,7 @@ function Detail({goal,options,close,changed}:{goal:GoalBundle;options:Options;cl
 export default function GoalsModule(){
   const[sessionChecked,setSessionChecked]=useState(false),[signedIn,setSignedIn]=useState(false),[goals,setGoals]=useState<GoalBundle[]>([]),[options,setOptions]=useState<Options>({areas:[],units:[],subcategories:[]}),[loading,setLoading]=useState(true),[error,setError]=useState(''),[creating,setCreating]=useState(false),[selected,setSelected]=useState<GoalBundle|null>(null),[filter,setFilter]=useState('active');
   const load=async()=>{setLoading(true);setError('');try{const[o,g]=await Promise.all([loadGoalOptions(),listGoals()]);setOptions(o);setGoals(g);setSignedIn(true);}catch(e){setError(e instanceof Error?e.message:'Unable to load Goals')}finally{setLoading(false);setSessionChecked(true)}};
-  useEffect(()=>{supabase?.auth.getSession().then(x=>{if(x.data.session)load();else{setSessionChecked(true);setLoading(false)}});const{data}=supabase!.auth.onAuthStateChange((_e,s)=>{setSignedIn(Boolean(s));if(s)load()});return()=>data.subscription.unsubscribe();},[]);
+  useEffect(()=>{supabase.auth.getSession().then(x=>{if(x.data.session)load();else{setSessionChecked(true);setLoading(false)}});const{data}=supabase.auth.onAuthStateChange((_e,s)=>{setSignedIn(Boolean(s));if(s)load()});return()=>data.subscription.unsubscribe();},[]);
   const visible=useMemo(()=>goals.filter(g=>g.status===filter),[goals,filter]);
   if(!sessionChecked||loading)return <div className="page-wrap goals-loading">Loading Goals…</div>;
   if(!signedIn)return <div className="page-wrap"><SignIn onDone={load}/></div>;
