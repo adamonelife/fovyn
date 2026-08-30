@@ -1,6 +1,7 @@
 "use client";
 
 import type { BuiltWorkout, SaveWorkoutPayload } from "@/types/training";
+import { authorizedFetch } from "@/lib/authorizedFetch";
 
 const WORKOUT_CACHE_PREFIX = "training-workout-cache:";
 const PENDING_KEY = "training-pending-workouts";
@@ -61,7 +62,7 @@ export async function syncPendingWorkouts(): Promise<{ synced: number; remaining
 
   for (const item of pending) {
     try {
-      const response = await fetch("/api/training?action=save-workout", {
+      const response = await authorizedFetch("/api/training?action=save-workout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(item.payload),

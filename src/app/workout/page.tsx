@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { BuiltWorkout, Exercise, SaveWorkoutPayload, SetPerformance, WorkoutExercise } from "@/types/training";
 import { cacheWorkout, getCachedWorkout, queueWorkout } from "@/lib/offline";
+import { authorizedFetch } from "@/lib/authorizedFetch";
 
 type EditableExercise = WorkoutExercise & { sets: SetPerformance[]; rpe: string; notes: string };
 type Summary = { sessionId: string; totalSets: number; totalVolume: number; prs: string[] };
@@ -75,7 +76,7 @@ function WorkoutContent() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch(`/api/training?action=workout&type=${encodeURIComponent(workoutType)}&variant=${encodeURIComponent(variant)}`);
+        const response = await authorizedFetch(`/api/training?action=workout&type=${encodeURIComponent(workoutType)}&variant=${encodeURIComponent(variant)}`);
         const json = await response.json();
         if (!response.ok) throw new Error(json.error || "Unable to load workout");
         cacheWorkout(workoutType, variant, json);
@@ -183,7 +184,7 @@ function WorkoutContent() {
       }
 
       try {
-        const response = await fetch("/api/training?action=save-workout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const response = await authorizedFetch("/api/training?action=save-workout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const json = await response.json();
         if (!response.ok) throw new Error(json.error || "Unable to save workout");
         setSummary({ sessionId: json.sessionId, totalSets, totalVolume, prs });
@@ -211,7 +212,7 @@ function WorkoutContent() {
     {summary && <section className="summary-card">
       <p className="eyebrow">{queuedOffline ? "SAVED ON PHONE" : `SESSION ${summary.sessionId} SAVED`}</p><h2>{workoutType} {variant} complete</h2>
       <div className="summary-stats"><div><strong>{duration || "—"}</strong><span>minutes</span></div><div><strong>{calories || "—"}</strong><span>kcal</span></div><div><strong>{summary.totalSets}</strong><span>sets</span></div><div><strong>{Math.round(summary.totalVolume).toLocaleString()}</strong><span>volume kg</span></div></div>
-      {queuedOffline && <p className="offline-summary">Your workout is safe and waiting to sync to Google Sheets.</p>}
+      {queuedOffline && <p className="offline-summary">Your workout is safe and waiting to sync to FORBAIR.</p>}
       {summary.prs.length > 0 && <p className="pr-line">🏆 New best: {summary.prs.join(", ")}</p>}
     </section>}
     {error && <div className="status-card error">{error}</div>}

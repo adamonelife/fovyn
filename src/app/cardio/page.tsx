@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CardioEntry } from "@/types/training";
+import { authorizedFetch } from "@/lib/authorizedFetch";
 
 const activities = ["Padel", "Cycling", "Walking", "Running", "Other"];
 
@@ -26,7 +27,7 @@ export default function CardioPage() {
   const [message, setMessage] = useState("");
 
   async function load() {
-    const response = await fetch("/api/training?action=cardio");
+    const response = await authorizedFetch("/api/training?action=cardio");
     const json = await response.json();
     if (response.ok) setEntries(json.entries || []);
   }
@@ -50,7 +51,7 @@ export default function CardioPage() {
   async function save() {
     setSaving(true); setMessage("");
     try {
-      const response = await fetch("/api/training?action=cardio", {
+      const response = await authorizedFetch("/api/training?action=cardio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
