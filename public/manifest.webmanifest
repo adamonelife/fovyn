@@ -1,7 +1,7 @@
 {
-  "name": "Training Tracker",
-  "short_name": "Training",
-  "description": "Mobile training tracker with offline workout logging",
+  "name": "FORBAIR",
+  "short_name": "FORBAIR",
+  "description": "Build more good days with FORBAIR",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+import BrandMark from "../brand-mark";
 
 export default function AccountPage() {
   const [displayName, setDisplayName] = useState("Adam");
@@ -40,8 +41,9 @@ export default function AccountPage() {
     }
   }
 
-  return <main className="shell">
-    <header className="workout-header"><div><p className="eyebrow">FORBAIR ACCOUNT</p><h1>{mode === "signup" ? "Create your account" : "Sign in"}</h1></div><Link href="/" className="ghost-link">Home</Link></header>
+  return <main className="shell account-shell">
+    <BrandMark />
+    <header className="workout-header account-heading"><div><p className="eyebrow">YOUR FORBAIR ACCOUNT</p><h1>{mode === "signup" ? "Create your account" : "Welcome back"}</h1></div><Link href="/" className="ghost-link">Home</Link></header>
     <section className="panel cardio-form">
       {mode === "signup" && <label className="label-block">Name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" /></label>}
       <label className="label-block">Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" /></label>

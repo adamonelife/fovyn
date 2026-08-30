@@ -3,11 +3,11 @@ import "./globals.css";
 import PwaRegister from "./pwa-register";
 
 export const metadata: Metadata = {
-  title: "Training Tracker",
-  description: "Mobile-first training tracker powered by Google Sheets",
+  title: "FORBAIR",
+  description: "Build more good days with FORBAIR.",
   manifest: "/manifest.webmanifest",
-  applicationName: "Training Tracker",
-  appleWebApp: { capable: true, title: "Training Tracker", statusBarStyle: "black-translucent" },
+  applicationName: "FORBAIR",
+  appleWebApp: { capable: true, title: "FORBAIR", statusBarStyle: "black-translucent" },
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
