@@ -10,8 +10,10 @@ import './training.css';
 import './workout.css';
 import './workout-extra.css';
 import './goals-v1.css';
+import './settings.css';
 import WorkoutModule from './WorkoutModule';
 import GoalsModule from './GoalsModule';
+import SettingsModule from './SettingsModule';
 import {Goal, sampleContributions, sampleGoals, sampleRuleHistory} from './domain';
 import {deriveEnvironment, ForestState} from './forestEngine';
 import {ModuleDefinition, modules, starterRecords, TrackingRecord} from './modules';
@@ -124,7 +126,7 @@ function ForestLab({close}:{close:()=>void}){
  </aside><div className="lab-stage"><button className="device">Desktop · 1440 × 900</button><div className="stag"><div className="antlers">⌇⌇</div><div className="stag-body"/><span>{wildlife}</span></div><p>Health · Autumn · Sunrise · Mist</p></div></div>
 }
 
-function App(){const [page,setPage]=useState<Page>('Home');const [lab,setLab]=useState(false);const [forest,setForest]=useState(false);const [search,setSearch]=useState(false);const content=page==='Home'?<HomePage openForest={()=>setForest(true)}/>:page==='Track'?<TrackPage/>:page==='Goals'?<GoalsModule/>:page==='History'?<HistoryPage/>:page==='Account'?<AccountPage/>:<Placeholder page={page}/>;return <div className="app"><aside className="rail"><Mark/><nav>{nav.map(n=><button key={n.name} onClick={()=>setPage(n.name)} className={page===n.name?'active':''}><n.icon/><span>{n.name}</span></button>)}</nav><button className="rail-search" onClick={()=>setSearch(true)}><Search/><span>Search</span></button><button className="lab-link" onClick={()=>setLab(true)}><FlaskConical/><span>Forest Lab</span></button></aside><main>{content}</main><button className="add" onClick={()=>setSearch(true)}><Search/></button><nav className="bottom">{nav.map(n=><button key={n.name} onClick={()=>setPage(n.name)} className={page===n.name?'active':''}><n.icon/><span>{n.name}</span></button>)}</nav>{search&&<SearchOverlay close={()=>setSearch(false)}/>} {forest&&<ForestView close={()=>setForest(false)}/>} {lab&&<ForestLab close={()=>setLab(false)}/>}</div>}
+function App(){const [page,setPage]=useState<Page>('Home');const [lab,setLab]=useState(false);const [forest,setForest]=useState(false);const [search,setSearch]=useState(false);const content=page==='Home'?<HomePage openForest={()=>setForest(true)}/>:page==='Track'?<TrackPage/>:page==='Goals'?<GoalsModule/>:page==='History'?<HistoryPage/>:page==='Account'?<SettingsModule/>:<Placeholder page={page}/>;return <div className="app"><aside className="rail"><Mark/><nav>{nav.map(n=><button key={n.name} onClick={()=>setPage(n.name)} className={page===n.name?'active':''}><n.icon/><span>{n.name}</span></button>)}</nav><button className="rail-search" onClick={()=>setSearch(true)}><Search/><span>Search</span></button><button className="lab-link" onClick={()=>setLab(true)}><FlaskConical/><span>Forest Lab</span></button></aside><main>{content}</main><button className="add" onClick={()=>setSearch(true)}><Search/></button><nav className="bottom">{nav.map(n=><button key={n.name} onClick={()=>setPage(n.name)} className={page===n.name?'active':''}><n.icon/><span>{n.name}</span></button>)}</nav>{search&&<SearchOverlay close={()=>setSearch(false)}/>} {forest&&<ForestView close={()=>setForest(false)}/>} {lab&&<ForestLab close={()=>setLab(false)}/>}</div>}
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
 if('serviceWorker'in navigator&&import.meta.env.PROD)navigator.serviceWorker.register('/sw.js');

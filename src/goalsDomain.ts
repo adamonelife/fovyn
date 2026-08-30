@@ -21,6 +21,13 @@ export type GoalRule = {
 
 export type GoalRecord = { value: number; occurred_at: string; deleted_at?: string | null };
 
+export type ConversionUnit={measurement_type:MeasurementType;to_base_factor:number};
+export function convertValue(value:number,from:ConversionUnit,to:ConversionUnit){
+  if(from.measurement_type!==to.measurement_type)throw new Error('Units must measure the same thing.');
+  if(from.to_base_factor<=0||to.to_base_factor<=0)throw new Error('Unit conversion factors must be positive.');
+  return value*from.to_base_factor/to.to_base_factor;
+}
+
 export function periodStart(period: GoalPeriod, now = new Date(), weekStartsOn = 1) {
   if (period === 'total') return null;
   const d = new Date(now);
