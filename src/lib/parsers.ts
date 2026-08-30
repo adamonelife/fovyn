@@ -24,6 +24,15 @@ function yes(value: string): boolean {
   return ["yes", "true", "1", "y"].includes(value.trim().toLowerCase());
 }
 
+export function normalizeSheetDate(value: string): string {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const serial = Number(value);
+  if (!Number.isFinite(serial)) return value;
+  const epoch = Date.UTC(1899, 11, 30);
+  return new Date(epoch + serial * 86_400_000).toISOString().slice(0, 10);
+}
+
 export function parseExercises(rows: string[][]): Exercise[] {
   return rowsToObjects(rows).map((r) => ({
     exerciseId: r.exerciseid,
@@ -66,7 +75,7 @@ export function parseTemplates(rows: string[][]): WorkoutTemplateRow[] {
 export function parseLog(rows: string[][]): LoggedExercise[] {
   return rowsToObjects(rows).map((r) => ({
     sessionId: r.sessionid,
-    date: r.date,
+    date: normalizeSheetDate(r.date),
     workoutType: r.workouttype,
     variant: r.variant,
     order: num(r.order),

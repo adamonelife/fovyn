@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function SettingsPage() {
@@ -48,6 +49,13 @@ export default function SettingsPage() {
 
   return <main className="shell">
     <header className="workout-header"><div><p className="eyebrow">SETTINGS</p><h1>Defaults</h1></div><a href="/" className="ghost-link">Home</a></header>
+    <section className="panel">
+      <p className="eyebrow">FORBAIR ACCOUNT</p>
+      <h2>Account</h2>
+      <p className="muted small">Create or sign in to the account that will own your migrated training history.</p>
+      <Link className="primary big" href="/account">Open account</Link>
+    </section>
+
     <section className="panel">
       <label className="label-block">Default energy /10<input inputMode="numeric" value={energy} onChange={(e) => setEnergy(e.target.value)} placeholder="Leave blank" /></label>
       <label className="label-block">Default sleep hours<input inputMode="decimal" value={sleep} onChange={(e) => setSleep(e.target.value)} placeholder="Leave blank" /></label>

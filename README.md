@@ -1,6 +1,6 @@
 # Training Tracker
 
-Mobile-first Next.js workout tracker using Google Sheets as the database.
+Mobile-first Next.js/PWA workout tracker. The existing Google Sheets app is the baseline while the data layer migrates to Supabase.
 
 ## Current V1 features
 
@@ -52,6 +52,12 @@ npm run dev
 ## Deploy
 
 Push the repository to GitHub, import it into Vercel, and add the same environment variables in Vercel Project Settings.
+
+The app exposes one Vercel server function at `/api/training`; business logic lives in `src/lib/trainingService.ts`.
+
+## Supabase migration
+
+The normalized schema is in `supabase/migrations`. Apply it to the single FORBAIR Supabase project only after Auth contains the owner account. The source-to-destination mapping and verification gates are documented in `docs/training-migration.md`. Keep the Google Sheet unchanged until all gates pass.
 
 ## Progression logic
 

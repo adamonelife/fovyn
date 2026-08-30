@@ -61,7 +61,7 @@ export async function syncPendingWorkouts(): Promise<{ synced: number; remaining
 
   for (const item of pending) {
     try {
-      const response = await fetch("/api/save-workout", {
+      const response = await fetch("/api/training?action=save-workout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(item.payload),

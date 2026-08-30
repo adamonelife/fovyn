@@ -26,7 +26,7 @@ export default function CardioPage() {
   const [message, setMessage] = useState("");
 
   async function load() {
-    const response = await fetch("/api/cardio");
+    const response = await fetch("/api/training?action=cardio");
     const json = await response.json();
     if (response.ok) setEntries(json.entries || []);
   }
@@ -50,7 +50,7 @@ export default function CardioPage() {
   async function save() {
     setSaving(true); setMessage("");
     try {
-      const response = await fetch("/api/cardio", {
+      const response = await fetch("/api/training?action=cardio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

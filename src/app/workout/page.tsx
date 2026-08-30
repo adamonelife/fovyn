@@ -75,7 +75,7 @@ function WorkoutContent() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch(`/api/workouts?type=${encodeURIComponent(workoutType)}&variant=${encodeURIComponent(variant)}`);
+        const response = await fetch(`/api/training?action=workout&type=${encodeURIComponent(workoutType)}&variant=${encodeURIComponent(variant)}`);
         const json = await response.json();
         if (!response.ok) throw new Error(json.error || "Unable to load workout");
         cacheWorkout(workoutType, variant, json);
@@ -183,7 +183,7 @@ function WorkoutContent() {
       }
 
       try {
-        const response = await fetch("/api/save-workout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const response = await fetch("/api/training?action=save-workout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const json = await response.json();
         if (!response.ok) throw new Error(json.error || "Unable to save workout");
         setSummary({ sessionId: json.sessionId, totalSets, totalVolume, prs });
