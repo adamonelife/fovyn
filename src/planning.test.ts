@@ -1,0 +1,2 @@
+import {describe,expect,it} from 'vitest';import {exportPayload,modeExpectationMultiplier} from './planning';
+describe('planning and portability',()=>{it('reduces expectations without erasing progress',()=>{expect(modeExpectationMultiplier('Standard')).toBe(1);expect(modeExpectationMultiplier('Recovery')).toBe(.5);expect(modeExpectationMultiplier('Holiday')).toBe(.25)});it('exports a versioned portable payload',()=>expect(JSON.parse(exportPayload({goals:[]})).format).toBe('FORBAIR_V1_EXPORT'))});

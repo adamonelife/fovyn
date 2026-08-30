@@ -1,0 +1,2 @@
+import {describe,expect,it} from 'vitest';import {migrateTrainingData,modules} from './modules';
+describe('V1 module registry',()=>{it('contains every locked tracking family',()=>expect(modules.map(x=>x.key)).toEqual(['habits','metrics','routines','training','activity','nutrition','sleep','money','hobbies','social','alcohol','medication','notes']));it('migrates legacy training without losing its source id',()=>expect(migrateTrainingData([{id:42,name:'Legs',duration:'45m',date:'2026-08-01'}])[0]).toMatchObject({id:'42',module:'training',title:'Legs',value:'45m'}))});
