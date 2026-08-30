@@ -91,8 +91,6 @@ export async function updateGoal(goal:GoalBundle,input:GoalInput){
 
 export async function setGoalStatus(goal:GoalBundle,status:GoalRow['status']){
   const owner=await goalOwner();
-  if(status==='dormant') fail('Begin dormancy',(await supabase!.from('goal_dormancy_periods').insert({goal_id:goal.id,owner_id:owner.id})).error);
-  if(status==='active'&&goal.status==='dormant') fail('End dormancy',(await supabase!.from('goal_dormancy_periods').update({awakened_at:new Date().toISOString()}).eq('goal_id',goal.id).eq('owner_id',owner.id).is('awakened_at',null)).error);
   fail('Update Goal status',(await supabase!.from('goals').update({status,completed_at:status==='completed'?new Date().toISOString():null,archived_at:status==='archived'?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq('id',goal.id).eq('owner_id',owner.id)).error);
 }
 
