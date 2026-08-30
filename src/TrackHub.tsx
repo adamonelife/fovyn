@@ -1,0 +1,2 @@
+import {useState} from 'react';import HabitsModule from './HabitsModule';import TrackModule from './TrackModule';
+export default function TrackHub(){const[view,setView]=useState<'habits'|'manage'>('habits');return <><div className="track-hub-switch"><button className={view==='habits'?'active':''} onClick={()=>setView('habits')}>Today & Habits</button><button className={view==='manage'?'active':''} onClick={()=>setView('manage')}>Manage Trackers</button></div>{view==='habits'?<HabitsModule/>:<TrackModule/>}</>}
