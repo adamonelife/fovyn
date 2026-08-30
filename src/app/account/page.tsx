@@ -21,10 +21,13 @@ export default function AccountPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { display_name: displayName } },
+          options: {
+            data: { display_name: displayName },
+            emailRedirectTo: `${window.location.origin}/account`,
+          },
         });
         if (error) throw error;
-        setMessage("Account created. Check your email if Supabase asks you to confirm it.");
+        setMessage("Account created. Check your email to confirm your FORBAIR account.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
