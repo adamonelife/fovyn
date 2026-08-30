@@ -1,4 +1,4 @@
-const CACHE_VERSION = "training-tracker-v2";
+const CACHE_VERSION = "forbair-v3";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -13,7 +13,10 @@ const APP_SHELL = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(APP_CACHE).then((cache) => cache.addAll(APP_SHELL)));
-  self.skipWaiting();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -60,7 +63,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (request.mode === "navigate" || (url.pathname.startsWith("/api/workouts") || url.pathname.startsWith("/api/cardio"))) {
+  if (request.mode === "navigate" || url.pathname.startsWith("/api/training")) {
     event.respondWith(networkFirst(request));
     return;
   }
