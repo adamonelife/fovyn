@@ -2,7 +2,7 @@ import {supabase} from './supabase';
 import {goalOwner} from './goalsRepository';
 
 const fail=(label:string,error:{message:string}|null)=>{if(error)throw new Error(`${label}: ${error.message}`)};
-export type HistoryItem={id:string;kind:'record'|'habit';title:string;detail:string;occurredAt:string;corrected:boolean;goalNames:string[]};
+export type HistoryItem={id:string;kind:'record'|'habit'|'note';title:string;detail:string;occurredAt:string;corrected:boolean;goalNames:string[]};
 export type HistoryData={items:HistoryItem[];daysPresent:number;currentStreak:number;contributions:number};
 export type PeriodicReview={id:string;period_type:'weekly'|'monthly';period_start:string;period_end:string;summary:string|null;wins:string|null;friction:string|null;next_focus:string|null;updated_at:string};
 
@@ -26,9 +26,11 @@ export async function loadHistory(days=30):Promise<HistoryData>{
     supabase.from('goal_contributions').select('record_id,goals(title)').eq('owner_id',user.id)
   ]);
   fail('History records',records.error);fail('History habits',entries.error);fail('History trackers',trackers.error);fail('History habit names',habits.error);fail('History Goal links',links.error);
+  let notesQuery=supabase.from('notes').select('id,title,body,occurred_at,corrected_at').eq('owner_id',user.id).is('deleted_at',null).order('occurred_at',{ascending:false}).limit(500);if(since)notesQuery=notesQuery.gte('occurred_at',since);const[notes,noteLinks]=await Promise.all([notesQuery,supabase.from('note_goals').select('note_id,goals(title)').eq('owner_id',user.id)]);fail('History Notes',notes.error);fail('History Note links',noteLinks.error);
   const recordItems:HistoryItem[]=(records.data??[]).map(r=>{const tracker=(trackers.data??[]).find(t=>t.id===r.tracker_id),goalNames=(links.data??[]).filter(x=>x.record_id===r.id).flatMap(x=>{const goal=x.goals as unknown as {title:string}|null;return goal?[goal.title]:[]});const unit=r.currency||r.custom_unit||tracker?.custom_unit||'';return{id:r.id,kind:'record',title:tracker?.name||'Recorded item',detail:r.note||`${r.value}${unit?` ${unit}`:''}`,occurredAt:r.occurred_at,corrected:Boolean(r.corrected_at),goalNames}});
   const habitItems:HistoryItem[]=(entries.data??[]).map(e=>{const habit=(habits.data??[]).find(h=>h.id===e.habit_id);return{id:e.id,kind:'habit',title:habit?.name||'Habit',detail:e.status==='skipped'?'N/A':e.note||e.status,occurredAt:`${e.entry_date}T12:00:00`,corrected:false,goalNames:[]}});
-  const items=[...recordItems,...habitItems].sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt)),dates=[...new Set(items.map(x=>x.occurredAt.slice(0,10)))];
+  const noteItems:HistoryItem[]=(notes.data??[]).map(n=>({id:n.id,kind:'note',title:n.title,detail:n.body,occurredAt:n.occurred_at,corrected:Boolean(n.corrected_at),goalNames:(noteLinks.data??[]).filter(x=>x.note_id===n.id).flatMap(x=>{const goal=x.goals as unknown as {title:string}|null;return goal?[goal.title]:[]})}));
+  const items=[...recordItems,...habitItems,...noteItems].sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt)),dates=[...new Set(items.map(x=>x.occurredAt.slice(0,10)))];
   return{items,daysPresent:dates.length,currentStreak:streakForDates(dates),contributions:recordItems.filter(x=>x.goalNames.length>0).length};
 }
 export async function loadReviews(){const user=await goalOwner();const result=await supabase.from('periodic_reviews').select('*').eq('owner_id',user.id).order('period_start',{ascending:false});fail('Reviews',result.error);return(result.data??[]) as PeriodicReview[]}
