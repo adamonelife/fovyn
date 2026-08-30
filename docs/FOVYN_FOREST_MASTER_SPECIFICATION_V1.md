@@ -1,10 +1,10 @@
-# FORBAIR Forest Master Specification v1.0
+# Fovyn Forest Master Specification v1.0
 
 Status: authoritative implementation baseline. Later locked decisions override earlier explorations.
 
 ## Product foundation
 
-FORBAIR is mobile-first, fully responsive and cross-platform. Phone uses compact bottom navigation; desktop/Mac uses the available canvas intentionally, particularly for a wider, richer Forest. Desktop is not a stretched phone viewport.
+Fovyn is mobile-first, fully responsive and cross-platform. Phone uses compact bottom navigation; desktop/Mac uses the available canvas intentionally, particularly for a wider, richer Forest. Desktop is not a stretched phone viewport.
 
 Branding is part of the first component, never a later skin: premium warm stone and embossed white-grey surfaces, forest greens, restrained lime, geometric sans typography, soft premium cards, generous whitespace, and a calm natural feel. The authoritative logo is the supplied organic growing-F asset at `public/brand/forbair-mark.png`; temporary letterform recreations must not be substituted.
 
@@ -16,7 +16,7 @@ Locked build order: app shell/navigation → Home → Account foundation → Hab
 
 - One Goal creates one permanent Tree identity. Resuming a Goal restores the same Tree.
 - Tree position is deterministic from stable seeds. Users never manually position Trees.
-- Forest state derives from core FORBAIR records; it is not a parallel currency, XP system, or progression economy.
+- Forest state derives from core Fovyn records; it is not a parallel currency, XP system, or progression economy.
 - Species represents what has been built; health represents how the Goal is doing now.
 - Species never regresses. Wider environmental progress never regresses as punishment.
 - Seed, Sprout and Young Plant exist only in the Nursery. Common Juniper is the first stage placed into a main Area.
