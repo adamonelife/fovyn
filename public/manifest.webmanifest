@@ -4,17 +4,17 @@
   "description": "Your life, growing together.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f2f0e9",
-  "theme_color": "#211a14",
+  "background_color": "#17191b",
+  "theme_color": "#17191b",
   "icons": [
     {
-      "src": "/brand/forbair-app-icon-soil.png?v=4",
+      "src": "/brand/forbair-app-icon-charcoal.png?v=5",
       "sizes": "1254x1254",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/brand/forbair-app-icon-soil.png?v=4",
+      "src": "/brand/forbair-app-icon-charcoal.png?v=5",
       "sizes": "1254x1254",
       "type": "image/png",
       "purpose": "maskable"
