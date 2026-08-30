@@ -4,6 +4,7 @@ import {goalOwner} from './goalsRepository';
 const fail=(label:string,error:{message:string}|null)=>{if(error)throw new Error(`${label}: ${error.message}`)};
 export type HistoryItem={id:string;kind:'record'|'habit';title:string;detail:string;occurredAt:string;corrected:boolean;goalNames:string[]};
 export type HistoryData={items:HistoryItem[];daysPresent:number;currentStreak:number;contributions:number};
+export type PeriodicReview={id:string;period_type:'weekly'|'monthly';period_start:string;period_end:string;summary:string|null;wins:string|null;friction:string|null;next_focus:string|null;updated_at:string};
 
 export function streakForDates(values:string[],today=new Date()){
   const localKey=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
@@ -30,3 +31,6 @@ export async function loadHistory(days=30):Promise<HistoryData>{
   const items=[...recordItems,...habitItems].sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt)),dates=[...new Set(items.map(x=>x.occurredAt.slice(0,10)))];
   return{items,daysPresent:dates.length,currentStreak:streakForDates(dates),contributions:recordItems.filter(x=>x.goalNames.length>0).length};
 }
+export async function loadReviews(){const user=await goalOwner();const result=await supabase.from('periodic_reviews').select('*').eq('owner_id',user.id).order('period_start',{ascending:false});fail('Reviews',result.error);return(result.data??[]) as PeriodicReview[]}
+export async function saveReview(input:Omit<PeriodicReview,'id'|'updated_at'>,id?:string){const user=await goalOwner(),payload={...input,owner_id:user.id,updated_at:new Date().toISOString()};const result=id?await supabase.from('periodic_reviews').update(payload).eq('id',id).eq('owner_id',user.id):await supabase.from('periodic_reviews').insert(payload);fail('Save Review',result.error)}
+export async function deleteReview(id:string){const user=await goalOwner();fail('Delete Review',(await supabase.from('periodic_reviews').delete().eq('id',id).eq('owner_id',user.id)).error)}
