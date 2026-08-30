@@ -1,0 +1,32 @@
+import {supabase} from './supabase';
+import {goalOwner} from './goalsRepository';
+
+const fail=(label:string,error:{message:string}|null)=>{if(error)throw new Error(`${label}: ${error.message}`)};
+export type HistoryItem={id:string;kind:'record'|'habit';title:string;detail:string;occurredAt:string;corrected:boolean;goalNames:string[]};
+export type HistoryData={items:HistoryItem[];daysPresent:number;currentStreak:number;contributions:number};
+
+export function streakForDates(values:string[],today=new Date()){
+  const localKey=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const days=new Set(values),cursor=new Date(`${localKey}T00:00:00Z`);let count=0;
+  if(!days.has(cursor.toISOString().slice(0,10)))cursor.setUTCDate(cursor.getUTCDate()-1);
+  while(days.has(cursor.toISOString().slice(0,10))){count++;cursor.setUTCDate(cursor.getUTCDate()-1)}
+  return count;
+}
+
+export async function loadHistory(days=30):Promise<HistoryData>{
+  const user=await goalOwner(),since=days?new Date(Date.now()-days*86400000).toISOString():undefined;
+  let recordsQuery=supabase.from('tracking_records').select('id,tracker_id,value,unit_key,custom_unit,currency,occurred_at,note,corrected_at').eq('owner_id',user.id).is('deleted_at',null).order('occurred_at',{ascending:false}).limit(500);
+  let habitsQuery=supabase.from('habit_entries').select('id,habit_id,status,value,note,entry_date,updated_at').eq('owner_id',user.id).order('entry_date',{ascending:false}).limit(500);
+  if(since){recordsQuery=recordsQuery.gte('occurred_at',since);habitsQuery=habitsQuery.gte('entry_date',since.slice(0,10))}
+  const[records,entries,trackers,habits,links]=await Promise.all([
+    recordsQuery,habitsQuery,
+    supabase.from('trackers').select('id,name,custom_unit').eq('owner_id',user.id),
+    supabase.from('habits').select('id,name,unit').eq('owner_id',user.id),
+    supabase.from('goal_contributions').select('record_id,goals(title)').eq('owner_id',user.id)
+  ]);
+  fail('History records',records.error);fail('History habits',entries.error);fail('History trackers',trackers.error);fail('History habit names',habits.error);fail('History Goal links',links.error);
+  const recordItems:HistoryItem[]=(records.data??[]).map(r=>{const tracker=(trackers.data??[]).find(t=>t.id===r.tracker_id),goalNames=(links.data??[]).filter(x=>x.record_id===r.id).flatMap(x=>{const goal=x.goals as unknown as {title:string}|null;return goal?[goal.title]:[]});const unit=r.currency||r.custom_unit||tracker?.custom_unit||'';return{id:r.id,kind:'record',title:tracker?.name||'Recorded item',detail:r.note||`${r.value}${unit?` ${unit}`:''}`,occurredAt:r.occurred_at,corrected:Boolean(r.corrected_at),goalNames}});
+  const habitItems:HistoryItem[]=(entries.data??[]).map(e=>{const habit=(habits.data??[]).find(h=>h.id===e.habit_id);return{id:e.id,kind:'habit',title:habit?.name||'Habit',detail:e.status==='skipped'?'N/A':e.note||e.status,occurredAt:`${e.entry_date}T12:00:00`,corrected:false,goalNames:[]}});
+  const items=[...recordItems,...habitItems].sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt)),dates=[...new Set(items.map(x=>x.occurredAt.slice(0,10)))];
+  return{items,daysPresent:dates.length,currentStreak:streakForDates(dates),contributions:recordItems.filter(x=>x.goalNames.length>0).length};
+}
