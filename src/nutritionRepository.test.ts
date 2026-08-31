@@ -1,0 +1,1 @@
+import{describe,expect,it}from'vitest';import{validateMacros,zeroMacros}from'./nutritionRepository';describe('nutrition macros',()=>{it('accepts factual zero totals without targets',()=>expect(()=>validateMacros(zeroMacros())).not.toThrow());it('rejects negative values',()=>expect(()=>validateMacros({...zeroMacros(),protein_g:-1})).toThrow(/protein/))});
