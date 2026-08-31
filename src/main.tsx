@@ -24,6 +24,7 @@ import './sleep.css';
 import './activity.css';
 import './nutrition.css';
 import './money.css';
+import './hobbies.css';
 import './universal-log.css';
 import WorkoutModule from './WorkoutModule';
 import GoalsModule from './GoalsModule';
