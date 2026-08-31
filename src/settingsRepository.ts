@@ -2,13 +2,13 @@ import {supabase} from './supabase';
 import {goalOwner,type AreaRow,type SubcategoryRow,type UnitRow} from './goalsRepository';
 
 const fail=(label:string,error:{message:string}|null)=>{if(error)throw new Error(`${label}: ${error.message}`)};
-export type ProfilePreferences={first_name:string|null;last_name:string|null;display_name:string|null;username:string|null;date_of_birth:string|null;gender:'male'|'female'|'na'|null;country:string|null;preferred_language:string;timezone:string;unit_system:'metric'|'imperial';default_currency:string;week_starts_on:number;date_format:'DD/MM/YYYY'|'MM/DD/YYYY'|'YYYY-MM-DD';time_format:'12h'|'24h';current_climate:'normal'|'recovery'|'holiday'|'travel'|'custom'};
+export type ProfilePreferences={first_name:string|null;last_name:string|null;display_name:string|null;username:string|null;date_of_birth:string|null;gender:'male'|'female'|'na'|null;country:string|null;preferred_language:string;timezone:string;unit_system:'metric'|'imperial';default_currency:string;week_starts_on:number;date_format:'DD/MM/YYYY'|'MM/DD/YYYY'|'YYYY-MM-DD';time_format:'12h'|'24h'};
 export type SettingsData={profile:ProfilePreferences;areas:AreaRow[];units:UnitRow[];subcategories:SubcategoryRow[];email:string};
 
 export async function loadSettings():Promise<SettingsData>{
   const user=await goalOwner();
   const[profile,areas,units,subcategories]=await Promise.all([
-    supabase.from('profiles').select('first_name,last_name,display_name,username,date_of_birth,gender,country,preferred_language,timezone,unit_system,default_currency,week_starts_on,date_format,time_format,current_climate').eq('id',user.id).single(),
+    supabase.from('profiles').select('first_name,last_name,display_name,username,date_of_birth,gender,country,preferred_language,timezone,unit_system,default_currency,week_starts_on,date_format,time_format').eq('id',user.id).single(),
     supabase.from('areas').select('*').order('position'),
     supabase.from('measurement_units').select('*').order('measurement_type').order('position'),
     supabase.from('subcategories').select('id,area_key,name,archived_at').order('name')
