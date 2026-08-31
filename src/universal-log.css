@@ -1,0 +1,77 @@
+/* Shared Fovyn language for all logging surfaces; module behaviour stays unchanged. */
+.sheet-shade:is(
+  :has(> .habit-v1-editor),:has(> .habit-record-sheet),:has(> .metric-recorder),
+  :has(> .note-editor),:has(> .tracker-editor),:has(> .money-editor),
+  :has(> .activity-editor),:has(> .nutrition-editor),:has(> .workout-auth),:has(> .workout-start)
+){
+  justify-content:center;
+  align-items:center;
+  padding:16px;
+  background:rgba(255,255,255,.62);
+  backdrop-filter:blur(10px);
+}
+
+.sheet-shade > :is(
+  .habit-v1-editor,.habit-record-sheet,.metric-recorder,.note-editor,.tracker-editor,
+  .money-editor,.activity-editor,.nutrition-editor,.workout-auth,.workout-start
+){
+  width:min(720px,calc(100vw - 32px));
+  height:auto;
+  max-height:calc(100vh - 32px);
+  margin:0;
+  overflow:auto;
+  padding:36px 40px 30px;
+  color:var(--green);
+  background:#fcfbf8;
+  border:1px solid rgba(255,255,255,.92);
+  border-radius:24px;
+  box-shadow:0 24px 80px rgba(25,63,52,.15);
+  position:relative;
+}
+
+.sheet-shade > :is(
+  .habit-v1-editor,.habit-record-sheet,.metric-recorder,.note-editor,.tracker-editor,
+  .money-editor,.activity-editor,.nutrition-editor
+) h2{font-size:28px;margin:14px 48px 26px 0;color:var(--green)}
+
+.sheet-shade:has(> :is(
+  .habit-v1-editor,.habit-record-sheet,.metric-recorder,.note-editor,.tracker-editor,
+  .money-editor,.activity-editor,.nutrition-editor,.workout-auth,.workout-start
+)) .sheet-close{
+  right:24px;top:24px;width:42px;height:42px;background:#eeefec;color:var(--green);
+}
+
+.sheet-shade > :is(
+  .habit-v1-editor,.habit-record-sheet,.metric-recorder,.note-editor,.tracker-editor,
+  .money-editor,.activity-editor,.nutrition-editor
+) :is(input,select,textarea){border-radius:12px!important;background:rgba(255,255,255,.82)!important}
+
+.track-hub-switch{
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.track-hub-switch::-webkit-scrollbar{display:none}
+.track-hub-switch button{flex:0 0 auto;white-space:nowrap;background:#fcfbf8;border-radius:10px;color:var(--green)}
+.track-hub-switch button.active{background:var(--green);border-color:var(--green);color:#fff}
+
+@media(max-width:620px){
+  .sheet-shade:is(
+    :has(> .habit-v1-editor),:has(> .habit-record-sheet),:has(> .metric-recorder),
+    :has(> .note-editor),:has(> .tracker-editor),:has(> .money-editor),
+    :has(> .activity-editor),:has(> .nutrition-editor),:has(> .workout-auth),:has(> .workout-start)
+  ){align-items:flex-end;padding:0}
+  .sheet-shade > :is(
+    .habit-v1-editor,.habit-record-sheet,.metric-recorder,.note-editor,.tracker-editor,
+    .money-editor,.activity-editor,.nutrition-editor,.workout-auth,.workout-start
+  ){width:100%;max-height:94vh;padding:28px 20px 24px;border-radius:24px 24px 0 0}
+  .sheet-shade:has(> :is(
+    .habit-v1-editor,.habit-record-sheet,.metric-recorder,.note-editor,.tracker-editor,
+    .money-editor,.activity-editor,.nutrition-editor,.workout-auth,.workout-start
+  )) .sheet-close{right:18px;top:18px}
+  .sheet-shade > :is(
+    .habit-v1-editor,.habit-record-sheet,.metric-recorder,.note-editor,.tracker-editor,
+    .money-editor,.activity-editor,.nutrition-editor
+  ) h2{font-size:25px}
+}
