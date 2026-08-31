@@ -21,6 +21,7 @@ import './groves.css';
 import './all-log.css';
 import './notes.css';
 import './sleep.css';
+import './activity.css';
 import WorkoutModule from './WorkoutModule';
 import GoalsModule from './GoalsModule';
 import SettingsModule from './SettingsModule';
