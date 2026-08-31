@@ -49,7 +49,7 @@ export default function WorkoutModule({
     return (
       <div className="sheet-shade">
         <section className="workout-auth">
-          <button className="sheet-close" onClick={close}>
+          <button className="sheet-close" onClick={close} aria-label="Close">
             <X />
           </button>
           <p className="eyebrow">TRAINING</p>
