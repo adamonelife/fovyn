@@ -26,7 +26,7 @@ export default function AuthHome(){
       <Leaf/>
       <p className="eyebrow">WELCOME HOME</p>
       <h1>Sign in to Fovyn.</h1>
-      <p>Your Goals, Log and Forest remain private to you.</p>
+
       <form onSubmit={signIn}>
         <label>Email<input autoComplete="email" inputMode="email" type="email" required value={email} onChange={event=>setEmail(event.target.value)}/></label>
         <label>Password<input autoComplete="current-password" type="password" required value={password} onChange={event=>setPassword(event.target.value)}/></label>
