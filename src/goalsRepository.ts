@@ -15,7 +15,8 @@ export type SubcategoryRow={id:string;area_key:string;name:string;archived_at:st
 export type GoalRow={id:string;title:string;description:string|null;area_key:string;subcategory_id:string|null;status:'active'|'dormant'|'completed'|'ended'|'archived';presentation_priority:'primary'|'secondary';goal_kind:'permanent'|'finite'|'maintenance';negotiability:'negotiable'|'non_negotiable';starts_on:string;ends_on:string|null;created_at:string};
 export type RuleRow={id:string;goal_id:string;measurement_type:MeasurementType;unit_key:string|null;custom_unit:string|null;target_operator:TargetOperator;target_min:number;target_max:number|null;period:GoalPeriod;aggregation:Aggregation;effective_from:string;effective_to:string|null};
 export type RecordRow={id:string;value:number;occurred_at:string;note:string|null;corrected_at:string|null;deleted_at:string|null;unit_key:string|null;custom_unit:string|null};
-export type GoalBundle=GoalRow&{rule:RuleRow|null;ruleHistory:RuleRow[];records:RecordRow[];tracker_id:string|null};
+export type GoalEvent={id:string;event_type:'planted'|'pruned'|'dormant'|'awakened'|'completed'|'ended';occurred_at:string;details:Record<string,unknown>};
+export type GoalBundle=GoalRow&{rule:RuleRow|null;ruleHistory:RuleRow[];records:RecordRow[];events:GoalEvent[];tracker_id:string|null};
 
 export type GoalInput={
   title:string;description?:string;areaKey:string;subcategoryId?:string;
@@ -41,20 +42,28 @@ export async function listGoals():Promise<GoalBundle[]>{
   fail('Goals',goals.error);
   const ids=(goals.data??[]).map(x=>x.id);
   if(!ids.length)return[];
-  const [rules,links,contributions]=await Promise.all([
+  const [rules,links,contributions,events]=await Promise.all([
     supabase!.from('goal_rules').select('*').in('goal_id',ids).order('effective_from',{ascending:false}),
     supabase!.from('goal_trackers').select('goal_id,tracker_id').in('goal_id',ids),
-    supabase!.from('goal_contributions').select('goal_id,tracking_records(id,value,occurred_at,note,corrected_at,deleted_at,unit_key,custom_unit)').in('goal_id',ids)
+    supabase!.from('goal_contributions').select('goal_id,tracking_records(id,value,occurred_at,note,corrected_at,deleted_at,unit_key,custom_unit)').in('goal_id',ids),
+    supabase!.from('goal_events').select('id,goal_id,event_type,occurred_at,details').in('goal_id',ids).order('occurred_at',{ascending:false})
   ]);
-  fail('Goal rules',rules.error);fail('Goal trackers',links.error);fail('Goal records',contributions.error);
+  fail('Goal rules',rules.error);fail('Goal trackers',links.error);fail('Goal records',contributions.error);fail('Goal Growth Rings',events.error);
   return (goals.data??[]).map(goal=>({
     ...(goal as GoalRow),
     rule:((rules.data??[]).find(x=>x.goal_id===goal.id&&x.effective_to===null)??null) as RuleRow|null,
     ruleHistory:(rules.data??[]).filter(x=>x.goal_id===goal.id) as RuleRow[],
     tracker_id:(links.data??[]).find(x=>x.goal_id===goal.id)?.tracker_id??null,
-    records:(contributions.data??[]).filter(x=>x.goal_id===goal.id).flatMap(x=>x.tracking_records?[x.tracking_records as unknown as RecordRow]:[])
+    records:(contributions.data??[]).filter(x=>x.goal_id===goal.id).flatMap(x=>x.tracking_records?[x.tracking_records as unknown as RecordRow]:[]),
+    events:(events.data??[]).filter(x=>x.goal_id===goal.id) as GoalEvent[]
   }));
 }
+
+export type GoalMetadataInput={title:string;description:string;areaKey:string;subcategoryId?:string;priority:GoalRow['presentation_priority']};
+export async function updateGoalMetadata(goal:GoalBundle,input:GoalMetadataInput){const owner=await goalOwner();fail('Edit Goal',(await supabase.from('goals').update({title:input.title.trim(),description:input.description.trim()||null,area_key:input.areaKey,subcategory_id:input.subcategoryId||null,presentation_priority:input.priority,updated_at:new Date().toISOString()}).eq('id',goal.id).eq('owner_id',owner.id)).error);if(goal.tracker_id)fail('Edit Goal tracker',(await supabase.from('trackers').update({name:input.title.trim(),area_key:input.areaKey,subcategory_id:input.subcategoryId||null,updated_at:new Date().toISOString()}).eq('id',goal.tracker_id).eq('owner_id',owner.id)).error)}
+
+export type GoalPruneInput={operator:TargetOperator;targetMin:number;targetMax?:number;period:GoalPeriod;aggregation:Aggregation};
+export async function pruneGoal(goal:GoalBundle,input:GoalPruneInput){const owner=await goalOwner();if(!goal.rule)throw new Error('This Goal has no current rule to Prune.');const effective=new Date().toISOString().slice(0,10),next={target_operator:input.operator,target_min:input.targetMin,target_max:input.operator==='range'?input.targetMax:null,period:input.period,aggregation:input.aggregation};if(goal.rule.effective_from>=effective){fail('Update same-day Goal rule',(await supabase.from('goal_rules').update(next).eq('id',goal.rule.id).eq('owner_id',owner.id)).error);return}const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);fail('Close previous Goal rule',(await supabase.from('goal_rules').update({effective_to:yesterday.toISOString().slice(0,10)}).eq('id',goal.rule.id).eq('owner_id',owner.id)).error);fail('Create pruned Goal rule',(await supabase.from('goal_rules').insert({goal_id:goal.id,owner_id:owner.id,measurement_type:goal.rule.measurement_type,unit_key:goal.rule.unit_key,custom_unit:goal.rule.custom_unit,...next,effective_from:effective})).error)}
 
 export async function createGoal(input:GoalInput){
   const owner=await goalOwner();
