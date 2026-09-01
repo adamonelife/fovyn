@@ -27,6 +27,7 @@ import './money.css';
 import './hobbies.css';
 import './routines.css';
 import './universal-log.css';
+import './ui.css';
 import WorkoutModule from './WorkoutModule';
 import GoalsModule from './GoalsModule';
 import SettingsModule from './SettingsModule';

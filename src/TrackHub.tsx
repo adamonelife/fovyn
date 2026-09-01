@@ -11,29 +11,15 @@ import RoutinesModule from './RoutinesModule';
 import SleepModule from './SleepModule';
 import TrackModule from './TrackModule';
 import WorkoutModule from './WorkoutModule';
-
-type View='all'|'habits'|'routines'|'metrics'|'activity'|'nutrition'|'money'|'hobbies'|'sleep'|'notes'|'manage';
+import LogShell,{type LogView}from'./LogShell';
 
 export default function TrackHub({onFirstSetupComplete,initialView='all'}:{onFirstSetupComplete?:()=>Promise<void>|void;initialView?:'all'|'routines'}={}){
-  const[view,setView]=useState<View>(onFirstSetupComplete?'manage':initialView);
+  const[view,setView]=useState<LogView>(onFirstSetupComplete?'manage':initialView);
   const[workout,setWorkout]=useState(false);
-  const filters=<div className="track-hub-switch">
-    <button className={view==='all'?'active':''} onClick={()=>setView('all')}>All</button>
-    <button className={view==='habits'?'active':''} onClick={()=>setView('habits')}>Habits</button>
-    <button className={view==='routines'?'active':''} onClick={()=>setView('routines')}>Routines</button>
-    <button className={view==='metrics'?'active':''} onClick={()=>setView('metrics')}>Metrics</button>
-    <button className={view==='activity'?'active':''} onClick={()=>setView('activity')}>Activity</button>
-    <button className={view==='nutrition'?'active':''} onClick={()=>setView('nutrition')}>Nutrition</button>
-    <button className={view==='money'?'active':''} onClick={()=>setView('money')}>Money</button>
-    <button className={view==='hobbies'?'active':''} onClick={()=>setView('hobbies')}>Hobbies</button>
-    <button className={view==='sleep'?'active':''} onClick={()=>setView('sleep')}>Sleep</button>
-    <button className={view==='notes'?'active':''} onClick={()=>setView('notes')}>Notes</button>
-    <button onClick={()=>setWorkout(true)}>Training</button>
-    <button className={view==='manage'?'active':''} onClick={()=>setView('manage')}>+ Add & Manage</button>
-  </div>;
-  const content=view==='habits'?<HabitsModule/>:view==='routines'?<RoutinesModule/>:view==='metrics'?<MetricsModule/>:view==='activity'?<ActivityModule manage={()=>setView('manage')}/>:view==='nutrition'?<NutritionModule/>:view==='money'?<MoneyModule/>:view==='hobbies'?<HobbiesModule/>:view==='sleep'?<SleepModule/>:view==='notes'?<NotesModule/>:<TrackModule onFirstSetupComplete={onFirstSetupComplete} onRoutines={()=>setView('routines')}/>;
+  const[query,setQuery]=useState('');
+  const content=view==='habits'?<HabitsModule query={query}/>:view==='routines'?<RoutinesModule query={query}/>:view==='metrics'?<MetricsModule query={query}/>:view==='activity'?<ActivityModule manage={()=>setView('manage')}/>:view==='nutrition'?<NutritionModule query={query}/>:view==='money'?<MoneyModule/>:view==='hobbies'?<HobbiesModule/>:view==='sleep'?<SleepModule/>:view==='notes'?<NotesModule/>:<div className="manage-shell"><TrackModule onFirstSetupComplete={onFirstSetupComplete} onRoutines={()=>setView('routines')}/></div>;
   return <>
-    {view==='all'?<AllLogModule filters={filters} manage={()=>setView('manage')}/>:<>{filters}{content}</>}
+    <LogShell view={view} select={next=>{setView(next);setQuery('')}} openTraining={()=>setWorkout(true)} query={query} setQuery={setQuery}>{view==='all'?<AllLogModule manage={()=>setView('manage')} query={query}/>:content}</LogShell>
     {workout&&<WorkoutModule close={()=>setWorkout(false)} onSaved={()=>setWorkout(false)}/>}
   </>;
 }

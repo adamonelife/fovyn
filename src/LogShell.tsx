@@ -1,0 +1,6 @@
+import type{ReactNode}from'react';
+import{PageContainer,PageHeader,PageTabs,LogSearch}from'./ui';
+
+export type LogView='all'|'habits'|'routines'|'metrics'|'activity'|'nutrition'|'money'|'hobbies'|'sleep'|'notes'|'manage';
+const categories:{key:LogView|'training';label:string}[]=[{key:'all',label:'All'},{key:'habits',label:'Habits'},{key:'routines',label:'Routines'},{key:'metrics',label:'Metrics'},{key:'activity',label:'Activity'},{key:'nutrition',label:'Nutrition'},{key:'money',label:'Money'},{key:'hobbies',label:'Hobbies'},{key:'sleep',label:'Sleep'},{key:'notes',label:'Notes'},{key:'training',label:'Training'},{key:'manage',label:'+ Add & Manage'}];
+export default function LogShell({view,select,openTraining,query,setQuery,children}:{view:LogView;select:(view:LogView)=>void;openTraining:()=>void;query:string;setQuery:(value:string)=>void;children:ReactNode}){return <PageContainer className="log-shell"><PageHeader eyebrow="LOG" title="What happened?"/><PageTabs className="log-category-nav">{categories.map(category=><button className={view===category.key?'active':''} onClick={()=>category.key==='training'?openTraining():select(category.key)} key={category.key}>{category.label}</button>)}</PageTabs><LogSearch value={query} onChange={setQuery}/><div className="log-shell-content">{children}</div></PageContainer>}

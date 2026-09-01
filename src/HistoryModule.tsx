@@ -1,5 +1,23 @@
 import {useEffect,useMemo,useState} from 'react';
-import {Activity,Check,Leaf} from 'lucide-react';
+import {Activity,Check} from 'lucide-react';
 import {loadHistory,type HistoryData} from './historyRepository';
+import {LogEmptyState} from './ui';
 
-export default function HistoryModule(){const[range,setRange]=useState(30),[data,setData]=useState<HistoryData>(),[error,setError]=useState('');useEffect(()=>{setData(undefined);loadHistory(range).then(setData).catch(e=>setError(e instanceof Error?e.message:'Unable to load History'))},[range]);const groups=useMemo(()=>data?.items.reduce<Record<string,HistoryData['items']>>((all,item)=>{const day=item.occurredAt.slice(0,10);(all[day]??=[]).push(item);return all},{})??{},[data]);if(error)return <div className="page-wrap history-loading">{error}</div>;if(!data)return <div className="page-wrap history-loading">Loading History…</div>;return <div className="page-wrap"><header className="page-head"><div><p className="eyebrow">HISTORY</p><h1>The shape of your days.</h1></div><select className="history-range" value={range} onChange={e=>setRange(Number(e.target.value))}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option><option value={0}>All history</option></select></header><section className="history-summary"><div><b>{data.daysPresent}</b><span>Days Present</span></div><div><b>{data.items.length}</b><span>Entries</span></div><div><b>{data.contributions}</b><span>Goal contributions</span></div><div><b>{data.currentStreak}</b><span>Current streak</span></div></section><div className="timeline">{Object.entries(groups).map(([date,items])=><section className="day-group" key={date}><header><div><b>{new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{weekday:'long'})}</b><span>{new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</span></div><span className="present-pill"><Leaf/> Day present</span></header>{items.map(item=><article className="history-row" key={`${item.kind}-${item.id}`}><span className={`record-icon ${item.kind}`}><Activity/></span><div><b>{item.title}</b><small>{item.detail}{item.corrected?' · corrected':''}</small></div><div className="linked-goals">{item.goalNames.map(goal=><span key={goal}>{goal}</span>)}</div><time>{new Date(item.occurredAt).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</time></article>)}</section>)}{!data.items.length&&<div className="empty-state"><Check/><h2>No entries in this period</h2><p>Records will appear here after you use Log.</p></div>}</div></div>}
+export default function HistoryModule({range=30,mode='calendar'}:{range?:number;mode?:'calendar'|'timeline'}){
+  const[data,setData]=useState<HistoryData>();
+  const[error,setError]=useState('');
+  useEffect(()=>{setData(undefined);setError('');loadHistory(range).then(setData).catch(reason=>setError(reason instanceof Error?reason.message:'Unable to load History'))},[range]);
+  const visible=useMemo(()=>data?.items.filter(item=>mode==='calendar'||item.corrected||item.goalNames.length>0)??[],[data,mode]);
+  const groups=useMemo(()=>visible.reduce<Record<string,HistoryData['items']>>((all,item)=>{const day=item.occurredAt.slice(0,10);(all[day]??=[]).push(item);return all},{}),[visible]);
+  if(error)return <div className="history-loading">{error}</div>;
+  if(!data)return <div className="history-loading">Loading History…</div>;
+  return <div className={`history-content history-${mode}`}>
+    <section className="history-facts" aria-label="History facts"><div><b>{data.items.length}</b><span>Entries</span></div><div><b>{data.contributions}</b><span>Goal Contributions</span></div></section>
+    <div className="timeline">{Object.entries(groups).map(([date,items])=><section className="day-group" key={date}>
+      <header><div><b>{new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{weekday:'long'})}</b><span>{new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</span></div></header>
+      {items.map(item=><article className="history-row" key={`${item.kind}-${item.id}`}><span className={`record-icon ${item.kind}`}><Activity/></span><div><b>{item.title}</b><small>{item.detail}{item.corrected?' · Corrected':''}</small></div><div className="linked-goals">{item.goalNames.map(goal=><span key={goal}>{goal}</span>)}</div><time>{new Date(item.occurredAt).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</time></article>)}
+    </section>)}
+    {!visible.length&&<LogEmptyState icon={<Check/>} title={mode==='timeline'?'No meaningful changes in this period':'No entries in this period'} detail={mode==='calendar'?'Records will appear here after you use Log.':undefined}/>}
+    </div>
+  </div>;
+}
