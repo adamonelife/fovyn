@@ -11,6 +11,7 @@
 .auth-card>p:not(.eyebrow){font-size:12px;color:var(--muted);line-height:1.6}
 .auth-card label{display:block;font-size:10px;font-weight:700;margin-top:14px}
 .auth-card input{display:block;width:100%;margin-top:6px;border:1px solid #cbd0ca;border-radius:11px;padding:13px;background:#fff;font:inherit;color:var(--green)}
+.password-input-wrap{display:grid;grid-template-columns:1fr 44px;align-items:end}.password-input-wrap input{grid-column:1/-1;grid-row:1}.password-input-wrap button{grid-column:2;grid-row:1;height:42px;margin-bottom:1px;border:0;background:transparent;color:var(--green)}.password-input-wrap svg{width:17px}.generate-password{display:flex;align-items:center;gap:7px;margin:10px 0 0;border:0;background:transparent;color:var(--green);font:inherit;font-size:10px;font-weight:700}.generate-password svg{width:14px}
 .auth-card form>button{width:100%;margin-top:18px;border:0;border-radius:12px;padding:13px;background:var(--green);color:#fff;font-weight:700}
 .auth-card form>button:disabled{opacity:.55}
 .auth-switch{display:block;width:100%;margin-top:16px;border:0;background:transparent;color:var(--green);font:inherit;font-size:11px;text-decoration:underline;text-underline-offset:3px}
