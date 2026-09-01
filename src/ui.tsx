@@ -1,5 +1,9 @@
 import type{ReactNode}from'react';
-import{ChevronRight,Search}from'lucide-react';
+import{CalendarDays,ChevronRight,Search}from'lucide-react';
+
+export type LogViewSelection='today'|'yesterday'|'date'|'paused'|'archived';
+export const isDatedLogView=(value:LogViewSelection)=>value==='today'||value==='yesterday'||value==='date';
+export function LogViewSelector({value,selectedDate,minDate,maxDate,onChange}:{value:LogViewSelection;selectedDate?:string;minDate:string;maxDate:string;onChange:(view:LogViewSelection,date?:string)=>void}){const dateLabel=value==='date'&&selectedDate?new Date(`${selectedDate}T12:00:00`).toLocaleDateString(undefined,{day:'numeric',month:'short'}):'Select Date';return <nav className="log-view-selector" aria-label="Date and status view"><button type="button" className={value==='today'?'active':''} aria-pressed={value==='today'} onClick={()=>onChange('today')}>Today</button><button type="button" className={value==='yesterday'?'active':''} aria-pressed={value==='yesterday'} onClick={()=>onChange('yesterday')}>Yesterday</button><label className={value==='date'?'active':''}><CalendarDays/><span>{dateLabel}</span><input aria-label="Select occurrence date" type="date" min={minDate} max={maxDate} value={selectedDate??maxDate} onChange={event=>onChange('date',event.target.value)}/></label><button type="button" className={value==='paused'?'active':''} aria-pressed={value==='paused'} onClick={()=>onChange('paused')}>Paused</button><button type="button" className={value==='archived'?'active':''} aria-pressed={value==='archived'} onClick={()=>onChange('archived')}>Archived</button></nav>}
 
 export function PageContainer({children,className=''}:{children:ReactNode;className?:string}){return <div className={`ui-page ${className}`.trim()}>{children}</div>}
 export function PageHeader({eyebrow,title,supporting,action}:{eyebrow:string;title:string;supporting?:string;action?:ReactNode}){return <header className="ui-page-header"><div><p className="ui-eyebrow">{eyebrow}</p><h1>{title}</h1>{supporting&&<p className="ui-supporting">{supporting}</p>}</div>{action&&<div className="ui-header-action">{action}</div>}</header>}
