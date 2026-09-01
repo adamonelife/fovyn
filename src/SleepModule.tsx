@@ -1,12 +1,13 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {Moon,Plus,Trash2,X} from 'lucide-react';
 import {loadSleep,removeSleep,saveSleep,sleepHours,type SleepData,type SleepEntry,type SleepQuality,type WakingEnergy} from './sleepRepository';
+import {formatDisplayLabel} from './displayLabels';
 
 const local=(date:Date)=>new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
 const defaults=()=>{const wake=new Date(),bed=new Date(wake.getTime()-8*3600000);return{bed:local(bed),wake:local(wake)}};
 
 function Choices<T extends string>({values,value,choose,label}:{values:T[];value:T;choose:(x:T)=>void;label:string}){
-  return <div className="sleep-choices" role="group" aria-label={label}>{values.map(x=><button type="button" aria-pressed={value===x} className={value===x?'active':''} onClick={()=>choose(x)} key={x}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>;
+  return <div className="sleep-choices" role="group" aria-label={label}>{values.map(x=><button type="button" aria-pressed={value===x} className={value===x?'active':''} onClick={()=>choose(x)} key={x}>{formatDisplayLabel(x)}</button>)}</div>;
 }
 
 function Editor({entry,goals,close,saved}:{entry?:SleepEntry;goals:SleepData['goals'];close:()=>void;saved:()=>void}){

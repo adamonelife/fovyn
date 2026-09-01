@@ -1,5 +1,6 @@
 import {supabase} from './supabase';
 import {goalOwner} from './goalsRepository';
+import {formatDisplayLabel} from './displayLabels';
 
 const fail=(label:string,error:{message:string}|null)=>{if(error)throw new Error(`${label}: ${error.message}`)};
 export type SearchDestination='Goals'|'Log'|'History';
@@ -23,15 +24,15 @@ export async function loadSearchIndex():Promise<SearchResult[]>{
   fail('Search Goals',goals.error);fail('Search habits',habits.error);fail('Search logging items',trackers.error);fail('Search records',records.error);fail('Search Notes',notes.error);fail('Search Sleep',sleep.error);fail('Search Activities',activities.error);fail('Search Nutrition',nutrition.error);fail('Search Money',money.error);fail('Search Hobbies',hobbyEntries.error);fail('Search Hobby names',hobbies.error);
   const trackerNames=new Map((trackers.data??[]).map(x=>[x.id,x.name]));
   return[
-    ...(goals.data??[]).map(x=>({id:x.id,type:'Goal' as const,title:x.title,detail:`${x.status} · ${x.area_key}`,destination:'Goals' as const})),
-    ...(habits.data??[]).map(x=>({id:x.id,type:'Habit' as const,title:x.name,detail:`${x.active?'active':'paused'} · ${x.area_key}`,destination:'Log' as const})),
-    ...(trackers.data??[]).map(x=>({id:x.id,type:'Logging item' as const,title:x.name,detail:`${x.module} · ${x.status}`,destination:'Log' as const})),
+    ...(goals.data??[]).map(x=>({id:x.id,type:'Goal' as const,title:x.title,detail:`${formatDisplayLabel(x.status)} · ${formatDisplayLabel(x.area_key)}`,destination:'Goals' as const})),
+    ...(habits.data??[]).map(x=>({id:x.id,type:'Habit' as const,title:x.name,detail:`${formatDisplayLabel(x.active?'active':'paused')} · ${formatDisplayLabel(x.area_key)}`,destination:'Log' as const})),
+    ...(trackers.data??[]).map(x=>({id:x.id,type:'Logging item' as const,title:x.name,detail:`${formatDisplayLabel(x.module)} · ${formatDisplayLabel(x.status)}`,destination:'Log' as const})),
     ...(records.data??[]).map(x=>({id:x.id,type:'Record' as const,title:trackerNames.get(x.tracker_id)||'Recorded item',detail:`${x.note||x.value} · ${new Date(x.occurred_at).toLocaleDateString()}${x.corrected_at?' · corrected':''}`,destination:'History' as const})),
     ...(notes.data??[]).map(x=>({id:x.id,type:'Note' as const,title:x.title,detail:`${x.body} · ${new Date(x.occurred_at).toLocaleDateString()}${x.corrected_at?' · corrected':''}`,destination:'Log' as const})),
-    ...(sleep.data??[]).map(x=>({id:x.id,type:'Sleep' as const,title:'Sleep',detail:`${Math.round((new Date(x.wake_time).getTime()-new Date(x.bedtime).getTime())/36000)/100} hours · ${x.quality} · ${x.waking_energy} energy · ${new Date(x.wake_time).toLocaleDateString()}${x.corrected_at?' · corrected':''}`,destination:'Log' as const})),
+    ...(sleep.data??[]).map(x=>({id:x.id,type:'Sleep' as const,title:'Sleep',detail:`${Math.round((new Date(x.wake_time).getTime()-new Date(x.bedtime).getTime())/36000)/100} hours · ${formatDisplayLabel(x.quality)} · ${formatDisplayLabel(x.waking_energy)} energy · ${new Date(x.wake_time).toLocaleDateString()}${x.corrected_at?' · corrected':''}`,destination:'Log' as const})),
     ...(activities.data??[]).map(x=>({id:x.id,type:'Activity' as const,title:x.activity,detail:`${x.duration_min} min${x.distance_km!=null?` · ${x.distance_km} km`:''} · ${new Date(x.occurred_at??`${x.performed_on}T12:00:00`).toLocaleDateString()}${x.corrected_at?' · corrected':''}`,destination:'Log' as const})),
-    ...(nutrition.data??[]).map(x=>({id:x.id,type:'Nutrition' as const,title:x.name,detail:`${x.meal_type} · ${x.calories} kcal · P ${x.protein_g}g · ${new Date(x.occurred_at).toLocaleDateString()}${x.corrected_at?' · corrected':''}`,destination:'Log' as const})),
-    ...(money.data??[]).map(x=>({id:x.id,type:'Money' as const,title:`Money · ${x.transaction_type}`,detail:`${x.currency} ${Number(x.amount).toLocaleString()}${x.note?` · ${x.note}`:''} · ${new Date(x.occurred_at).toLocaleDateString()}${x.corrected_at?' · corrected':''}`,destination:'Log' as const})),
+    ...(nutrition.data??[]).map(x=>({id:x.id,type:'Nutrition' as const,title:x.name,detail:`${formatDisplayLabel(x.meal_type)} · ${x.calories} kcal · P ${x.protein_g}g · ${new Date(x.occurred_at).toLocaleDateString()}${x.corrected_at?' · corrected':''}`,destination:'Log' as const})),
+    ...(money.data??[]).map(x=>({id:x.id,type:'Money' as const,title:`Money · ${formatDisplayLabel(x.transaction_type)}`,detail:`${x.currency} ${Number(x.amount).toLocaleString()}${x.note?` · ${x.note}`:''} · ${new Date(x.occurred_at).toLocaleDateString()}${x.corrected_at?' · corrected':''}`,destination:'Log' as const})),
     ...(hobbyEntries.data??[]).map(x=>{const hobby=(hobbies.data??[]).find(h=>h.id===x.hobby_id);return{id:x.id,type:'Hobby' as const,title:hobby?.name??'Archived Hobby',detail:`${x.amount==null?'Completed':`${Number(x.amount)} ${x.unit}`}${x.note?` · ${x.note}`:''} · ${new Date(x.occurred_at).toLocaleDateString()}${x.corrected_at?' · corrected':''}`,destination:'Log' as const}})
   ];
 }
