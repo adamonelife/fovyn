@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, Plus, Timer, X } from "lucide-react";
+import ExerciseLibrary from './ExerciseLibrary';
+import { formatDisplayLabel } from './displayLabels';
 import { supabase } from "./supabase";
 import {
   listTemplates,
@@ -28,6 +30,7 @@ type Item = BuiltExercise & {
   notes: string;
 };
 const isBodyweight = (exercise: Exercise) =>
+  ["bodyweight", "assisted_bodyweight"].includes(exercise.resistanceType ?? "") ||
   exercise.equipment === "Bodyweight" || exercise.equipment === "Pull-up Bar";
 export default function WorkoutModule({
   close,
@@ -95,6 +98,7 @@ function Start(p: {
       variant: string;
       manual: boolean;
     }>(),
+    [libraryOpen,setLibraryOpen]=useState(false),
     [pending, setPending] = useState(queuedWorkouts().length);
   useEffect(() => {
     listTemplates().then(setTemplates);
@@ -105,6 +109,7 @@ function Start(p: {
     return()=>window.removeEventListener("online",sync);
   }, []);
   if (choice) return <Editor {...choice} {...p} />;
+  if(libraryOpen)return <ExerciseLibrary close={()=>{setLibraryOpen(false);listTemplates().then(setTemplates)}}/>;
   return (
     <div className="sheet-shade">
       <section className="workout-start">
@@ -126,6 +131,7 @@ function Start(p: {
         >
           <Plus /> Manual workout
         </button>
+        <button className="exercise-library-link" onClick={()=>setLibraryOpen(true)}>Exercise Library</button>
         <p className="choice-label">SAVED TEMPLATES</p>
         <div className="template-grid">
           {templates.map((t) => (
@@ -415,6 +421,9 @@ function Editor({
                 <h2>{x.exercise.exerciseName}</h2>
                 <small>
                   {x.exercise.group} · {x.exercise.equipment}
+                  {x.exercise.weightConvention
+                    ? ` · ${formatDisplayLabel(x.exercise.weightConvention)}`
+                    : ""}
                 </small>
               </div>
               <b className="recommendation">{recommendationLabel(x)}</b>

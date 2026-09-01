@@ -70,6 +70,11 @@ export async function loadWorkout(
     progressionType: r.progression_type,
     active: r.active,
     trackingType: r.measurement_type,
+    minimumWeight:r.minimum_weight==null?null:Number(r.minimum_weight),
+    maximumWeight:r.maximum_weight==null?null:Number(r.maximum_weight),
+    availableWeights:(r.available_weights??[]).map(Number),
+    weightConvention:r.weight_convention,
+    resistanceType:r.resistance_type,
   }));
   const idToKey = new Map((ex.data ?? []).map((r) => [r.id, r.exercise_key]));
   const rules: ExerciseRule[] = (ru.data ?? []).map((r) => ({

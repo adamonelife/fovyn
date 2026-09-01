@@ -7,6 +7,7 @@ import './extra.css';
 import './track.css';
 import './habits.css';
 import './training.css';
+import './exercise-library.css';
 import './workout.css';
 import './workout-extra.css';
 import './goals-v1.css';
