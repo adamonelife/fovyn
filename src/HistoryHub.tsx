@@ -5,7 +5,7 @@ import {PageContainer,PageHeader,PageTabs} from './ui';
 
 type View='calendar'|'timeline'|'reviews';
 
-export default function HistoryHub(){
+export default function HistoryHub({openLog}:{openLog:()=>void}){
   const[view,setView]=useState<View>('calendar');
   const[range,setRange]=useState(30);
   return <PageContainer className="history-shell">
@@ -18,6 +18,6 @@ export default function HistoryHub(){
       </select>
     }/>
     <PageTabs>{(['calendar','timeline','reviews'] as View[]).map(item=><button type="button" className={view===item?'active':''} onClick={()=>setView(item)} key={item}>{item[0].toUpperCase()+item.slice(1)}</button>)}</PageTabs>
-    {view==='reviews'?<ReviewsModule/>:<HistoryModule range={range} mode={view}/>}
+    {view==='reviews'?<ReviewsModule/>:<HistoryModule range={range} mode={view} openLog={openLog}/>}
   </PageContainer>;
 }
