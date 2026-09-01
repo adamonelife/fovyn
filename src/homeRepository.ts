@@ -1,12 +1,13 @@
 import {supabase} from './supabase';
 import {goalOwner} from './goalsRepository';
 import{dateWeekday,fovynDateKey,shiftDateKey}from'./fovynDate';
+import{loadRoutines,type Routine}from'./routinesRepository';
 
 const fail=(label:string,error:{message:string}|null)=>{if(error)throw new Error(`${label}: ${error.message}`)};
 export type HomeHabit={id:string;name:string;tracking_type?:'check'|'count'|'duration';target_value?:number;unit?:string|null;status:'complete'|'failed'|'skipped'|null;frequency_type:'daily'|'specific_days'|'times_per_week'|null;days_of_week:number[]};
 export type HomeGoal={id:string;title:string;status:'active'|'dormant'|'completed'|'ended'|'archived';presentation_priority:'primary'|'secondary';area_key:string};
 export type HomeClearing={id:string;name:string;intention:string|null;starts_at:string;ends_at:string;focusedGoals:string[]};
-export type HomeData={profile:{first_name:string|null;display_name:string|null;current_climate:string;onboarding_completed_at:string|null;timezone:string};habits:HomeHabit[];goals:HomeGoal[];recentCount:number;configuredCount:number;unresolvedRoundupDate:string|null;unresolvedHabits:HomeHabit[];currentClearing:HomeClearing|null;clearingReviewPending:{id:string;name:string}|null};
+export type HomeData={profile:{first_name:string|null;display_name:string|null;current_climate:string;onboarding_completed_at:string|null;timezone:string};habits:HomeHabit[];routines:Routine[];goals:HomeGoal[];recentCount:number;configuredCount:number;unresolvedRoundupDate:string|null;unresolvedHabits:HomeHabit[];currentClearing:HomeClearing|null;clearingReviewPending:{id:string;name:string}|null};
 export type HabitResolution={habitId:string;status:'complete'|'failed'|'skipped';value:number|null};
 export function expectedToday(habit:HomeHabit,date?:string|Date){
   if(habit.frequency_type==='daily')return true;
@@ -45,7 +46,8 @@ export async function loadHome():Promise<HomeData>{
   fail('Home schedules',schedules.error);fail('Home habit entries',entries.error);
   const makeHabit=(h:{id:string;name:string;tracking_type:'check'|'count'|'duration';target_value:number;unit:string|null},date:string):HomeHabit=>{const s=(schedules.data??[]).find(x=>x.habit_id===h.id&&x.effective_from<=date&&(!x.effective_to||x.effective_to>=date)),e=(entries.data??[]).find(x=>x.habit_id===h.id&&x.entry_date===date);return{id:h.id,name:h.name,tracking_type:h.tracking_type,target_value:Number(h.target_value),unit:h.unit,status:(e?.status??null) as HomeHabit['status'],frequency_type:(s?.frequency_type??null) as HomeHabit['frequency_type'],days_of_week:s?.days_of_week??[]}};
   const todayHabits=(habits.data??[]).map(h=>makeHabit(h,day)),yesterdayHabits=(habits.data??[]).map(h=>makeHabit(h,yesterday)),unresolvedHabits=yesterdayHabits.filter(h=>expectedToday(h,yesterday)&&!h.status),hadYesterdayActivity=(yesterdayRecords.count??0)>0||(entries.data??[]).some(x=>x.entry_date===yesterday);
-  return{profile:profile.data,goals:(goals.data??[]) as HomeGoal[],recentCount:recent.count??0,configuredCount:configured.count??0,unresolvedRoundupDate:(hadYesterdayActivity||unresolvedHabits.length)&&!yesterdayRoundup.data?yesterday:null,unresolvedHabits,habits:todayHabits,currentClearing:currentClearing.data?{...currentClearing.data,focusedGoals}:null,clearingReviewPending:clearingReview.data};
+  const routineData=await loadRoutines(day),routines=routineData.routines.filter(r=>r.status==='active'&&(r.schedule.frequency_type==='daily'||r.schedule.frequency_type==='times_per_week'||(r.schedule.frequency_type==='specific_days'&&r.schedule.days_of_week.includes(dateWeekday(day)))));
+  return{profile:profile.data,goals:(goals.data??[]) as HomeGoal[],recentCount:recent.count??0,configuredCount:configured.count??0,unresolvedRoundupDate:(hadYesterdayActivity||unresolvedHabits.length)&&!yesterdayRoundup.data?yesterday:null,unresolvedHabits,habits:todayHabits,routines,currentClearing:currentClearing.data?{...currentClearing.data,focusedGoals}:null,clearingReviewPending:clearingReview.data};
 }
 
 export async function completeOnboarding(){const user=await goalOwner();fail('Complete onboarding',(await supabase.from('profiles').update({onboarding_completed_at:new Date().toISOString()}).eq('id',user.id)).error)}
