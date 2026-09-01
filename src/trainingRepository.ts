@@ -173,8 +173,21 @@ export type WorkoutSave = {
     notes?: string;
   }>;
 };
+export function missingWorkoutExerciseKeys(payload:WorkoutSave,available:string[]){const known=new Set(available);return[...new Set(payload.items.map(item=>item.exerciseId).filter(key=>!known.has(key)))]}
 export async function saveWorkout(payload: WorkoutSave) {
   const owner = await requireOwner();
+  const ids = await supabase!
+    .from("training_exercises")
+    .select("id,exercise_key")
+    .eq("owner_id", owner)
+    .in(
+      "exercise_key",
+      payload.items.map((x) => x.exerciseId),
+    );
+  fail("Exercise lookup", ids.error);
+  const missing=missingWorkoutExerciseKeys(payload,(ids.data??[]).map(x=>x.exercise_key));
+  if(missing.length)throw new Error(`Workout not saved: ${missing.length} exercise${missing.length===1?' is':'s are'} no longer available.`);
+  const byKey = new Map((ids.data ?? []).map((x) => [x.exercise_key, x.id]));
   const session = await supabase!
     .from("training_sessions")
     .insert({
@@ -193,45 +206,41 @@ export async function saveWorkout(payload: WorkoutSave) {
     .select("id")
     .single();
   fail("Save session", session.error);
-  const ids = await supabase!
-    .from("training_exercises")
-    .select("id,exercise_key")
-    .eq("owner_id", owner)
-    .in(
-      "exercise_key",
-      payload.items.map((x) => x.exerciseId),
-    );
-  fail("Exercise lookup", ids.error);
-  const byKey = new Map((ids.data ?? []).map((x) => [x.exercise_key, x.id]));
-  for (let i = 0; i < payload.items.length; i++) {
-    const item = payload.items[i];
-    const row = await supabase!
-      .from("training_session_exercises")
-      .insert({
-        session_id: session.data.id,
-        exercise_id: byKey.get(item.exerciseId),
-        position: i + 1,
-        slot_name: item.slotName,
-        exercise_name_snapshot: item.exerciseName,
-        rpe: item.rpe ?? null,
-        notes: item.notes ?? "",
-        source_payload: { source: "unified_forbair_v1" },
-      })
-      .select("id")
-      .single();
-    fail(`Save ${item.exerciseName}`, row.error);
-    const sets = item.sets.map((s, n) => ({
-      session_exercise_id: row.data.id,
-      set_number: n + 1,
-      load_kg: Number.isFinite(Number(s.kg)) ? Number(s.kg) : null,
-      load_label: s.kg.toUpperCase() === "BW" ? "BW" : null,
-      target_value: s.value,
-    }));
-    if (sets.length)
-      fail(
-        "Save sets",
-        (await supabase!.from("training_sets").insert(sets)).error,
-      );
+  try{
+    for (let i = 0; i < payload.items.length; i++) {
+      const item = payload.items[i];
+      const row = await supabase!
+        .from("training_session_exercises")
+        .insert({
+          session_id: session.data.id,
+          exercise_id: byKey.get(item.exerciseId),
+          position: i + 1,
+          slot_name: item.slotName,
+          exercise_name_snapshot: item.exerciseName,
+          rpe: item.rpe ?? null,
+          notes: item.notes ?? "",
+          source_payload: { source: "unified_forbair_v1" },
+        })
+        .select("id")
+        .single();
+      fail(`Save ${item.exerciseName}`, row.error);
+      const sets = item.sets.map((s, n) => ({
+        session_exercise_id: row.data.id,
+        set_number: n + 1,
+        load_kg: Number.isFinite(Number(s.kg)) ? Number(s.kg) : null,
+        load_label: s.kg.toUpperCase() === "BW" ? "BW" : null,
+        target_value: s.value,
+      }));
+      if (sets.length)
+        fail(
+          "Save sets",
+          (await supabase!.from("training_sets").insert(sets)).error,
+        );
+    }
+  }catch(reason){
+    const cleanup=await supabase!.from("training_sessions").delete().eq("id",session.data.id).eq("owner_id",owner);
+    if(cleanup.error)throw new Error('Workout save was interrupted and needs attention before retrying.');
+    throw reason;
   }
   return session.data.id;
 }
