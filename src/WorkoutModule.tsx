@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Plus, Timer, X } from "lucide-react";
+import { Check, MoreHorizontal, Plus, Timer, X } from "lucide-react";
 import ExerciseLibrary from './ExerciseLibrary';
 import { formatDisplayLabel } from './displayLabels';
 import { supabase } from "./supabase";
@@ -32,6 +32,18 @@ type Item = BuiltExercise & {
 const isBodyweight = (exercise: Exercise) =>
   ["bodyweight", "assisted_bodyweight"].includes(exercise.resistanceType ?? "") ||
   exercise.equipment === "Bodyweight" || exercise.equipment === "Pull-up Bar";
+function TrainingPreviousPerformance({last}:{last:LoggedExercise}){
+  return <div className="previous"><span>Previous</span><div>{last.sets.map((set,index)=><b key={index}>{set.kg||'—'}×{set.value??'—'}</b>)}</div></div>;
+}
+function TrainingSetRow({exercise,set,index,onChange}:{exercise:Exercise;set:SetPerformance;index:number;onChange:(key:'kg'|'value',value:string)=>void}){
+  return <div className="live-set"><b><span>Set </span>{index+1}</b><input type="number" inputMode="decimal" step="any" min="0" value={set.kg} placeholder={isBodyweight(exercise)?"BW":"kg"} aria-label={`${exercise.exerciseName} set ${index+1} load`} onChange={event=>onChange('kg',event.target.value)}/><input type="number" inputMode="numeric" step="1" min="0" value={set.value??''} aria-label={`${exercise.exerciseName} set ${index+1} ${exercise.trackingType}`} onChange={event=>onChange('value',event.target.value)}/></div>;
+}
+function TrainingExerciseActions({first,last,onMove,onReplace,onRemove}:{first:boolean;last:boolean;onMove:(direction:number)=>void;onReplace:()=>void;onRemove:()=>void}){
+  return <details className="exercise-action-menu"><summary aria-label="Exercise actions"><MoreHorizontal/></summary><div><button disabled={first} onClick={()=>onMove(-1)}>Move up</button><button disabled={last} onClick={()=>onMove(1)}>Move down</button><button onClick={onReplace}>Replace exercise</button><button className="danger" onClick={onRemove}>Remove exercise</button></div></details>;
+}
+function TrainingRestControl({seconds,setSeconds,start}:{seconds:string;setSeconds:(value:string)=>void;start:()=>void}){
+  return <div className="rest-control"><input type="number" inputMode="numeric" step="1" min="1" value={seconds} onChange={event=>setSeconds(event.target.value)} aria-label="Rest seconds"/><button onClick={start}><Timer/>Start rest</button></div>;
+}
 export default function WorkoutModule({
   close,
   onSaved,
@@ -399,7 +411,9 @@ function Editor({
             {String(l)}
             <input
               value={v as string}
-              type={l === "Date" ? "date" : "text"}
+              type={l === "Date" ? "date" : "number"}
+              inputMode={l === "Date" ? undefined : "decimal"}
+              step={l === "Date" ? undefined : "any"}
               onChange={(e) => (s as Function)(e.target.value)}
             />
           </label>
@@ -427,48 +441,15 @@ function Editor({
                 </small>
               </div>
               <b className="recommendation">{recommendationLabel(x)}</b>
-              <div className="exercise-controls">
-                <button onClick={() => move(i, -1)}>↑</button>
-                <button onClick={() => move(i, 1)}>↓</button>
-                <button onClick={() => setReplace(i)}>Replace</button>
-                <button
-                  onClick={() => setItems(items.filter((_, n) => n !== i))}
-                >
-                  ×
-                </button>
-              </div>
+              <TrainingExerciseActions first={i===0} last={i===items.length-1} onMove={direction=>move(i,direction)} onReplace={()=>setReplace(i)} onRemove={()=>setItems(items.filter((_,n)=>n!==i))}/>
             </header>
-            {x.last && (
-              <div className="previous">
-                Previous{" "}
-                {x.last.sets.map((s, n) => (
-                  <b key={n}>
-                    {s.kg}×{s.value}
-                  </b>
-                ))}
-              </div>
-            )}
+            {x.last&&<TrainingPreviousPerformance last={x.last}/>}
             <div className="set-labels" aria-hidden="true">
               <span>Set</span>
               <span>Load</span>
               <span>{x.exercise.trackingType}</span>
             </div>
-            {x.sets.map((s, n) => (
-              <div className="live-set" key={n}>
-                <b>{n + 1}</b>
-                <input
-                  value={s.kg}
-                  placeholder={isBodyweight(x.exercise) ? "BW" : "kg"}
-                  aria-label={`${x.exercise.exerciseName} set ${n + 1} load`}
-                  onChange={(e) => update(i, n, "kg", e.target.value)}
-                />
-                <input
-                  value={s.value ?? ""}
-                  aria-label={`${x.exercise.exerciseName} set ${n + 1} ${x.exercise.trackingType}`}
-                  onChange={(e) => update(i, n, "value", e.target.value)}
-                />
-              </div>
-            ))}
+            {x.sets.map((set,index)=><TrainingSetRow exercise={x.exercise} set={set} index={index} key={index} onChange={(key,value)=>update(i,index,key,value)}/>)}
             <div className="set-actions">
               <button
                 disabled={x.sets.length <= 1}
@@ -502,13 +483,18 @@ function Editor({
               >
                 + Set
               </button>
-              <input className="rest-seconds" value={restSeconds} onChange={(e)=>setRestSeconds(e.target.value)} inputMode="numeric" aria-label="Rest seconds"/>
-              <button onClick={() => setRest(Math.max(1,Number(restSeconds)||90))}>Start rest</button>
+              <TrainingRestControl seconds={restSeconds} setSeconds={setRestSeconds} start={()=>setRest(Math.max(1,Number(restSeconds)||90))}/>
             </div>
             <details>
               <summary>RPE & notes</summary>
               <input
+                type="number"
+                inputMode="decimal"
+                step="any"
+                min="0"
+                max="10"
                 value={x.rpe}
+                aria-label={`${x.exercise.exerciseName} RPE`}
                 onChange={(e) =>
                   setItems(
                     items.map((a, n) =>
@@ -519,6 +505,7 @@ function Editor({
               />
               <input
                 value={x.notes}
+                aria-label={`${x.exercise.exerciseName} notes`}
                 onChange={(e) =>
                   setItems(
                     items.map((a, n) =>
@@ -536,11 +523,19 @@ function Editor({
       </button>
       <section className="finish-meta">
         <input
+          type="number"
+          inputMode="numeric"
+          step="1"
+          min="0"
           value={duration}
           onChange={(e) => setDuration(e.target.value)}
           placeholder="Duration min"
         />
         <input
+          type="number"
+          inputMode="decimal"
+          step="any"
+          min="0"
           value={calories}
           onChange={(e) => setCalories(e.target.value)}
           placeholder="Watch calories"

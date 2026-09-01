@@ -10,6 +10,7 @@ import './training.css';
 import './exercise-library.css';
 import './workout.css';
 import './workout-extra.css';
+import './mobile-training.css';
 import './goals-v1.css';
 import './settings.css';
 import './track-manager.css';

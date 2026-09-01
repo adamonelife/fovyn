@@ -1,0 +1,26 @@
+@media (max-width: 600px) {
+  .exercise-action-menu > summary {
+    width: 44px;
+    height: 44px;
+  }
+
+  .live-exercises article > header {
+    grid-template-columns: 28px minmax(0, 1fr) 44px;
+  }
+
+  .exercise-action-menu {
+    grid-column: 3;
+  }
+
+  .workout-session-type button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 430px) {
+  .set-actions > button,
+  .rest-control input,
+  .rest-control button {
+    min-height: 44px;
+  }
+}
