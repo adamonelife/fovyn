@@ -170,6 +170,7 @@ function Editor({
     [sleep, setSleep] = useState(""),
     [calories, setCalories] = useState(""),
     [notes, setNotes] = useState(""),
+    [sessionType,setSessionType]=useState<'normal'|'light'|'rehab'>('normal'),
     [rest, setRest] = useState(0),
     [restSeconds, setRestSeconds] = useState("90"),
     [summary, setSummary] = useState<{
@@ -283,6 +284,7 @@ function Editor({
     energy: Number(energy) || undefined,
     sleep: Number(sleep) || undefined,
     notes,
+    sessionType,
     items: items.map((x) => ({
       exerciseId: x.exercise.exerciseId,
       exerciseName: x.exercise.exerciseName,
@@ -380,6 +382,7 @@ function Editor({
         </button>
       </header>
       <section className="workout-session">
+        <div className="workout-session-type" role="group" aria-label="Session type">{(['normal','light','rehab']as const).map(value=><button type="button" className={sessionType===value?'active':''} onClick={()=>setSessionType(value)} key={value}>{value[0].toUpperCase()+value.slice(1)}</button>)}</div>
         {[
           ["Date", date, setDate],
           ["Bodyweight", bodyweight, setBodyweight],
