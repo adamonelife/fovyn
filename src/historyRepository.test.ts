@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {streakForDates} from './historyRepository';
+import {historyKindForModule,streakForDates} from './historyRepository';
 
 describe('history streak',()=>{
   const today=new Date('2026-08-31T12:00:00Z');
@@ -7,3 +7,4 @@ describe('history streak',()=>{
   it('allows today to be unfinished',()=>expect(streakForDates(['2026-08-30','2026-08-29'],today)).toBe(2));
   it('stops at the first gap',()=>expect(streakForDates(['2026-08-31','2026-08-29'],today)).toBe(1));
 });
+describe('History module grouping',()=>{it.each([['social','social'],['alcohol','alcohol'],['medication','recovery'],['metrics','record']])('maps %s records to %s',(module,kind)=>expect(historyKindForModule(module)).toBe(kind))});

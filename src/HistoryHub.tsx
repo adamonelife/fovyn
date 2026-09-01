@@ -1,9 +1,10 @@
 import {useState} from 'react';
 import HistoryModule from './HistoryModule';
+import InsightsModule from './InsightsModule';
 import ReviewsModule from './ReviewsModule';
 import {PageContainer,PageHeader,PageTabs} from './ui';
 
-type View='calendar'|'timeline'|'reviews';
+type View='calendar'|'timeline'|'reviews'|'insights';
 
 export default function HistoryHub({openLog}:{openLog:()=>void}){
   const[view,setView]=useState<View>('calendar');
@@ -18,6 +19,6 @@ export default function HistoryHub({openLog}:{openLog:()=>void}){
       </select>
     }/>
     <PageTabs>{(['calendar','timeline','reviews'] as View[]).map(item=><button type="button" className={view===item?'active':''} onClick={()=>setView(item)} key={item}>{item[0].toUpperCase()+item.slice(1)}</button>)}</PageTabs>
-    {view==='reviews'?<ReviewsModule/>:<HistoryModule range={range} mode={view} openLog={openLog}/>}
+    {view==='reviews'?<ReviewsModule/>:view==='insights'?<InsightsModule range={range}/>:<HistoryModule range={range} mode={view} openLog={openLog}/>}
   </PageContainer>;
 }
