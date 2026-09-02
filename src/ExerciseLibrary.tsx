@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Archive, ChevronRight, Dumbbell, Plus, Search, X } from 'lucide-react';
 import { formatDisplayLabel } from './displayLabels';
-import { loadExerciseProfiles, muscleGroups, resistanceTypes, saveExerciseProfile, setExerciseArchived, weightConventions, type ExerciseProfile, type ExerciseProfileInput } from './exerciseRepository';
+import { loadExerciseHistory, loadExerciseProfiles, muscleGroups, resistanceTypes, saveExerciseProfile, setExerciseArchived, weightConventions, type ExerciseHistoryItem, type ExerciseProfile, type ExerciseProfileInput } from './exerciseRepository';
 
 const number=(value:string)=>value===''?null:Number(value);
 const numericValue=(value:number)=>Number.isFinite(value)?value:'';
@@ -9,6 +9,8 @@ const base=(item?:ExerciseProfile):ExerciseProfileInput=>({name:item?.name??'',m
 
 function Editor({item,close,saved}:{item?:ExerciseProfile;close:()=>void;saved:()=>void}){
   const[form,setForm]=useState(base(item)),[weights,setWeights]=useState(form.available_weights.join(', ')),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const[history,setHistory]=useState<ExerciseHistoryItem[]>([]),[historyError,setHistoryError]=useState('');
+  useEffect(()=>{if(item)loadExerciseHistory(item.id).then(setHistory).catch(()=>setHistoryError('Exercise history is unavailable right now.'))},[item]);
   const set=<K extends keyof ExerciseProfileInput>(key:K,value:ExerciseProfileInput[K])=>setForm(current=>({...current,[key]:value}));
   const setPrimary=(value:ExerciseProfileInput['muscle_group'])=>setForm(current=>({...current,muscle_group:value,secondary_muscle_group:current.secondary_muscle_group===value?null:current.secondary_muscle_group}));
   const submit=async(event:FormEvent)=>{event.preventDefault();setBusy(true);setError('');try{const available=weights.split(',').map(value=>value.trim()).filter(Boolean).map(Number);await saveExerciseProfile({...form,available_weights:available},item?.id);saved()}catch(reason){setError(reason instanceof Error?reason.message:'Unable to save exercise.')}finally{setBusy(false)}};
@@ -26,7 +28,7 @@ function Editor({item,close,saved}:{item?:ExerciseProfile;close:()=>void;saved:(
     <label>Maximum / ceiling<input type="number" min="0" step="any" inputMode="decimal" value={form.maximum_weight??''} onChange={event=>set('maximum_weight',number(event.target.value))}/></label>
     <label className="wide">Custom available weights<input value={weights} inputMode="decimal" onChange={event=>setWeights(event.target.value)} onBlur={()=>setWeights(weights.split(',').map(value=>value.trim()).filter(Boolean).map(value=>String(Number(value))).join(', '))} placeholder="5, 7.5, 10, 12.5"/><small>When supplied, these override the fixed increment.</small></label>
     <label className="wide">Notes<textarea value={form.notes??''} onChange={event=>set('notes',event.target.value||null)}/></label>
-  </div>{error&&<p className="goal-error">{error}</p>}<button className="save-record" disabled={busy}>{busy?'Saving…':'Save Exercise'}</button></form></div>;
+  </div>{item&&<section className="exercise-history"><div><p className="eyebrow">HISTORY</p><h3>Recent workouts</h3></div>{historyError&&<p className="goal-error">{historyError}</p>}{!historyError&&history.length===0&&<p className="ui-empty">No completed workouts use this exercise yet.</p>}{history.map(entry=><article key={entry.id}><div><strong>{entry.workoutName}</strong><small>{new Date(`${entry.performedOn}T00:00:00`).toLocaleDateString()}</small></div><span>{entry.sets} {entry.sets===1?'set':'sets'}{entry.bestLoad!==null?` · ${entry.bestLoad} kg best`:''}</span>{entry.notes&&<p>{entry.notes}</p>}</article>)}</section>}{error&&<p className="goal-error">{error}</p>}<button className="save-record" disabled={busy}>{busy?'Saving…':'Save Exercise'}</button></form></div>;
 }
 
 export default function ExerciseLibrary({close}:{close:()=>void}){
