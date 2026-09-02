@@ -1,12 +1,14 @@
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {Archive,Check,ChevronRight,Leaf,Pause,Play,Plus,Square,Trash2,X} from 'lucide-react';
 import {supabase} from './supabase';
 import {goalProgress,targetLabel,type Aggregation,type GoalPeriod,type MeasurementType,type TargetOperator} from './goalsDomain';
 import {addGoalRecord,createGoal,deleteEmptyGoal,deleteGoalRecord,listGoals,loadGoalOptions,pruneGoal,setGoalStatus,updateGoal,updateGoalMetadata,updateGoalRecord,type AreaRow,type GoalBundle,type GoalInput,type GoalTracker,type RecordRow,type SubcategoryRow,type UnitRow} from './goalsRepository';
 import GrovesPanel from './GrovesPanel';
 import {formatDisplayLabel} from './displayLabels';
+import {fovynDateKey,shiftDateKey} from './fovynDate';
+import {LogDatePicker} from './ui';
 
-type Options={areas:AreaRow[];units:UnitRow[];subcategories:SubcategoryRow[];trackers:GoalTracker[]};
+type Options={areas:AreaRow[];units:UnitRow[];subcategories:SubcategoryRow[];trackers:GoalTracker[];timezone:string};
 const today=()=>new Date().toISOString().slice(0,10);
 export const recentGoalStart=()=>{const date=new Date();date.setDate(date.getDate()-7);return date.toISOString().slice(0,10)};
 const yesterday=()=>{const date=new Date();date.setDate(date.getDate()-1);return date.toISOString().slice(0,10)};
@@ -191,7 +193,9 @@ function PruneEditor({goal,options,close,saved}:{goal:GoalBundle;options:Options
 
 function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Options;close:()=>void;changed:()=>void;openLog?:(module:string)=>void}){
   const[editing,setEditing]=useState<'details'|'prune'|null>(null),[value,setValue]=useState(''),[note,setNote]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const[correcting,setCorrecting]=useState<RecordRow|null>(null),[correctedValue,setCorrectedValue]=useState(''),[correctedNote,setCorrectedNote]=useState('');
+  const currentDate=fovynDateKey(options.timezone),minimumDate=[goal.starts_on,shiftDateKey(currentDate,-7)].sort().at(-1)!,[occurrenceDate,setOccurrenceDate]=useState(currentDate);
+  const[correcting,setCorrecting]=useState<RecordRow|null>(null),[correctedValue,setCorrectedValue]=useState(''),[correctedNote,setCorrectedNote]=useState(''),[correctedDate,setCorrectedDate]=useState(currentDate);
+  const submitGuard=useRef(false);
   const unit=options.units.find(x=>x.key===goal.rule?.unit_key)?.symbol??goal.rule?.custom_unit??'';
   const progress=goal.rule?goalProgress(goal.rule,goal.records,new Date(),1,goal.starts_on,goal.ends_on):{actual:0,percent:0};
   const act=async(fn:()=>Promise<unknown>)=>{setBusy(true);setError('');try{await fn();changed();close();}catch(e){setError(e instanceof Error?e.message:'Unable to update Goal')}finally{setBusy(false)}};
@@ -218,27 +222,28 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
 <small>Effective from {new Date(goal.rule.effective_from+'T12:00').toLocaleDateString()}</small>
 </section>}{goal.status==='active'&&<section className="goal-contribute">
 <h3>Log a real contribution</h3>
-<div>
+<LogDatePicker selectedDate={occurrenceDate} today={currentDate} minDate={minimumDate} maxDate={currentDate} existingDates={goal.records.map(record=>fovynDateKey(options.timezone,new Date(record.occurred_at)))} onSelect={setOccurrenceDate}/>{goal.records.some(record=>fovynDateKey(options.timezone,new Date(record.occurred_at))===occurrenceDate)&&<p className="log-date-note">A contribution already exists on this date. Logging will add another.</p>}<div>
 <input type="number" inputMode="decimal" step="any" value={value} onChange={e=>setValue(e.target.value)} placeholder={`Value ${unit}`}/>
 <input value={note} onChange={e=>setNote(e.target.value)} placeholder="Optional note"/>
-<button disabled={busy||!Number.isFinite(Number(value))||value==='' } onClick={()=>act(()=>addGoalRecord(goal,Number(value),note))}>
+<button disabled={busy||!Number.isFinite(Number(value))||value==='' } onClick={async()=>{if(submitGuard.current)return;submitGuard.current=true;try{await act(()=>addGoalRecord(goal,Number(value),occurrenceDate,options.timezone,note))}finally{submitGuard.current=false}}}>
 <Plus/> Log</button>
 </div>
 </section>}<section className="goal-record-list">
 <h3>Contribution history</h3>{goal.records.slice().sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at)).map(r=>
 <div key={r.id}>{correcting?.id===r.id?<div className="record-correction">
+<input aria-label="Contribution date" type="date" min={minimumDate} max={currentDate} value={correctedDate} onChange={e=>setCorrectedDate(e.target.value)}/>
 <input type="number" inputMode="decimal" step="any" value={correctedValue} onChange={e=>setCorrectedValue(e.target.value)}/>
 <input value={correctedNote} onChange={e=>setCorrectedNote(e.target.value)}/>
-<button disabled={busy||correctedValue===''} onClick={()=>act(()=>updateGoalRecord(r,Number(correctedValue),correctedNote))}>Save</button>
+<button disabled={busy||correctedValue===''} onClick={()=>act(()=>updateGoalRecord(goal,r,Number(correctedValue),correctedDate,options.timezone,correctedNote))}>Save</button>
 <button onClick={()=>setCorrecting(null)}>Cancel</button>
 </div>:<>
 <span>
 <b>{r.value} {unit}</b>
 <small>{r.note||'Contribution'}{r.corrected_at?' · corrected':''}</small>
 </span>
-<time>{new Date(r.occurred_at).toLocaleString()}</time>
+<time>{new Date(r.occurred_at).toLocaleString(undefined,{timeZone:options.timezone})}</time>
 <span className="record-buttons">
-<button onClick={()=>{setCorrecting(r);setCorrectedValue(String(r.value));setCorrectedNote(r.note??'')}}>Correct</button>
+<button onClick={()=>{setCorrecting(r);setCorrectedValue(String(r.value));setCorrectedNote(r.note??'');setCorrectedDate(fovynDateKey(options.timezone,new Date(r.occurred_at)))}}>Correct</button>
 <button className="danger" onClick={()=>{if(confirm('Remove this contribution from progress?'))act(()=>deleteGoalRecord(r))}}>Remove</button>
 </span>
 </>}</div>)}{!goal.records.length&&<p>No contributions yet.</p>}</section>{goal.ruleHistory.length>1&&<section className="goal-record-list">
@@ -268,7 +273,7 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
 }
 
 export default function GoalsModule({onFirstSetupComplete,initialTrackerId='',onInitialTrackerHandled,openLog}:{onFirstSetupComplete?:()=>Promise<void>|void;initialTrackerId?:string;onInitialTrackerHandled?:()=>void;openLog?:(module:string)=>void}={}){
-  const[sessionChecked,setSessionChecked]=useState(false),[signedIn,setSignedIn]=useState(false),[goals,setGoals]=useState<GoalBundle[]>([]),[options,setOptions]=useState<Options>({areas:[],units:[],subcategories:[],trackers:[]}),[loading,setLoading]=useState(true),[error,setError]=useState(''),[creating,setCreating]=useState(Boolean(initialTrackerId)),[selected,setSelected]=useState<GoalBundle|null>(null),[filter,setFilter]=useState<'primary'|'secondary'|'dormant'|'completed'|'ended'>('primary'),[view,setView]=useState<'goals'|'groves'>('goals');
+  const[sessionChecked,setSessionChecked]=useState(false),[signedIn,setSignedIn]=useState(false),[goals,setGoals]=useState<GoalBundle[]>([]),[options,setOptions]=useState<Options>({areas:[],units:[],subcategories:[],trackers:[],timezone:'UTC'}),[loading,setLoading]=useState(true),[error,setError]=useState(''),[creating,setCreating]=useState(Boolean(initialTrackerId)),[selected,setSelected]=useState<GoalBundle|null>(null),[filter,setFilter]=useState<'primary'|'secondary'|'dormant'|'completed'|'ended'>('primary'),[view,setView]=useState<'goals'|'groves'>('goals');
   const load=async()=>{setLoading(true);setError('');try{const[o,g]=await Promise.all([loadGoalOptions(),listGoals()]);setOptions(o);setGoals(g);setSignedIn(true);}catch(e){setError(e instanceof Error?e.message:'Unable to load Goals')}finally{setLoading(false);setSessionChecked(true)}};
   useEffect(()=>{supabase.auth.getSession().then(x=>{if(x.data.session)load();else{setSessionChecked(true);setLoading(false)}});const{data}=supabase.auth.onAuthStateChange((_e,s)=>{setSignedIn(Boolean(s));if(s)load()});return()=>data.subscription.unsubscribe();},[]);
   const visible=useMemo(()=>goals.filter(g=>filter==='primary'||filter==='secondary'?g.status==='active'&&g.presentation_priority===filter:g.status===filter),[goals,filter]);

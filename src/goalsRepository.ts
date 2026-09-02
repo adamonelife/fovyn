@@ -1,6 +1,7 @@
 import {supabase} from './supabase';
 import type {Aggregation, GoalPeriod, MeasurementType, TargetOperator} from './goalsDomain';
 import type {ModuleKey} from './modules';
+import {fovynDateInstant} from './fovynDate';
 
 const fail = (label:string,error:{message:string}|null) => { if(error) throw new Error(`${label}: ${error.message}`); };
 export async function goalOwner(){
@@ -29,15 +30,16 @@ export type GoalInput={
 };
 
 export async function loadGoalOptions(){
-  await goalOwner();
-  const [areas,units,subcategories,trackers]=await Promise.all([
+  const owner=await goalOwner();
+  const [areas,units,subcategories,trackers,profile]=await Promise.all([
     supabase!.from('areas').select('*').order('position'),
     supabase!.from('measurement_units').select('*').order('measurement_type').order('position'),
     supabase!.from('subcategories').select('id,area_key,name,archived_at').is('archived_at',null).order('name'),
-    supabase!.from('trackers').select('id,name,module,area_key,subcategory_id,measurement_type,unit_key,custom_unit').neq('status','archived').order('name')
+    supabase!.from('trackers').select('id,name,module,area_key,subcategory_id,measurement_type,unit_key,custom_unit').neq('status','archived').order('name'),
+    supabase!.from('profiles').select('timezone').eq('id',owner.id).single()
   ]);
-  fail('Areas',areas.error);fail('Units',units.error);fail('Subcategories',subcategories.error);fail('Log items',trackers.error);
-  return {areas:(areas.data??[]) as AreaRow[],units:(units.data??[]) as UnitRow[],subcategories:(subcategories.data??[]) as SubcategoryRow[],trackers:(trackers.data??[]) as GoalTracker[]};
+  fail('Areas',areas.error);fail('Units',units.error);fail('Subcategories',subcategories.error);fail('Log items',trackers.error);fail('Profile timezone',profile.error);
+  return {areas:(areas.data??[]) as AreaRow[],units:(units.data??[]) as UnitRow[],subcategories:(subcategories.data??[]) as SubcategoryRow[],trackers:(trackers.data??[]) as GoalTracker[],timezone:profile.data?.timezone||'UTC'};
 }
 
 export async function listGoals():Promise<GoalBundle[]>{
@@ -105,15 +107,19 @@ export async function deleteEmptyGoal(goal:GoalBundle){
   fail('Delete Goal',(await supabase!.from('goals').delete().eq('id',goal.id)).error);
 }
 
-export async function addGoalRecord(goal:GoalBundle,value:number,note=''){
+export async function addGoalRecord(goal:GoalBundle,value:number,occurrenceDate:string,timezone:string,note='',requestId=crypto.randomUUID()){
   await goalOwner();
   if(!goal.tracker_id||!goal.rule)throw new Error('This Goal has no contributing tracker.');
-  fail('Record contribution',(await supabase!.rpc('add_goal_contribution',{p_goal_id:goal.id,p_value:value,p_note:note||null,p_occurred_at:new Date().toISOString()})).error);
+  const occurredAt=fovynDateInstant(occurrenceDate,timezone,12).toISOString();
+  const result=await supabase!.rpc('add_goal_contribution',{p_goal_id:goal.id,p_value:value,p_note:note||null,p_occurred_at:occurredAt,p_request_id:requestId});
+  if(result.error){console.error('Goal contribution write failed',result.error);throw new Error("We couldn't log that contribution. Please try again.")}
 }
 
-export async function updateGoalRecord(record:RecordRow,value:number,note=''){
-  const owner=await goalOwner();
-  fail('Correct contribution',(await supabase!.from('tracking_records').update({value,note:note||null,corrected_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',record.id).eq('owner_id',owner.id).is('deleted_at',null)).error);
+export async function updateGoalRecord(goal:GoalBundle,record:RecordRow,value:number,occurrenceDate:string,timezone:string,note=''){
+  await goalOwner();
+  const occurredAt=fovynDateInstant(occurrenceDate,timezone,12).toISOString();
+  const result=await supabase!.rpc('correct_goal_contribution',{p_goal_id:goal.id,p_record_id:record.id,p_value:value,p_note:note||null,p_occurred_at:occurredAt});
+  if(result.error){console.error('Goal contribution correction failed',result.error);throw new Error("We couldn't correct that contribution. Please try again.")}
 }
 
 export async function deleteGoalRecord(record:RecordRow){
