@@ -10,7 +10,8 @@ import {
 } from "./metricsRepository";
 import type { Tracker } from "./trackerRepository";
 import { LogDatePicker } from "./ui";
-import { shiftDateKey } from "./fovynDate";
+import { fovynDateKey, shiftDateKey } from "./fovynDate";
+import { metricSummary } from "./metricSummary";
 
 const localDateTime = (date = new Date()) =>
   new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -22,6 +23,8 @@ const displayAmount = (record: MetricRecord, unit: string) =>
 function Recorder({
   tracker,
   record,
+  records,
+  timezone,
   unit,
   currency,
   close,
@@ -29,12 +32,15 @@ function Recorder({
 }: {
   tracker: Tracker;
   record?: MetricRecord;
+  records: MetricRecord[];
+  timezone: string;
   unit: string;
   currency: string;
   close: () => void;
   saved: () => void;
 }) {
-  const [value, setValue] = useState(String(record?.value ?? "")),
+  const [activeRecord, setActiveRecord] = useState(record),
+    [value, setValue] = useState(String(record?.value ?? "")),
     [occurred, setOccurred] = useState(
       record ? localDateTime(new Date(record.occurred_at)) : localDateTime(),
     ),
@@ -44,6 +50,16 @@ function Recorder({
   const today = localDateTime().slice(0, 10),
     selectedDate = occurred.slice(0, 10),
     amountLabel = tracker.measurement_type === "weight" ? "Weight" : "Amount";
+  const selectDate = (date: string) => {
+    const existing = !record && tracker.metric_record_cardinality === "one_per_day"
+      ? records.find((item) => fovynDateKey(timezone, new Date(item.occurred_at)) === date)
+      : undefined;
+    setOccurred(`${date}T${occurred.slice(11) || "12:00"}`);
+    if (record) return;
+    setActiveRecord(existing);
+    setValue(existing ? String(existing.value) : "");
+    setNote(existing?.note ?? "");
+  };
   return (
     <div className="sheet-shade" onMouseDown={close}>
       <section
@@ -61,7 +77,7 @@ function Recorder({
         >
           <X />
         </button>
-        <p className="eyebrow">{record ? "EDIT METRIC ENTRY" : "LOG METRIC"}</p>
+        <p className="eyebrow">{activeRecord ? "EDIT METRIC ENTRY" : "LOG METRIC"}</p>
         <h2 id="metric-recorder-title">{tracker.name}</h2>
         <LogDatePicker
           selectedDate={selectedDate}
@@ -69,11 +85,9 @@ function Recorder({
           minDate={shiftDateKey(today, -7)}
           maxDate={today}
           existingDates={tracker.recordDates ?? []}
-          onSelect={(date) =>
-            setOccurred(`${date}T${occurred.slice(11) || "12:00"}`)
-          }
+          onSelect={selectDate}
         />
-        {!record && tracker.recordDates?.includes(selectedDate) && (
+        {!activeRecord && tracker.recordDates?.includes(selectedDate) && (
           <p className="log-date-note">
             An entry already exists on this date. Saving will add another.
           </p>
@@ -117,9 +131,9 @@ function Recorder({
           onClick={async () => {
             setBusy(true);
             try {
-              record
+              activeRecord
                 ? await correctMetricRecord(
-                    record,
+                    activeRecord,
                     Number(value),
                     new Date(occurred).toISOString(),
                     note,
@@ -130,6 +144,8 @@ function Recorder({
                     new Date(occurred).toISOString(),
                     note,
                     currency,
+                    null,
+                    selectedDate,
                   );
               saved();
             } catch (reason) {
@@ -143,7 +159,7 @@ function Recorder({
             }
           }}
         >
-          {busy ? "Saving…" : record ? "Save changes" : "Log amount"}
+          {busy ? "Saving…" : activeRecord ? "Save changes" : "Log amount"}
         </button>
       </section>
     </div>
@@ -224,6 +240,7 @@ export default function MetricsModule({
       records: [],
       units: [],
       goalNames: {},
+      timezone: "UTC",
     }),
     [selected, setSelected] = useState<Tracker>(),
     [editing, setEditing] = useState<MetricRecord>(),
@@ -290,7 +307,9 @@ export default function MetricsModule({
       </header>
       {error && <p className="goal-error">{error}</p>}
       <div className="metric-grid">
-        {series.map(({ tracker, records }) => (
+        {series.map(({ tracker, records }) => {
+          const summary = metricSummary(records, tracker.metric_summary_mode, tracker.metric_summary_period);
+          return (
           <article key={tracker.id}>
             <header>
               <span>
@@ -313,13 +332,9 @@ export default function MetricsModule({
             )}
             <div className="metric-latest">
               <b>
-                {records[0] ? displayAmount(records[0], unit(tracker)) : "—"}
+                {summary === null ? "—" : `${summary.toLocaleString()}${unit(tracker) ? ` ${unit(tracker)}` : ""}`}
               </b>
-              <span>
-                {records[0]
-                  ? new Date(records[0].occurred_at).toLocaleString()
-                  : "No entries yet"}
-              </span>
+              <span>{records.length ? tracker.metric_summary_mode === "latest" ? "Latest" : "Current summary" : "No entries yet"}</span>
             </div>
             <div className="metric-history">
               {records.map((record) => (
@@ -338,7 +353,7 @@ export default function MetricsModule({
                       {record.corrected_at && <small>Corrected</small>}
                     </span>
                     <time>
-                      {new Date(record.occurred_at).toLocaleDateString()}
+                      {new Date(record.occurred_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
                     </time>
                   </button>
                   <div className="metric-entry-actions">
@@ -364,7 +379,7 @@ export default function MetricsModule({
               ))}
             </div>
           </article>
-        ))}
+        )})}
         {!series.length && (
           <div className="empty-state">
             <Activity />
@@ -377,6 +392,8 @@ export default function MetricsModule({
         <Recorder
           tracker={selected}
           record={editing}
+          records={data.records.filter((record) => record.tracker_id === selected.id)}
+          timezone={data.timezone}
           unit={unit(selected)}
           currency={currency}
           close={() => {
