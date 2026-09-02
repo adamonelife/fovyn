@@ -1,5 +1,5 @@
-import type{ReactNode}from'react';
-import{CalendarDays,ChevronRight,Search}from'lucide-react';
+import type{ButtonHTMLAttributes,LabelHTMLAttributes,ReactNode}from'react';
+import{CalendarDays,ChevronRight,Search,X}from'lucide-react';
 
 export type LogViewSelection='today'|'yesterday'|'date'|'paused'|'archived';
 export const isDatedLogView=(value:LogViewSelection)=>value==='today'||value==='yesterday'||value==='date';
@@ -15,3 +15,9 @@ export function LogSearch({value,onChange,placeholder='Search what you can log'}
 export function LogSection({title,action,children}:{title:string;action?:ReactNode;children:ReactNode}){return <section className="ui-log-section"><header><h2>{title}</h2>{action}</header>{children}</section>}
 export function LogItemCard({icon,meta,title,detail,action,onClick,children}:{icon:ReactNode;meta?:ReactNode;title:string;detail?:ReactNode;action?:ReactNode;onClick?:()=>void;children?:ReactNode}){return <article className="ui-log-card"><button className="ui-log-card-main" onClick={onClick} disabled={!onClick}><span className="ui-log-icon">{icon}</span><span className="ui-log-copy">{meta&&<small>{meta}</small>}<b>{title}</b>{detail&&<span>{detail}</span>}</span>{action??(onClick&&<ChevronRight/>)}</button>{children}</article>}
 export function LogEmptyState({icon,title,detail}:{icon:ReactNode;title:string;detail?:string}){return <div className="ui-empty">{icon}<h2>{title}</h2>{detail&&<p>{detail}</p>}</div>}
+export function Button({variant='secondary',className='',...props}:ButtonHTMLAttributes<HTMLButtonElement>&{variant?:'primary'|'secondary'|'text'|'danger'}){return <button className={`ui-button ui-button-${variant} ${className}`.trim()} {...props}/>}
+export function IconButton({label,className='',children,...props}:ButtonHTMLAttributes<HTMLButtonElement>&{label:string;children:ReactNode}){return <button aria-label={label} title={label} className={`ui-icon-button ${className}`.trim()} {...props}>{children}</button>}
+export function Card({children,className=''}:{children:ReactNode;className?:string}){return <section className={`ui-card ${className}`.trim()}>{children}</section>}
+export function SectionHeader({title,action}:{title:string;action?:ReactNode}){return <header className="ui-section-header"><h2>{title}</h2>{action}</header>}
+export function Field({children,className='',...props}:LabelHTMLAttributes<HTMLLabelElement>&{children:ReactNode}){return <label className={`ui-field ${className}`.trim()} {...props}>{children}</label>}
+export function Modal({eyebrow,title,close,children,footer,className=''}:{eyebrow:string;title:string;close:()=>void;children:ReactNode;footer?:ReactNode;className?:string}){return <div className="ui-modal-shade" onMouseDown={close}><section className={`ui-modal ${className}`.trim()} role="dialog" aria-modal="true" aria-labelledby="ui-modal-title" onMouseDown={event=>event.stopPropagation()}><header><div><p className="ui-eyebrow">{eyebrow}</p><h2 id="ui-modal-title">{title}</h2></div><IconButton type="button" label="Close" onClick={close}><X/></IconButton></header><div className="ui-modal-body">{children}</div>{footer&&<footer>{footer}</footer>}</section></div>}
