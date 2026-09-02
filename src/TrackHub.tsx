@@ -22,11 +22,13 @@ export default function TrackHub({
   initialView = "all",
   quickLogSignal = 0,
   editTarget,
+  onMakeGoal,
 }: {
   onFirstSetupComplete?: () => Promise<void> | void;
   initialView?: LogView;
   quickLogSignal?: number;
   editTarget?: LogEditTarget;
+  onMakeGoal?: (trackerId: string) => void;
 } = {}) {
   const [view, setView] = useState<LogView>(
     onFirstSetupComplete ? "manage" : (editTarget?.view ?? initialView),
@@ -90,6 +92,7 @@ export default function TrackHub({
         <TrackModule
           onFirstSetupComplete={onFirstSetupComplete}
           onRoutines={() => setView("routines")}
+          onMakeGoal={onMakeGoal}
         />
       </div>
     );

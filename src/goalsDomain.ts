@@ -39,10 +39,12 @@ export function periodStart(period: GoalPeriod, now = new Date(), weekStartsOn =
   return d;
 }
 
-export function aggregateRecords(rule: GoalRule, records: GoalRecord[], now = new Date(), weekStartsOn = 1) {
+export function aggregateRecords(rule: GoalRule, records: GoalRecord[], now = new Date(), weekStartsOn = 1, startsOn?:string, endsOn?:string|null) {
   const start = periodStart(rule.period, now, weekStartsOn);
   const eligible = records
     .filter(record => !record.deleted_at)
+    .filter(record => !startsOn || record.occurred_at.slice(0,10) >= startsOn)
+    .filter(record => !endsOn || record.occurred_at.slice(0,10) <= endsOn)
     .filter(record => !start || new Date(record.occurred_at) >= start)
     .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
   if (!eligible.length) return 0;
@@ -66,8 +68,8 @@ export function progressFor(rule: GoalRule, actual: number) {
   return Math.max(0, Math.min(100, (1 - Math.abs(actual - min) / Math.abs(min)) * 100));
 }
 
-export function goalProgress(rule: GoalRule, records: GoalRecord[], now = new Date(), weekStartsOn = 1) {
-  const actual = aggregateRecords(rule, records, now, weekStartsOn);
+export function goalProgress(rule: GoalRule, records: GoalRecord[], now = new Date(), weekStartsOn = 1, startsOn?:string, endsOn?:string|null) {
+  const actual = aggregateRecords(rule, records, now, weekStartsOn, startsOn, endsOn);
   return { actual, percent: progressFor(rule, actual) };
 }
 

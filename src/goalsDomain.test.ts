@@ -7,6 +7,11 @@ describe('Goal progress', () => {
   it('derives progress from numeric records', () => expect(goalProgress(rule,[{value:155,occurred_at:'2026-08-30T10:00:00Z'}],new Date('2026-08-30T12:00:00Z')).percent).toBeCloseTo(96.875));
   it('recalculates when a corrected value changes', () => expect(goalProgress(rule,[{value:165,occurred_at:'2026-08-30T10:00:00Z'}],new Date('2026-08-30T12:00:00Z')).percent).toBe(100));
   it('keeps old periods out of daily totals', () => expect(aggregateRecords(rule,[{value:155,occurred_at:'2026-08-29T10:00:00Z'}],new Date('2026-08-30T12:00:00Z'))).toBe(0));
+  it('counts existing records from the real Goal start date without inventing earlier progress',()=>{
+    const total={...rule,period:'total' as const};
+    const records=[{value:1,occurred_at:'2026-08-29T10:00:00Z'},{value:1,occurred_at:'2026-08-30T10:00:00Z'},{value:1,occurred_at:'2026-09-01T10:00:00Z'}];
+    expect(aggregateRecords(total,records,new Date('2026-09-02T12:00:00Z'),1,'2026-08-30')).toBe(2);
+  });
   it('supports maximum and range rules mathematically', () => {
     expect(progressFor({...rule,target_operator:'maximum',target_min:2},3)).toBeCloseTo(66.666,2);
     expect(progressFor({...rule,target_operator:'range',target_min:7,target_max:9},8)).toBe(100);

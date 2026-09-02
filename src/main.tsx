@@ -63,6 +63,7 @@ import WorkoutModule from "./WorkoutModule";
 import GoalsModule from "./GoalsModule";
 import SettingsModule from "./SettingsModule";
 import TrackHub, { type LogEditTarget } from "./TrackHub";
+import type { LogView } from "./LogShell";
 import type { HistoryItem } from "./historyRepository";
 import HomeModule from "./HomeModule";
 import HistoryHub from "./HistoryHub";
@@ -1709,8 +1710,9 @@ function ForestLab({ close }: { close: () => void }) {
 
 function App() {
   const [page, setPage] = useState<Page>("Home");
-  const [logView, setLogView] = useState<"all" | "routines">("all");
+  const [logView, setLogView] = useState<LogView>("all");
   const [logEditTarget, setLogEditTarget] = useState<LogEditTarget>();
+  const [goalTrackerId, setGoalTrackerId] = useState("");
   const [quickLogSignal, setQuickLogSignal] = useState(0);
   const [lab, setLab] = useState(false);
   const [forest, setForest] = useState(false);
@@ -1774,10 +1776,14 @@ function App() {
         editTarget={logEditTarget}
         quickLogSignal={quickLogSignal}
         onFirstSetupComplete={onboarding ? finishOnboarding : undefined}
+        onMakeGoal={(trackerId) => { setGoalTrackerId(trackerId); setPage("Goals"); }}
       />
     ) : page === "Goals" ? (
       <GoalsModule
         onFirstSetupComplete={onboarding ? finishOnboarding : undefined}
+        initialTrackerId={goalTrackerId}
+        onInitialTrackerHandled={() => setGoalTrackerId("")}
+        openLog={(module) => { setGoalTrackerId(""); setLogView((module === "medication" ? "recovery" : module === "training" ? "all" : module) as LogView); setPage("Log"); }}
       />
     ) : page === "History" ? (
       <HistoryHub openLog={openHistoryRecord} />
