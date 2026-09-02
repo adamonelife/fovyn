@@ -1,4 +1,202 @@
-import {useEffect,useState} from 'react';import {FileText,Plus,Trash2,X} from 'lucide-react';import {loadNotes,removeNote,saveNote,type Note,type NoteGoal} from './notesRepository';
-const localNow=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
-function Editor({note,goals,close,saved}:{note?:Note;goals:NoteGoal[];close:()=>void;saved:()=>void}){const[title,setTitle]=useState(note?.title??''),[body,setBody]=useState(note?.body??''),[occurred,setOccurred]=useState(note?new Date(new Date(note.occurred_at).getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16):localNow()),[goalIds,setGoalIds]=useState(note?.goalIds??[]),[error,setError]=useState('');return <div className="sheet-shade" onMouseDown={close}><section className="note-editor" onMouseDown={e=>e.stopPropagation()}><button className="sheet-close" onClick={close} aria-label="Close"><X/></button><p className="eyebrow">{note?'CORRECT NOTE':'+ ADD NOTE'}</p><h2>Remember what matters.</h2><label>Title<input autoFocus value={title} onChange={e=>setTitle(e.target.value)}/></label><label>Note<textarea value={body} onChange={e=>setBody(e.target.value)}/></label><label>When<input type="datetime-local" value={occurred} onChange={e=>setOccurred(e.target.value)}/></label><fieldset><legend>Related Goals</legend>{goals.map(goal=><label key={goal.id}><input type="checkbox" checked={goalIds.includes(goal.id)} onChange={()=>setGoalIds(goalIds.includes(goal.id)?goalIds.filter(x=>x!==goal.id):[...goalIds,goal.id])}/>{goal.title}</label>)}</fieldset>{error&&<p className="goal-error">{error}</p>}<button className="save-record" disabled={!title.trim()||!body.trim()} onClick={async()=>{try{await saveNote({title,body,occurredAt:new Date(occurred).toISOString(),goalIds},note);saved()}catch(e){setError(e instanceof Error?e.message:'Unable to save Note')}}}>Save Note</button></section></div>}
-export default function NotesModule({query=''}:{query?:string}){const[notes,setNotes]=useState<Note[]>([]),[goals,setGoals]=useState<NoteGoal[]>([]),[creating,setCreating]=useState(false),[editing,setEditing]=useState<Note>(),[error,setError]=useState('');const load=()=>loadNotes().then(x=>{setNotes(x.notes);setGoals(x.goals)}).catch(e=>setError(e instanceof Error?e.message:'Unable to load Notes'));useEffect(()=>{load()},[]);const term=query.trim().toLowerCase(),visible=notes.filter(note=>`${note.title} ${note.body}`.toLowerCase().includes(term));return <div className="page-wrap"><header className="page-head"><div><p className="eyebrow">NOTES & JOURNAL</p><h1>Notes</h1><p>Linking a note to a Goal does not add to its progress.</p></div><button className="soft-button" onClick={()=>setCreating(true)}><Plus/> Add Note</button></header>{error&&<p className="goal-error">{error}</p>}<div className="notes-list">{visible.map(note=><article key={note.id} onClick={()=>setEditing(note)}><FileText/><div><span>{new Date(note.occurred_at).toLocaleString()}{note.corrected_at?' · corrected':''}</span><h2>{note.title}</h2><p>{note.body}</p>{note.goalIds.length>0&&<small>{note.goalIds.length} related Goal{note.goalIds.length===1?'':'s'}</small>}</div><button onClick={e=>{e.stopPropagation();if(confirm('Remove this Note from your active journal?'))removeNote(note).then(load)}}><Trash2/></button></article>)}{!visible.length&&<div className="empty-state"><FileText/><h2>{term?'No matching Notes':'No Notes yet'}</h2></div>}</div>{(creating||editing)&&<Editor note={editing} goals={goals} close={()=>{setCreating(false);setEditing(undefined)}} saved={()=>{setCreating(false);setEditing(undefined);load()}}/>}</div>}
+import { useEffect, useState } from "react";
+import { FileText, Plus, Trash2, X } from "lucide-react";
+import {
+  loadNotes,
+  removeNote,
+  saveNote,
+  type Note,
+  type NoteGoal,
+} from "./notesRepository";
+const localNow = () =>
+  new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+function Editor({
+  note,
+  goals,
+  close,
+  saved,
+}: {
+  note?: Note;
+  goals: NoteGoal[];
+  close: () => void;
+  saved: () => void;
+}) {
+  const [title, setTitle] = useState(note?.title ?? ""),
+    [body, setBody] = useState(note?.body ?? ""),
+    [occurred, setOccurred] = useState(
+      note
+        ? new Date(
+            new Date(note.occurred_at).getTime() -
+              new Date().getTimezoneOffset() * 60000,
+          )
+            .toISOString()
+            .slice(0, 16)
+        : localNow(),
+    ),
+    [goalIds, setGoalIds] = useState(note?.goalIds ?? []),
+    [error, setError] = useState("");
+  return (
+    <div className="sheet-shade" onMouseDown={close}>
+      <section className="note-editor" onMouseDown={(e) => e.stopPropagation()}>
+        <button className="sheet-close" onClick={close} aria-label="Close">
+          <X />
+        </button>
+        <p className="eyebrow">{note ? "CORRECT NOTE" : "+ ADD NOTE"}</p>
+        <h2>Remember what matters.</h2>
+        <label>
+          Title
+          <input
+            autoFocus
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </label>
+        <label>
+          Note
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} />
+        </label>
+        <label>
+          When
+          <input
+            type="datetime-local"
+            value={occurred}
+            onChange={(e) => setOccurred(e.target.value)}
+          />
+        </label>
+        <fieldset>
+          <legend>Related Goals</legend>
+          {goals.map((goal) => (
+            <label key={goal.id}>
+              <input
+                type="checkbox"
+                checked={goalIds.includes(goal.id)}
+                onChange={() =>
+                  setGoalIds(
+                    goalIds.includes(goal.id)
+                      ? goalIds.filter((x) => x !== goal.id)
+                      : [...goalIds, goal.id],
+                  )
+                }
+              />
+              {goal.title}
+            </label>
+          ))}
+        </fieldset>
+        {error && <p className="goal-error">{error}</p>}
+        <button
+          className="save-record"
+          disabled={!title.trim() || !body.trim()}
+          onClick={async () => {
+            try {
+              await saveNote(
+                {
+                  title,
+                  body,
+                  occurredAt: new Date(occurred).toISOString(),
+                  goalIds,
+                },
+                note,
+              );
+              saved();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Unable to save Note");
+            }
+          }}
+        >
+          Save Note
+        </button>
+      </section>
+    </div>
+  );
+}
+export default function NotesModule({ query = "",initialEntryId }: { query?: string;initialEntryId?:string }) {
+  const [notes, setNotes] = useState<Note[]>([]),
+    [goals, setGoals] = useState<NoteGoal[]>([]),
+    [creating, setCreating] = useState(false),
+    [editing, setEditing] = useState<Note>(),
+    [error, setError] = useState("");
+  const load = () =>
+    loadNotes()
+      .then((x) => {
+        setNotes(x.notes);
+        setGoals(x.goals);
+        if(initialEntryId)setEditing(x.notes.find(note=>note.id===initialEntryId));
+      })
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Unable to load Notes"),
+      );
+  useEffect(() => {
+    load();
+  }, []);
+  const term = query.trim().toLowerCase(),
+    visible = notes.filter((note) =>
+      `${note.title} ${note.body}`.toLowerCase().includes(term),
+    );
+  return (
+    <div className="page-wrap">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">NOTES & JOURNAL</p>
+          <h1>Notes</h1>
+          <p>Linking a note to a Goal does not add to its progress.</p>
+        </div>
+        <button className="soft-button" onClick={() => setCreating(true)}>
+          <Plus /> Add Note
+        </button>
+      </header>
+      {error && <p className="goal-error">{error}</p>}
+      <div className="notes-list">
+        {visible.map((note) => (
+          <article key={note.id} onClick={() => setEditing(note)}>
+            <FileText />
+            <div>
+              <span>
+                {new Date(note.occurred_at).toLocaleString()}
+                {note.corrected_at ? " · corrected" : ""}
+              </span>
+              <h2>{note.title}</h2>
+              <p>{note.body}</p>
+              {note.goalIds.length > 0 && (
+                <small>
+                  {note.goalIds.length} related Goal
+                  {note.goalIds.length === 1 ? "" : "s"}
+                </small>
+              )}
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm("Remove this Note from your active journal?"))
+                  removeNote(note).then(load);
+              }}
+            >
+              <Trash2 />
+            </button>
+          </article>
+        ))}
+        {!visible.length && (
+          <div className="empty-state">
+            <FileText />
+            <h2>{term ? "No matching Notes" : "No Notes yet"}</h2>
+          </div>
+        )}
+      </div>
+      {(creating || editing) && (
+        <Editor
+          note={editing}
+          goals={goals}
+          close={() => {
+            setCreating(false);
+            setEditing(undefined);
+          }}
+          saved={() => {
+            setCreating(false);
+            setEditing(undefined);
+            load();
+          }}
+        />
+      )}
+    </div>
+  );
+}

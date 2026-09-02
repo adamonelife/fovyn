@@ -1,29 +1,342 @@
-import {useEffect,useRef,useState,type FormEvent} from 'react';
-import {Moon,Plus,Trash2,X} from 'lucide-react';
-import {loadSleep,removeSleep,saveSleep,sleepHours,type SleepData,type SleepEntry,type SleepQuality,type WakingEnergy} from './sleepRepository';
-import {formatDisplayLabel} from './displayLabels';
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Moon, Plus, Trash2, X } from "lucide-react";
+import {
+  loadSleep,
+  removeSleep,
+  saveSleep,
+  sleepHours,
+  type SleepData,
+  type SleepEntry,
+  type SleepQuality,
+  type WakingEnergy,
+} from "./sleepRepository";
+import { formatDisplayLabel } from "./displayLabels";
 
-const local=(date:Date)=>new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
-const defaults=()=>{const wake=new Date(),bed=new Date(wake.getTime()-8*3600000);return{bed:local(bed),wake:local(wake)}};
+const local = (date: Date) =>
+  new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+const defaults = () => {
+  const wake = new Date(),
+    bed = new Date(wake.getTime() - 8 * 3600000);
+  return { bed: local(bed), wake: local(wake) };
+};
 
-function Choices<T extends string>({values,value,choose,label}:{values:T[];value:T;choose:(x:T)=>void;label:string}){
-  return <div className="sleep-choices" role="group" aria-label={label}>{values.map(x=><button type="button" aria-pressed={value===x} className={value===x?'active':''} onClick={()=>choose(x)} key={x}>{formatDisplayLabel(x)}</button>)}</div>;
+function Choices<T extends string>({
+  values,
+  value,
+  choose,
+  label,
+}: {
+  values: T[];
+  value: T;
+  choose: (x: T) => void;
+  label: string;
+}) {
+  return (
+    <div className="sleep-choices" role="group" aria-label={label}>
+      {values.map((x) => (
+        <button
+          type="button"
+          aria-pressed={value === x}
+          className={value === x ? "active" : ""}
+          onClick={() => choose(x)}
+          key={x}
+        >
+          {formatDisplayLabel(x)}
+        </button>
+      ))}
+    </div>
+  );
 }
 
-function Editor({entry,goals,close,saved}:{entry?:SleepEntry;goals:SleepData['goals'];close:()=>void;saved:()=>void}){
-  const initial=defaults(),bedInput=useRef<HTMLInputElement>(null),[bed,setBed]=useState(entry?local(new Date(entry.bedtime)):initial.bed),[wake,setWake]=useState(entry?local(new Date(entry.wake_time)):initial.wake),[quality,setQuality]=useState<SleepQuality>(entry?.quality??'good'),[energy,setEnergy]=useState<WakingEnergy>(entry?.waking_energy??'medium'),[notes,setNotes]=useState(entry?.notes??''),[goalIds,setGoalIds]=useState(entry?.goalIds??[]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
-  const valid=bed<wake;
-  useEffect(()=>{bedInput.current?.focus();const escape=(event:KeyboardEvent)=>{if(event.key==='Escape')close()};document.addEventListener('keydown',escape);return()=>document.removeEventListener('keydown',escape)},[close]);
-  const clear=()=>{const next=defaults();setBed(next.bed);setWake(next.wake);setQuality('good');setEnergy('medium');setNotes('');setGoalIds([]);setError('');bedInput.current?.focus()};
-  const submit=async(event:FormEvent)=>{event.preventDefault();if(!valid||busy)return;setBusy(true);setError('');try{await saveSleep({bedtime:new Date(bed).toISOString(),wakeTime:new Date(wake).toISOString(),quality,wakingEnergy:energy,notes,goalIds},entry?.id);saved()}catch(e){setError(e instanceof Error?e.message:'Unable to save sleep')}finally{setBusy(false)}};
-  return <div className="sheet-shade sleep-shade" onMouseDown={close}><form className="sleep-editor" role="dialog" aria-modal="true" aria-labelledby="sleep-title" onMouseDown={e=>e.stopPropagation()} onSubmit={submit}><button type="button" className="sleep-close" onClick={close} aria-label="Close sleep logger"><X/></button><div className="sleep-editor-body"><p className="eyebrow">{entry?'CORRECT':'LOG'} SLEEP</p><h2 id="sleep-title">How did you sleep?</h2><div className="sleep-times"><label>Bedtime<input ref={bedInput} type="datetime-local" value={bed} onChange={e=>setBed(e.target.value)}/></label><label>Wake time<input type="datetime-local" value={wake} onChange={e=>setWake(e.target.value)}/></label></div><label>Quality<Choices label="Sleep quality" values={['poor','fair','good','great']} value={quality} choose={setQuality}/></label><label>Waking energy<Choices label="Waking energy" values={['low','medium','high']} value={energy} choose={setEnergy}/></label><label>Notes (optional)<textarea rows={3} placeholder="Add a note…" value={notes} onChange={e=>setNotes(e.target.value)}/></label>{goals.length>0&&<fieldset><legend>Related Goals</legend>{goals.map(g=><label className="sleep-goal" key={g.id}><input type="checkbox" checked={goalIds.includes(g.id)} onChange={()=>setGoalIds(goalIds.includes(g.id)?goalIds.filter(x=>x!==g.id):[...goalIds,g.id])}/><span>{g.title}</span></label>)}</fieldset>}{!valid&&<p className="goal-error">Wake time must be after bedtime.</p>}{error&&<p className="goal-error">{error}</p>}</div><footer className="sleep-actions"><button type="button" className="sleep-clear" onClick={clear}>Clear</button><button type="submit" className="sleep-save" disabled={!valid||busy}>{busy?'Saving…':'Save'}</button></footer></form></div>;
+function Editor({
+  entry,
+  goals,
+  close,
+  saved,
+}: {
+  entry?: SleepEntry;
+  goals: SleepData["goals"];
+  close: () => void;
+  saved: () => void;
+}) {
+  const initial = defaults(),
+    bedInput = useRef<HTMLInputElement>(null),
+    [bed, setBed] = useState(
+      entry ? local(new Date(entry.bedtime)) : initial.bed,
+    ),
+    [wake, setWake] = useState(
+      entry ? local(new Date(entry.wake_time)) : initial.wake,
+    ),
+    [quality, setQuality] = useState<SleepQuality>(entry?.quality ?? "good"),
+    [energy, setEnergy] = useState<WakingEnergy>(
+      entry?.waking_energy ?? "medium",
+    ),
+    [notes, setNotes] = useState(entry?.notes ?? ""),
+    [goalIds, setGoalIds] = useState(entry?.goalIds ?? []),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const valid = bed < wake;
+  useEffect(() => {
+    bedInput.current?.focus();
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [close]);
+  const clear = () => {
+    const next = defaults();
+    setBed(next.bed);
+    setWake(next.wake);
+    setQuality("good");
+    setEnergy("medium");
+    setNotes("");
+    setGoalIds([]);
+    setError("");
+    bedInput.current?.focus();
+  };
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!valid || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await saveSleep(
+        {
+          bedtime: new Date(bed).toISOString(),
+          wakeTime: new Date(wake).toISOString(),
+          quality,
+          wakingEnergy: energy,
+          notes,
+          goalIds,
+        },
+        entry?.id,
+      );
+      saved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to save sleep");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="sheet-shade sleep-shade" onMouseDown={close}>
+      <form
+        className="sleep-editor"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sleep-title"
+        onMouseDown={(e) => e.stopPropagation()}
+        onSubmit={submit}
+      >
+        <button
+          type="button"
+          className="sleep-close"
+          onClick={close}
+          aria-label="Close sleep logger"
+        >
+          <X />
+        </button>
+        <div className="sleep-editor-body">
+          <p className="eyebrow">{entry ? "CORRECT" : "LOG"} SLEEP</p>
+          <h2 id="sleep-title">How did you sleep?</h2>
+          <div className="sleep-times">
+            <label>
+              Bedtime
+              <input
+                ref={bedInput}
+                type="datetime-local"
+                value={bed}
+                onChange={(e) => setBed(e.target.value)}
+              />
+            </label>
+            <label>
+              Wake time
+              <input
+                type="datetime-local"
+                value={wake}
+                onChange={(e) => setWake(e.target.value)}
+              />
+            </label>
+          </div>
+          <label>
+            Quality
+            <Choices
+              label="Sleep quality"
+              values={["poor", "fair", "good", "great"]}
+              value={quality}
+              choose={setQuality}
+            />
+          </label>
+          <label>
+            Waking energy
+            <Choices
+              label="Waking energy"
+              values={["low", "medium", "high"]}
+              value={energy}
+              choose={setEnergy}
+            />
+          </label>
+          <label>
+            Notes (optional)
+            <textarea
+              rows={3}
+              placeholder="Add a note…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </label>
+          {goals.length > 0 && (
+            <fieldset>
+              <legend>Related Goals</legend>
+              {goals.map((g) => (
+                <label className="sleep-goal" key={g.id}>
+                  <input
+                    type="checkbox"
+                    checked={goalIds.includes(g.id)}
+                    onChange={() =>
+                      setGoalIds(
+                        goalIds.includes(g.id)
+                          ? goalIds.filter((x) => x !== g.id)
+                          : [...goalIds, g.id],
+                      )
+                    }
+                  />
+                  <span>{g.title}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+          {!valid && (
+            <p className="goal-error">Wake time must be after bedtime.</p>
+          )}
+          {error && <p className="goal-error">{error}</p>}
+        </div>
+        <footer className="sleep-actions">
+          <button type="button" className="sleep-clear" onClick={clear}>
+            Clear
+          </button>
+          <button
+            type="submit"
+            className="sleep-save"
+            disabled={!valid || busy}
+          >
+            {busy ? "Saving…" : "Save"}
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
 }
 
-export default function SleepModule({query=''}:{query?:string}){
-  const[data,setData]=useState<SleepData>({entries:[],goals:[]}),[editing,setEditing]=useState<SleepEntry|null|undefined>(undefined),[loading,setLoading]=useState(true),[error,setError]=useState('');
-  const load=async()=>{setLoading(true);try{setData(await loadSleep())}catch(e){setError(e instanceof Error?e.message:'Unable to load Sleep')}finally{setLoading(false)}};
-  useEffect(()=>{load()},[]);
-  if(loading)return <div className="page-wrap tracker-loading">Loading Sleep…</div>;
-  const term=query.trim().toLowerCase(),entries=data.entries.filter(entry=>`${entry.quality} ${entry.waking_energy} ${entry.notes??''}`.toLowerCase().includes(term));
-  return <div className="page-wrap sleep-v1"><header className="page-head"><div><p className="eyebrow">SLEEP</p><h1>Sleep</h1></div><button className="soft-button" onClick={()=>setEditing(null)}><Plus/> Log sleep</button></header>{error&&<p className="goal-error">{error}</p>}<div className="sleep-list">{entries.map(e=><article key={e.id}><button className="sleep-main" onClick={()=>setEditing(e)}><span><Moon/></span><div><h2>{sleepHours(e)} hours</h2><p>{formatDisplayLabel(e.quality)} quality · {formatDisplayLabel(e.waking_energy)} waking energy{e.corrected_at?' · corrected':''}</p><small>{new Date(e.bedtime).toLocaleString()} → {new Date(e.wake_time).toLocaleString()}</small>{e.notes&&<blockquote>{e.notes}</blockquote>}</div></button><button className="sleep-remove" aria-label="Remove sleep entry" onClick={async()=>{if(confirm('Remove this sleep entry from History and Goal progress?')){await removeSleep(e.id);load()}}}><Trash2/></button></article>)}{!entries.length&&<div className="empty-state"><Moon/><h2>{term?'No matching Sleep entries':'No sleep recorded yet'}</h2></div>}</div>{editing!==undefined&&<Editor entry={editing??undefined} goals={data.goals} close={()=>setEditing(undefined)} saved={()=>{setEditing(undefined);load()}}/>}</div>;
+export default function SleepModule({
+  query = "",
+  initialEntryId,
+}: {
+  query?: string;
+  initialEntryId?: string;
+}) {
+  const [data, setData] = useState<SleepData>({ entries: [], goals: [] }),
+    [editing, setEditing] = useState<SleepEntry | null | undefined>(undefined),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState("");
+  const load = async () => {
+    setLoading(true);
+    try {
+      const next = await loadSleep();
+      setData(next);
+      if (initialEntryId)
+        setEditing(next.entries.find((entry) => entry.id === initialEntryId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load Sleep");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    load();
+  }, []);
+  if (loading)
+    return <div className="page-wrap tracker-loading">Loading Sleep…</div>;
+  const term = query.trim().toLowerCase(),
+    entries = data.entries.filter((entry) =>
+      `${entry.quality} ${entry.waking_energy} ${entry.notes ?? ""}`
+        .toLowerCase()
+        .includes(term),
+    );
+  return (
+    <div className="page-wrap sleep-v1">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">SLEEP</p>
+          <h1>Sleep</h1>
+        </div>
+        <button className="soft-button" onClick={() => setEditing(null)}>
+          <Plus /> Log sleep
+        </button>
+      </header>
+      {error && <p className="goal-error">{error}</p>}
+      <div className="sleep-list">
+        {entries.map((e) => (
+          <article key={e.id}>
+            <button className="sleep-main" onClick={() => setEditing(e)}>
+              <span>
+                <Moon />
+              </span>
+              <div>
+                <h2>{sleepHours(e)} hours</h2>
+                <p>
+                  {formatDisplayLabel(e.quality)} quality ·{" "}
+                  {formatDisplayLabel(e.waking_energy)} waking energy
+                  {e.corrected_at ? " · corrected" : ""}
+                </p>
+                <small>
+                  {new Date(e.bedtime).toLocaleString()} →{" "}
+                  {new Date(e.wake_time).toLocaleString()}
+                </small>
+                {e.notes && <blockquote>{e.notes}</blockquote>}
+              </div>
+            </button>
+            <button
+              className="sleep-remove"
+              aria-label="Remove sleep entry"
+              onClick={async () => {
+                if (
+                  confirm(
+                    "Remove this sleep entry from History and Goal progress?",
+                  )
+                ) {
+                  await removeSleep(e.id);
+                  load();
+                }
+              }}
+            >
+              <Trash2 />
+            </button>
+          </article>
+        ))}
+        {!entries.length && (
+          <div className="empty-state">
+            <Moon />
+            <h2>
+              {term ? "No matching Sleep entries" : "No sleep recorded yet"}
+            </h2>
+          </div>
+        )}
+      </div>
+      {editing !== undefined && (
+        <Editor
+          entry={editing ?? undefined}
+          goals={data.goals}
+          close={() => setEditing(undefined)}
+          saved={() => {
+            setEditing(undefined);
+            load();
+          }}
+        />
+      )}
+    </div>
+  );
 }

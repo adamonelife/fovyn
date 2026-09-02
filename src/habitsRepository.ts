@@ -1,7 +1,241 @@
-import {supabase} from './supabase';import {goalOwner,type AreaRow,type SubcategoryRow} from './goalsRepository';import{fovynDateKey,shiftDateKey}from'./fovynDate';import type{FunctionalIconKey}from'./functionalIcons';
-const fail=(label:string,error:{message:string}|null)=>{if(error)throw new Error(`${label}: ${error.message}`)};export type HabitStatus='complete'|'failed'|'skipped';export type Habit={id:string;name:string;icon_key:FunctionalIconKey;description:string|null;direction:'build'|'avoid';tracking_type:'check'|'count'|'duration';target_value:number;unit:string|null;active:boolean;archived_at:string|null;start_date:string;ends_on:string|null;negotiability:'negotiable'|'non_negotiable';area_key:string;subcategory_id:string|null;schedule:HabitSchedule|null;today:HabitEntry|null;recordDates:string[]};export type HabitSchedule={id:string;frequency_type:'daily'|'specific_days'|'times_per_week';days_of_week:number[];target_count:number;effective_from:string;effective_to:string|null};export type HabitEntry={id:string;status:HabitStatus;value:number|null;note:string|null;entry_date:string};export type HabitInput={name:string;iconKey?:FunctionalIconKey;description?:string;direction:Habit['direction'];trackingType:Habit['tracking_type'];targetValue:number;unit?:string;negotiability:Habit['negotiability'];areaKey:string;subcategoryId?:string;frequency:HabitSchedule['frequency_type'];days:number[];timesPerWeek:number;endsOn?:string};
-export async function loadHabits(selectedDate?:string){const user=await goalOwner(),profile=await supabase.from('profiles').select('timezone').eq('id',user.id).single();fail('Habit timezone',profile.error);const timezone=profile.data?.timezone||'UTC',today=fovynDateKey(timezone),date=selectedDate??today;const[h,a,s]=await Promise.all([supabase.from('habits').select('*').eq('owner_id',user.id).order('created_at'),supabase.from('areas').select('*').order('position'),supabase.from('subcategories').select('id,area_key,name,archived_at').is('archived_at',null).order('name')]);fail('Habits',h.error);fail('Areas',a.error);fail('Subcategories',s.error);const ids=(h.data??[]).map(x=>x.id);const[sc,en,history]=ids.length?await Promise.all([supabase.from('habit_schedules').select('*').in('habit_id',ids).lte('effective_from',date).or(`effective_to.is.null,effective_to.gte.${date}`),supabase.from('habit_entries').select('id,habit_id,status,value,note,entry_date').in('habit_id',ids).eq('entry_date',date),supabase.from('habit_entries').select('habit_id,entry_date').in('habit_id',ids).gte('entry_date',shiftDateKey(today,-7)).lte('entry_date',today)]):[{data:[],error:null},{data:[],error:null},{data:[],error:null}];fail('Habit schedules',sc.error);fail('Habit entries',en.error);fail('Habit calendar',history.error);return{habits:(h.data??[]).map(x=>({...x,schedule:(sc.data??[]).find(y=>y.habit_id===x.id)??null,today:(en.data??[]).find(y=>y.habit_id===x.id)??null,recordDates:(history.data??[]).filter(y=>y.habit_id===x.id).map(y=>y.entry_date)})) as Habit[],areas:(a.data??[]) as AreaRow[],subcategories:(s.data??[]) as SubcategoryRow[],timezone,date}}
-export async function createHabit(input:HabitInput){const user=await goalOwner();const row=await supabase.from('habits').insert({owner_id:user.id,name:input.name.trim(),icon_key:input.iconKey??'habit',description:input.description?.trim()||null,direction:input.direction,tracking_type:input.trackingType,target_value:input.targetValue,unit:input.unit?.trim()||null,negotiability:input.negotiability,area_key:input.areaKey,subcategory_id:input.subcategoryId||null,ends_on:input.endsOn||null}).select('id').single();fail('Create habit',row.error);if(!row.data)throw new Error('Habit was not created.');try{fail('Create schedule',(await supabase.from('habit_schedules').insert({habit_id:row.data.id,owner_id:user.id,frequency_type:input.frequency,days_of_week:input.frequency==='specific_days'?input.days:[],target_count:input.frequency==='times_per_week'?input.timesPerWeek:1})).error)}catch(e){await supabase.from('habits').delete().eq('id',row.data.id);throw e}return row.data.id}
-export async function recordHabit(habit:Habit,status:HabitStatus,value:number|null,note:string,date:string){const user=await goalOwner();const payload={habit_id:habit.id,owner_id:user.id,entry_date:date,status,value,target_snapshot:habit.target_value,note:note.trim()||null,schedule_id:habit.schedule?.id??null,updated_at:new Date().toISOString()};fail('Record habit',(await supabase.from('habit_entries').upsert(payload,{onConflict:'habit_id,entry_date'})).error)}
-export async function undoHabit(habit:Habit){if(!habit.today)return;const user=await goalOwner();fail('Undo habit',(await supabase.from('habit_entries').delete().eq('id',habit.today.id).eq('owner_id',user.id)).error)}
-export async function setHabitLifecycle(habit:Habit,state:'active'|'paused'|'archived'){const user=await goalOwner();fail('Update habit',(await supabase.from('habits').update({active:state==='active',archived_at:state==='archived'?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq('id',habit.id).eq('owner_id',user.id)).error)}
+import { supabase } from "./supabase";
+import {
+  goalOwner,
+  type AreaRow,
+  type SubcategoryRow,
+} from "./goalsRepository";
+import { fovynDateKey, shiftDateKey } from "./fovynDate";
+import type { FunctionalIconKey } from "./functionalIcons";
+const fail = (label: string, error: { message: string } | null) => {
+  if (error) throw new Error(`${label}: ${error.message}`);
+};
+export type HabitStatus = "complete" | "failed" | "skipped";
+export type Habit = {
+  id: string;
+  name: string;
+  icon_key: FunctionalIconKey;
+  description: string | null;
+  direction: "build" | "avoid";
+  tracking_type: "check" | "count" | "duration";
+  target_value: number;
+  unit: string | null;
+  active: boolean;
+  archived_at: string | null;
+  start_date: string;
+  ends_on: string | null;
+  negotiability: "negotiable" | "non_negotiable";
+  area_key: string;
+  subcategory_id: string | null;
+  schedule: HabitSchedule | null;
+  today: HabitEntry | null;
+  recordDates: string[];
+};
+export type HabitSchedule = {
+  id: string;
+  frequency_type: "daily" | "specific_days" | "times_per_week";
+  days_of_week: number[];
+  target_count: number;
+  effective_from: string;
+  effective_to: string | null;
+};
+export type HabitEntry = {
+  id: string;
+  status: HabitStatus;
+  value: number | null;
+  note: string | null;
+  entry_date: string;
+};
+export type HabitInput = {
+  name: string;
+  iconKey?: FunctionalIconKey;
+  description?: string;
+  direction: Habit["direction"];
+  trackingType: Habit["tracking_type"];
+  targetValue: number;
+  unit?: string;
+  negotiability: Habit["negotiability"];
+  areaKey: string;
+  subcategoryId?: string;
+  frequency: HabitSchedule["frequency_type"];
+  days: number[];
+  timesPerWeek: number;
+  endsOn?: string;
+};
+export async function loadHabits(selectedDate?: string) {
+  const user = await goalOwner(),
+    profile = await supabase
+      .from("profiles")
+      .select("timezone")
+      .eq("id", user.id)
+      .single();
+  fail("Habit timezone", profile.error);
+  const timezone = profile.data?.timezone || "UTC",
+    today = fovynDateKey(timezone),
+    date = selectedDate ?? today;
+  const [h, a, s] = await Promise.all([
+    supabase
+      .from("habits")
+      .select("*")
+      .eq("owner_id", user.id)
+      .order("created_at"),
+    supabase.from("areas").select("*").order("position"),
+    supabase
+      .from("subcategories")
+      .select("id,area_key,name,archived_at")
+      .is("archived_at", null)
+      .order("name"),
+  ]);
+  fail("Habits", h.error);
+  fail("Areas", a.error);
+  fail("Subcategories", s.error);
+  const ids = (h.data ?? []).map((x) => x.id);
+  const [sc, en, history] = ids.length
+    ? await Promise.all([
+        supabase
+          .from("habit_schedules")
+          .select("*")
+          .in("habit_id", ids)
+          .lte("effective_from", date)
+          .or(`effective_to.is.null,effective_to.gte.${date}`),
+        supabase
+          .from("habit_entries")
+          .select("id,habit_id,status,value,note,entry_date")
+          .in("habit_id", ids)
+          .eq("entry_date", date),
+        supabase
+          .from("habit_entries")
+          .select("habit_id,entry_date")
+          .in("habit_id", ids)
+          .gte("entry_date", shiftDateKey(today, -7))
+          .lte("entry_date", today),
+      ])
+    : [
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+      ];
+  fail("Habit schedules", sc.error);
+  fail("Habit entries", en.error);
+  fail("Habit calendar", history.error);
+  return {
+    habits: (h.data ?? []).map((x) => ({
+      ...x,
+      schedule: (sc.data ?? []).find((y) => y.habit_id === x.id) ?? null,
+      today: (en.data ?? []).find((y) => y.habit_id === x.id) ?? null,
+      recordDates: (history.data ?? [])
+        .filter((y) => y.habit_id === x.id)
+        .map((y) => y.entry_date),
+    })) as Habit[],
+    areas: (a.data ?? []) as AreaRow[],
+    subcategories: (s.data ?? []) as SubcategoryRow[],
+    timezone,
+    today,
+    date,
+  };
+}
+export async function createHabit(input: HabitInput) {
+  const user = await goalOwner();
+  const row = await supabase
+    .from("habits")
+    .insert({
+      owner_id: user.id,
+      name: input.name.trim(),
+      icon_key: input.iconKey ?? "habit",
+      description: input.description?.trim() || null,
+      direction: input.direction,
+      tracking_type: input.trackingType,
+      target_value: input.targetValue,
+      unit: input.unit?.trim() || null,
+      negotiability: input.negotiability,
+      area_key: input.areaKey,
+      subcategory_id: input.subcategoryId || null,
+      ends_on: input.endsOn || null,
+    })
+    .select("id")
+    .single();
+  fail("Create habit", row.error);
+  if (!row.data) throw new Error("Habit was not created.");
+  try {
+    fail(
+      "Create schedule",
+      (
+        await supabase
+          .from("habit_schedules")
+          .insert({
+            habit_id: row.data.id,
+            owner_id: user.id,
+            frequency_type: input.frequency,
+            days_of_week: input.frequency === "specific_days" ? input.days : [],
+            target_count:
+              input.frequency === "times_per_week" ? input.timesPerWeek : 1,
+          })
+      ).error,
+    );
+  } catch (e) {
+    await supabase.from("habits").delete().eq("id", row.data.id);
+    throw e;
+  }
+  return row.data.id;
+}
+export async function recordHabit(
+  habit: Habit,
+  status: HabitStatus,
+  value: number | null,
+  note: string,
+  date: string,
+) {
+  const user = await goalOwner();
+  const payload = {
+    habit_id: habit.id,
+    owner_id: user.id,
+    entry_date: date,
+    status,
+    value,
+    target_snapshot: habit.target_value,
+    note: note.trim() || null,
+    schedule_id: habit.schedule?.id ?? null,
+    updated_at: new Date().toISOString(),
+  };
+  fail(
+    "Record habit",
+    (
+      await supabase
+        .from("habit_entries")
+        .upsert(payload, { onConflict: "habit_id,entry_date" })
+    ).error,
+  );
+}
+export async function undoHabit(habit: Habit) {
+  if (!habit.today) return;
+  const user = await goalOwner();
+  fail(
+    "Undo habit",
+    (
+      await supabase
+        .from("habit_entries")
+        .delete()
+        .eq("id", habit.today.id)
+        .eq("owner_id", user.id)
+    ).error,
+  );
+}
+export async function setHabitLifecycle(
+  habit: Habit,
+  state: "active" | "paused" | "archived",
+) {
+  const user = await goalOwner();
+  fail(
+    "Update habit",
+    (
+      await supabase
+        .from("habits")
+        .update({
+          active: state === "active",
+          archived_at: state === "archived" ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", habit.id)
+        .eq("owner_id", user.id)
+    ).error,
+  );
+}

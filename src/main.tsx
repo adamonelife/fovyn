@@ -1,157 +1,1866 @@
 // @ts-nocheck
-import React, {useEffect, useState} from 'react';
-import {createRoot} from 'react-dom/client';
-import {Home, Activity, Target, History, UserRound, Plus, Leaf, ChevronRight, FlaskConical, X, Volume2, RotateCcw, Check, Bell, ShieldCheck, Accessibility, MapPin, Palette, Moon, Sun, MoreHorizontal, Flame, Settings2, CalendarDays, Layers3, Download, Search} from 'lucide-react';
-import './styles.css';
-import './extra.css';
-import './track.css';
-import './habits.css';
-import './training.css';
-import './exercise-library.css';
-import './workout.css';
-import './workout-extra.css';
-import './mobile-training.css';
-import './goals-v1.css';
-import './settings.css';
-import './track-manager.css';
-import './habits-v1.css';
-import './metrics-v1.css';
-import './home.css';
-import './auth.css';
-import './clearing.css';
-import './groves.css';
-import './all-log.css';
-import './notes.css';
-import './sleep.css';
-import './activity.css';
-import './nutrition.css';
-import './money.css';
-import './hobbies.css';
-import './routines.css';
-import './universal-log.css';
-import './ui.css';
-import './history-management.css';
-import WorkoutModule from './WorkoutModule';
-import GoalsModule from './GoalsModule';
-import SettingsModule from './SettingsModule';
-import TrackHub from './TrackHub';
-import HomeModule from './HomeModule';
-import HistoryHub from './HistoryHub';
-import SearchOverlayLive from './SearchOverlay';
-import AuthHome from './AuthHome';
-import {supabase} from './supabase';
-import {completeOnboarding} from './homeRepository';
-import {Goal, sampleContributions, sampleGoals, sampleRuleHistory} from './domain';
-import {deriveEnvironment, ForestState} from './forestEngine';
-import {ModuleDefinition, modules, starterRecords, TrackingRecord} from './modules';
-import {exportPayload, goalSets, reviews} from './planning';
+import React, { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  Home,
+  Activity,
+  Target,
+  History,
+  UserRound,
+  Plus,
+  Leaf,
+  ChevronRight,
+  FlaskConical,
+  X,
+  Volume2,
+  RotateCcw,
+  Check,
+  Bell,
+  ShieldCheck,
+  Accessibility,
+  MapPin,
+  Palette,
+  Moon,
+  Sun,
+  MoreHorizontal,
+  Flame,
+  Settings2,
+  CalendarDays,
+  Layers3,
+  Download,
+  Search,
+} from "lucide-react";
+import "./styles.css";
+import "./extra.css";
+import "./track.css";
+import "./habits.css";
+import "./training.css";
+import "./exercise-library.css";
+import "./workout.css";
+import "./workout-extra.css";
+import "./mobile-training.css";
+import "./goals-v1.css";
+import "./settings.css";
+import "./track-manager.css";
+import "./habits-v1.css";
+import "./metrics-v1.css";
+import "./home.css";
+import "./auth.css";
+import "./clearing.css";
+import "./groves.css";
+import "./all-log.css";
+import "./notes.css";
+import "./sleep.css";
+import "./activity.css";
+import "./nutrition.css";
+import "./money.css";
+import "./hobbies.css";
+import "./routines.css";
+import "./universal-log.css";
+import "./ui.css";
+import "./history-management.css";
+import WorkoutModule from "./WorkoutModule";
+import GoalsModule from "./GoalsModule";
+import SettingsModule from "./SettingsModule";
+import TrackHub, { type LogEditTarget } from "./TrackHub";
+import type { HistoryItem } from "./historyRepository";
+import HomeModule from "./HomeModule";
+import HistoryHub from "./HistoryHub";
+import SearchOverlayLive from "./SearchOverlay";
+import AuthHome from "./AuthHome";
+import { supabase } from "./supabase";
+import { completeOnboarding } from "./homeRepository";
+import {
+  Goal,
+  sampleContributions,
+  sampleGoals,
+  sampleRuleHistory,
+} from "./domain";
+import { deriveEnvironment, ForestState } from "./forestEngine";
+import {
+  ModuleDefinition,
+  modules,
+  starterRecords,
+  TrackingRecord,
+} from "./modules";
+import { exportPayload, goalSets, reviews } from "./planning";
 
-type Page = 'Home'|'Log'|'Goals'|'History'|'Account';
-const nav: {name:Page, icon: typeof Home}[] = [
-  {name:'Home',icon:Home},{name:'Log',icon:Activity},{name:'Goals',icon:Target},{name:'History',icon:History},{name:'Account',icon:UserRound}
+type Page = "Home" | "Log" | "Goals" | "History" | "Account";
+const nav: { name: Page; icon: typeof Home }[] = [
+  { name: "Home", icon: Home },
+  { name: "Log", icon: Activity },
+  { name: "Goals", icon: Target },
+  { name: "History", icon: History },
+  { name: "Account", icon: UserRound },
 ];
 
-function Mark(){return <div className="mark" aria-label="Fovyn"><img src="/brand/forbair-mark.png" alt="Fovyn growing F"/></div>}
-
-function ForestWindow({openLab}:{openLab:()=>void}){
-  return <section className="forest-window">
-    <div className="sun"/><div className="hill h1"/><div className="hill h2"/>
-    <div className="tree t1"><b/><i/></div><div className="tree t2"><b/><i/></div><div className="tree t3"><b/><i/></div>
-    <div className="forest-copy"><span>MY FOREST</span><h2>A quiet morning in Health</h2><p>Five trees are growing steadily.</p></div>
-    <button className="enter" onClick={openLab}>Enter forest <ChevronRight size={18}/></button>
-  </section>
+function Mark() {
+  return (
+    <div className="mark" aria-label="Fovyn">
+      <img src="/brand/forbair-mark.png" alt="Fovyn growing F" />
+    </div>
+  );
 }
 
-function DailyRoundUp({close}:{close:()=>void}){const [day,setDay]=useState('Good');const [note,setNote]=useState('');return <div className="sheet-shade" onMouseDown={close}><section className="roundup-sheet" onMouseDown={e=>e.stopPropagation()}><button className="sheet-close" onClick={close} aria-label="Close"><X/></button><p className="eyebrow">DAILY ROUND-UP</p><h2>How did today feel?</h2><p>A short reflection closes the day. It does not grade your worth.</p><div className="day-options">{['Hard','OK','Good','Great'].map(x=><button className={day===x?'active':''} onClick={()=>setDay(x)} key={x}>{x}</button>)}</div><label>Anything worth remembering?<textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Optional note…"/></label><div className="roundup-summary"><Check/><span><b>Today is a Day Present</b><small>Your meaningful activity has already counted.</small></span></div><button className="save-record" onClick={close}>Confirm {day}</button></section></div>}
-
-function HomePage({openForest,openLog}:{openForest:()=>void;openLog:()=>void}){const [roundup,setRoundup]=useState(false);
-  return <><header className="top"><div><p className="eyebrow">HOME · TODAY</p><h1>Grow More Good Days.</h1></div><button className="soft-button" onClick={openLog}><Plus/> Log</button></header><section className="climate-strip"><span>CURRENT CLIMATE</span><b>Normal</b><small>Adjust in Account when life changes.</small></section>
-  <ForestWindow openLab={openForest}/>
-  <div className="section-title"><div><p className="eyebrow">TODAY</p><h2>Small steps, clearly seen.</h2></div><button className="round" onClick={()=>setRoundup(true)}>Daily round-up</button></div>
-  <div className="module-grid">
-    <article className="module"><div className="module-icon lime"><Activity size={21}/></div><div><span>HABITS</span><h3>3 of 5 complete</h3><p>Two gentle check-ins remain</p></div><div className="progress"><i style={{width:'60%'}}/></div><ChevronRight className="arrow" size={19}/></article>
-    <article className="module"><div className="module-icon"><Target size={21}/></div><div><span>GOALS</span><h3>2 priorities today</h3><p>Your focus is already set</p></div><ChevronRight className="arrow" size={19}/></article>
-    <article className="module"><div className="module-icon"><Leaf size={21}/></div><div><span>WELLBEING</span><h3>How are you feeling?</h3><p>A moment is enough</p></div><ChevronRight className="arrow" size={19}/></article>
-    <article className="module"><div className="module-icon"><History size={21}/></div><div><span>RECENT</span><h3>Yesterday was steady</h3><p>4 habits · 1 goal contribution</p></div><ChevronRight className="arrow" size={19}/></article>
-  </div>{roundup&&<DailyRoundUp close={()=>setRoundup(false)}/>}</>
+function ForestWindow({ openLab }: { openLab: () => void }) {
+  return (
+    <section className="forest-window">
+      <div className="sun" />
+      <div className="hill h1" />
+      <div className="hill h2" />
+      <div className="tree t1">
+        <b />
+        <i />
+      </div>
+      <div className="tree t2">
+        <b />
+        <i />
+      </div>
+      <div className="tree t3">
+        <b />
+        <i />
+      </div>
+      <div className="forest-copy">
+        <span>MY FOREST</span>
+        <h2>A quiet morning in Health</h2>
+        <p>Five trees are growing steadily.</p>
+      </div>
+      <button className="enter" onClick={openLab}>
+        Enter forest <ChevronRight size={18} />
+      </button>
+    </section>
+  );
 }
 
-function ForestView({close}:{close:()=>void}){const areas=['Health','Mind','Self','People','Work','Wealth'];const [area,setArea]=useState('Overview');const state:ForestState={forestSeed:'adam-forbair-forest',daysBuilt:128,longestDaysPresent:12,permanentWildlife:['Orangutan'],area:area as ForestState['area'],sessionStartedAt:new Date().toISOString()};const environment=deriveEnvironment(state,new Date());return <div className="forest-view"><header className="forest-header"><Mark/><div><p className="eyebrow">YOUR LIVING RECORD</p><h1>My Forest</h1></div><nav><button className={area==='Overview'?'active':''} onClick={()=>setArea('Overview')}>Overview</button>{areas.map(a=><button className={area===a?'active':''} onClick={()=>setArea(a)} key={a}>{a}</button>)}</nav><button className="forest-close" onClick={close}><X/></button></header><main className={`forest-scene weather-${environment.weather.toLowerCase().replace(' ','-')}`}><div className="forest-sun"/><div className="mountain m-one"/><div className="mountain m-two"/><div className="waterway"><span>{environment.waterStage}</span></div><div className="forest-trees">{sampleGoals.filter(g=>area==='Overview'||g.area===area).map((g,i)=><button className={`scene-tree scene-tree-${i}`} key={g.treeId}><span className="canopy"/><i/><label>{g.title}<small>{g.species}</small></label></button>)}</div><div className="nursery"><span><Leaf/> Nursery</span><small>Young Goals begin here</small></div><div className="environment-card"><span>ENVIRONMENT</span><b>{environment.weather}</b><small>Water: {environment.waterStage}</small><small>Vegetation maturity: {environment.vegetationStage + 1}</small></div><div className="scene-caption"><p>{area==='Overview'?'OVERVIEW':area.toUpperCase()}</p><h2>{area==='Overview'?'Everything you’re building, in one place.':`Your ${area} Area`}</h2><span>Late summer · {environment.solarState} · {environment.weather}</span></div></main><footer className="forest-footer"><span><i className="health-dot"/> Trees show current Goal health · session {String(environment.sessionSeed).slice(-4)}</span><button>Areas</button><button>Find a Tree</button></footer></div>}
+function DailyRoundUp({ close }: { close: () => void }) {
+  const [day, setDay] = useState("Good");
+  const [note, setNote] = useState("");
+  return (
+    <div className="sheet-shade" onMouseDown={close}>
+      <section
+        className="roundup-sheet"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <button className="sheet-close" onClick={close} aria-label="Close">
+          <X />
+        </button>
+        <p className="eyebrow">DAILY ROUND-UP</p>
+        <h2>How did today feel?</h2>
+        <p>A short reflection closes the day. It does not grade your worth.</p>
+        <div className="day-options">
+          {["Hard", "OK", "Good", "Great"].map((x) => (
+            <button
+              className={day === x ? "active" : ""}
+              onClick={() => setDay(x)}
+              key={x}
+            >
+              {x}
+            </button>
+          ))}
+        </div>
+        <label>
+          Anything worth remembering?
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Optional note…"
+          />
+        </label>
+        <div className="roundup-summary">
+          <Check />
+          <span>
+            <b>Today is a Day Present</b>
+            <small>Your meaningful activity has already counted.</small>
+          </span>
+        </div>
+        <button className="save-record" onClick={close}>
+          Confirm {day}
+        </button>
+      </section>
+    </div>
+  );
+}
 
-type Habit = {id:number;name:string;detail:string;area:string;done:boolean;schedule?:{kind:'daily'|'weekdays'|'weekends'|'custom'|'times';days?:number[];timesPerWeek?:number}};
-const initialHabits: Habit[]=[
- {id:1,name:'Morning walk',detail:'20 minutes · Any time',area:'Health',done:true},
- {id:2,name:'Read',detail:'10 pages · Evening',area:'Mind',done:true},
- {id:3,name:'Drink water',detail:'2 litres · Through the day',area:'Health',done:true},
- {id:4,name:'Language practice',detail:'15 minutes · Flexible',area:'Self',done:false},
- {id:5,name:'Plan tomorrow',detail:'A short check-in · Evening',area:'Work',done:false},
+function HomePage({
+  openForest,
+  openLog,
+}: {
+  openForest: () => void;
+  openLog: () => void;
+}) {
+  const [roundup, setRoundup] = useState(false);
+  return (
+    <>
+      <header className="top">
+        <div>
+          <p className="eyebrow">HOME · TODAY</p>
+          <h1>Grow More Good Days.</h1>
+        </div>
+        <button className="soft-button" onClick={openLog}>
+          <Plus /> Log
+        </button>
+      </header>
+      <section className="climate-strip">
+        <span>CURRENT CLIMATE</span>
+        <b>Normal</b>
+        <small>Adjust in Account when life changes.</small>
+      </section>
+      <ForestWindow openLab={openForest} />
+      <div className="section-title">
+        <div>
+          <p className="eyebrow">TODAY</p>
+          <h2>Small steps, clearly seen.</h2>
+        </div>
+        <button className="round" onClick={() => setRoundup(true)}>
+          Daily round-up
+        </button>
+      </div>
+      <div className="module-grid">
+        <article className="module">
+          <div className="module-icon lime">
+            <Activity size={21} />
+          </div>
+          <div>
+            <span>HABITS</span>
+            <h3>3 of 5 complete</h3>
+            <p>Two gentle check-ins remain</p>
+          </div>
+          <div className="progress">
+            <i style={{ width: "60%" }} />
+          </div>
+          <ChevronRight className="arrow" size={19} />
+        </article>
+        <article className="module">
+          <div className="module-icon">
+            <Target size={21} />
+          </div>
+          <div>
+            <span>GOALS</span>
+            <h3>2 priorities today</h3>
+            <p>Your focus is already set</p>
+          </div>
+          <ChevronRight className="arrow" size={19} />
+        </article>
+        <article className="module">
+          <div className="module-icon">
+            <Leaf size={21} />
+          </div>
+          <div>
+            <span>WELLBEING</span>
+            <h3>How are you feeling?</h3>
+            <p>A moment is enough</p>
+          </div>
+          <ChevronRight className="arrow" size={19} />
+        </article>
+        <article className="module">
+          <div className="module-icon">
+            <History size={21} />
+          </div>
+          <div>
+            <span>RECENT</span>
+            <h3>Yesterday was steady</h3>
+            <p>4 habits · 1 goal contribution</p>
+          </div>
+          <ChevronRight className="arrow" size={19} />
+        </article>
+      </div>
+      {roundup && <DailyRoundUp close={() => setRoundup(false)} />}
+    </>
+  );
+}
+
+function ForestView({ close }: { close: () => void }) {
+  const areas = ["Health", "Mind", "Self", "People", "Work", "Wealth"];
+  const [area, setArea] = useState("Overview");
+  const state: ForestState = {
+    forestSeed: "adam-forbair-forest",
+    daysBuilt: 128,
+    longestDaysPresent: 12,
+    permanentWildlife: ["Orangutan"],
+    area: area as ForestState["area"],
+    sessionStartedAt: new Date().toISOString(),
+  };
+  const environment = deriveEnvironment(state, new Date());
+  return (
+    <div className="forest-view">
+      <header className="forest-header">
+        <Mark />
+        <div>
+          <p className="eyebrow">YOUR LIVING RECORD</p>
+          <h1>My Forest</h1>
+        </div>
+        <nav>
+          <button
+            className={area === "Overview" ? "active" : ""}
+            onClick={() => setArea("Overview")}
+          >
+            Overview
+          </button>
+          {areas.map((a) => (
+            <button
+              className={area === a ? "active" : ""}
+              onClick={() => setArea(a)}
+              key={a}
+            >
+              {a}
+            </button>
+          ))}
+        </nav>
+        <button className="forest-close" onClick={close}>
+          <X />
+        </button>
+      </header>
+      <main
+        className={`forest-scene weather-${environment.weather.toLowerCase().replace(" ", "-")}`}
+      >
+        <div className="forest-sun" />
+        <div className="mountain m-one" />
+        <div className="mountain m-two" />
+        <div className="waterway">
+          <span>{environment.waterStage}</span>
+        </div>
+        <div className="forest-trees">
+          {sampleGoals
+            .filter((g) => area === "Overview" || g.area === area)
+            .map((g, i) => (
+              <button className={`scene-tree scene-tree-${i}`} key={g.treeId}>
+                <span className="canopy" />
+                <i />
+                <label>
+                  {g.title}
+                  <small>{g.species}</small>
+                </label>
+              </button>
+            ))}
+        </div>
+        <div className="nursery">
+          <span>
+            <Leaf /> Nursery
+          </span>
+          <small>Young Goals begin here</small>
+        </div>
+        <div className="environment-card">
+          <span>ENVIRONMENT</span>
+          <b>{environment.weather}</b>
+          <small>Water: {environment.waterStage}</small>
+          <small>Vegetation maturity: {environment.vegetationStage + 1}</small>
+        </div>
+        <div className="scene-caption">
+          <p>{area === "Overview" ? "OVERVIEW" : area.toUpperCase()}</p>
+          <h2>
+            {area === "Overview"
+              ? "Everything you’re building, in one place."
+              : `Your ${area} Area`}
+          </h2>
+          <span>
+            Late summer · {environment.solarState} · {environment.weather}
+          </span>
+        </div>
+      </main>
+      <footer className="forest-footer">
+        <span>
+          <i className="health-dot" /> Trees show current Goal health · session{" "}
+          {String(environment.sessionSeed).slice(-4)}
+        </span>
+        <button>Areas</button>
+        <button>Find a Tree</button>
+      </footer>
+    </div>
+  );
+}
+
+type Habit = {
+  id: number;
+  name: string;
+  detail: string;
+  area: string;
+  done: boolean;
+  schedule?: {
+    kind: "daily" | "weekdays" | "weekends" | "custom" | "times";
+    days?: number[];
+    timesPerWeek?: number;
+  };
+};
+const initialHabits: Habit[] = [
+  {
+    id: 1,
+    name: "Morning walk",
+    detail: "20 minutes · Any time",
+    area: "Health",
+    done: true,
+  },
+  {
+    id: 2,
+    name: "Read",
+    detail: "10 pages · Evening",
+    area: "Mind",
+    done: true,
+  },
+  {
+    id: 3,
+    name: "Drink water",
+    detail: "2 litres · Through the day",
+    area: "Health",
+    done: true,
+  },
+  {
+    id: 4,
+    name: "Language practice",
+    detail: "15 minutes · Flexible",
+    area: "Self",
+    done: false,
+  },
+  {
+    id: 5,
+    name: "Plan tomorrow",
+    detail: "A short check-in · Evening",
+    area: "Work",
+    done: false,
+  },
 ];
 
-function useSavedHabits(){const [habits,setHabits]=useState<Habit[]>(()=>{try{return JSON.parse(localStorage.getItem('forbair-habits')||'null')||initialHabits}catch{return initialHabits}});useEffect(()=>localStorage.setItem('forbair-habits',JSON.stringify(habits)),[habits]);return [habits,setHabits] as const}
-
-function scheduleLabel(s?:Habit['schedule']){if(!s||s.kind==='daily')return'Daily';if(s.kind==='weekdays')return'Mon–Fri';if(s.kind==='weekends')return'Weekends';if(s.kind==='times')return`${s.timesPerWeek} times weekly`;const n=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];return(s.days||[]).map(d=>n[d]).join(', ')}
-function dueToday(h:Habit){const s=h.schedule,d=new Date().getDay();return!s||s.kind==='daily'||s.kind==='times'||(s.kind==='weekdays'&&d>0&&d<6)||(s.kind==='weekends'&&[0,6].includes(d))||(s.kind==='custom'&&(s.days||[]).includes(d))}
-function HabitEditor({close,save}:{close:()=>void,save:(h:Habit)=>void}){const[name,setName]=useState('');const[kind,setKind]=useState<Habit['schedule']['kind']>('daily');const[days,setDays]=useState<number[]>([1,2,3,4,5]);const[times,setTimes]=useState('');const toggle=(d:number)=>setDays(days.includes(d)?days.filter(x=>x!==d):[...days,d]);return <div className="sheet-shade" onMouseDown={close}><section className="habit-editor" onMouseDown={e=>e.stopPropagation()}><button className="sheet-close" onClick={close} aria-label="Close"><X/></button><p className="eyebrow">NEW HABIT</p><h2>Build a repeatable rhythm.</h2><label>Habit name<input autoFocus value={name} onChange={e=>setName(e.target.value)}/></label><label>Repeat<select value={kind} onChange={e=>setKind(e.target.value as typeof kind)}><option value="daily">Every day</option><option value="weekdays">Monday–Friday</option><option value="weekends">Weekends</option><option value="custom">Selected weekdays</option><option value="times">Times per week</option></select></label>{kind==='custom'&&<div className="day-picker">{['S','M','T','W','T','F','S'].map((x,d)=><button className={days.includes(d)?'active':''} onClick={()=>toggle(d)} key={d}>{x}</button>)}</div>}{kind==='times'&&<label>Times per week<input type="number" inputMode="decimal" min="1" max="7" value={times} onChange={e=>setTimes(e.target.value)}/></label>}<button className="save-record" disabled={!name.trim()||(kind==='custom'&&!days.length)||(kind==='times'&&times==='')} onClick={()=>save({id:Date.now(),name:name.trim(),detail:scheduleLabel({kind,days,timesPerWeek:Number(times)}),area:'Self',done:false,schedule:{kind,days,timesPerWeek:Number(times)}})}>Create habit</button></section></div>}
-
-function QuickLog({module,close,save,initial}:{module:ModuleDefinition,close:()=>void,save:(record:TrackingRecord)=>void,initial?:TrackingRecord}){const [title,setTitle]=useState(initial?.title||'');const [value,setValue]=useState(initial?.value||'');const [date,setDate]=useState((initial?.occurredAt||new Date().toISOString()).slice(0,16));const [goalId,setGoalId]=useState(initial?.goalIds[0]||'');return <div className="sheet-shade" onMouseDown={close}><section className="quick-log" onMouseDown={e=>e.stopPropagation()}><button className="sheet-close" onClick={close} aria-label="Close"><X/></button><p className="eyebrow">{initial?'CORRECT':'LOG'} {module.name.toUpperCase()}</p><h2>{initial?'Update this record.':'Record it clearly.'}</h2><p>Backdating and corrections preserve when the event actually happened.</p><label>What happened?<input autoFocus value={title} onChange={e=>setTitle(e.target.value)}/></label><label>{module.unit?`Value or ${module.unit}`:'Detail'}<input value={value} onChange={e=>setValue(e.target.value)} placeholder="Add a useful detail"/></label><label>Date and time<input type="datetime-local" value={date} onChange={e=>setDate(e.target.value)}/></label><label>Connected Goal<select value={goalId} onChange={e=>setGoalId(e.target.value)}><option value="">No Goal contribution</option>{sampleGoals.map(g=><option key={g.id} value={g.id}>{g.title}</option>)}</select></label><button className="save-record" disabled={!title.trim()} onClick={()=>save({id:initial?.id||crypto.randomUUID(),module:module.key,title:title.trim(),value:value.trim()||'Completed',occurredAt:new Date(date).toISOString(),goalIds:goalId?[goalId]:[],correctedAt:initial?new Date().toISOString():undefined})}>{initial?'Save correction':'Save record'}</button></section></div>}
-
-function ModuleChooser({choose,close}:{choose:(module:ModuleDefinition)=>void,close:()=>void}){return <div className="sheet-shade" onMouseDown={close}><section className="module-chooser" onMouseDown={e=>e.stopPropagation()}><button className="sheet-close" onClick={close} aria-label="Close"><X/></button><p className="eyebrow">ADD A RECORD</p><h2>What are you adding?</h2><p>Choose a type. You can connect the record to a Goal in the next step.</p><div>{modules.map(m=><button key={m.key} onClick={()=>choose(m)} style={{'--module-color':m.color} as React.CSSProperties}><span><Activity/></span><b>{m.name}</b><small>{m.description}</small><ChevronRight/></button>)}</div></section></div>}
-
-function TrainingLog({close,save}:{close:()=>void,save:(r:TrackingRecord)=>void}){const[name,setName]=useState('Strength session');const[duration,setDuration]=useState('45');const[exercises,setExercises]=useState([{id:1,name:'',sets:'3',reps:'8',load:''}]);const update=(id:number,key:string,value:string)=>setExercises(exercises.map(x=>x.id===id?{...x,[key]:value}:x));return <div className="sheet-shade" onMouseDown={close}><section className="training-log" onMouseDown={e=>e.stopPropagation()}><button className="sheet-close" onClick={close} aria-label="Close"><X/></button><p className="eyebrow">TRAINING SESSION</p><h2>Log the work.</h2><div className="training-top"><label>Session name<input value={name} onChange={e=>setName(e.target.value)}/></label><label>Minutes<input type="number" inputMode="decimal" value={duration} onChange={e=>setDuration(e.target.value)}/></label></div><div className="exercise-head"><span>Exercise</span><span>Sets</span><span>Reps</span><span>Load</span></div>{exercises.map(x=><div className="exercise-row" key={x.id}><input value={x.name} onChange={e=>update(x.id,'name',e.target.value)} placeholder="Exercise"/><input value={x.sets} onChange={e=>update(x.id,'sets',e.target.value)}/><input value={x.reps} onChange={e=>update(x.id,'reps',e.target.value)}/><input value={x.load} onChange={e=>update(x.id,'load',e.target.value)} placeholder="kg"/></div>)}<button className="add-exercise" onClick={()=>setExercises([...exercises,{id:Date.now(),name:'',sets:'3',reps:'8',load:''}])}><Plus/> Add exercise</button><div className="pb-note"><Flame/><span><b>PBs are detected from saved set history</b><small>They appear in Insights without changing Goal progress.</small></span></div><button className="save-record" disabled={!exercises.some(x=>x.name.trim())} onClick={()=>save({id:crypto.randomUUID(),module:'training',title:name,value:`${duration} minutes · ${exercises.filter(x=>x.name).length} exercises`,occurredAt:new Date().toISOString(),goalIds:['goal_move_2026'],notes:JSON.stringify(exercises)})}>Save training session</button></section></div>}
-
-function TrackPage(){const [habits,setHabits]=useSavedHabits();const [addingHabit,setAddingHabit]=useState(false);const [active,setActive]=useState<ModuleDefinition|null>(null);const [editing,setEditing]=useState<TrackingRecord|null>(null);const [choosing,setChoosing]=useState(false);const [records,setRecords]=useState<TrackingRecord[]>(()=>{try{return JSON.parse(localStorage.getItem('forbair-records')||'null')||starterRecords}catch{return starterRecords}});useEffect(()=>localStorage.setItem('forbair-records',JSON.stringify(records)),[records]);const todaysHabits=habits.filter(dueToday);const complete=todaysHabits.filter(h=>h.done).length;return <div className="page-wrap">
- <header className="page-head"><div><p className="eyebrow">TRACK</p><h1>Your daily rhythm.</h1><p>Capture the things that help you keep moving.</p></div><button className="soft-button"><Settings2 size={17}/> Manage</button></header>
- <button className="unified-add" onClick={()=>setChoosing(true)}><span><Plus/></span><div><p className="eyebrow">QUICK ADD</p><h2>Add a record</h2><p>Habit, training, sleep, nutrition, notes and more</p></div><ChevronRight/></button>
- <section className="habit-summary"><div className="summary-ring" style={{'--p':`${todaysHabits.length?complete/todaysHabits.length*360:0}deg`} as React.CSSProperties}><span>{complete}<small>of {todaysHabits.length}</small></span></div><div><p className="eyebrow">TODAY'S HABITS</p><h2>{complete===todaysHabits.length?'Everything is complete.':`${todaysHabits.length-complete} gentle check-ins remain.`}</h2><p>Only habits scheduled for today appear here.</p></div></section>
- <div className="habit-list">{todaysHabits.map(h=><button className={`habit-row ${h.done?'done':''}`} key={h.id} onClick={()=>setHabits(habits.map(x=>x.id===h.id?{...x,done:!x.done}:x))}><span className="habit-check">{h.done&&<Check size={18}/>}</span><span className="habit-main"><b>{h.name}</b><small>{scheduleLabel(h.schedule)} · {h.detail}</small></span><span className="area-pill">{h.area}</span><MoreHorizontal size={19}/></button>)}</div>
- <button className="wide-add" onClick={()=>setAddingHabit(true)}><Plus size={18}/> Add a habit</button><section className="recent-records"><div className="section-title"><div><p className="eyebrow">RECENT RECORDS</p><h2>Everything remains editable.</h2></div></div>{records.slice().sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt)).slice(0,5).map(r=><button key={r.id} onClick={()=>setEditing(r)}><span style={{background:modules.find(m=>m.key===r.module)?.color}}/><div><b>{r.title}</b><small>{modules.find(m=>m.key===r.module)?.name} · {r.value}{r.correctedAt?' · corrected':''}</small></div><time>{new Date(r.occurredAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</time><ChevronRight/></button>)}</section>{addingHabit&&<HabitEditor close={()=>setAddingHabit(false)} save={h=>{setHabits([...habits,h]);setAddingHabit(false)}}/>}{choosing&&<ModuleChooser close={()=>setChoosing(false)} choose={m=>{setChoosing(false);setActive(m)}}/>}{active&&(active.key==='training'?<WorkoutModule close={()=>setActive(null)} onSaved={(title,value)=>{setRecords([{id:crypto.randomUUID(),module:'training',title,value,occurredAt:new Date().toISOString(),goalIds:['goal_move_2026']},...records]);setActive(null)}}/>:<QuickLog module={active} close={()=>setActive(null)} save={r=>{setRecords([r,...records]);setActive(null)}}/>)}{editing&&<QuickLog module={modules.find(m=>m.key===editing.module)!} initial={editing} close={()=>setEditing(null)} save={r=>{setRecords(records.map(x=>x.id===r.id?r:x));setEditing(null)}}/>}
- </div>}
-
-function ToggleRow({icon:Icon,title,detail,defaultOn=false}:{icon:typeof Bell,title:string,detail:string,defaultOn?:boolean}){const [on,setOn]=useState(defaultOn);return <button className="setting-row" onClick={()=>setOn(!on)}><span className="setting-icon"><Icon size={19}/></span><span><b>{title}</b><small>{detail}</small></span><span className={`switch ${on?'on':''}`}><i/></span></button>}
-
-function AccountPage(){const [season,setSeason]=useState('Automatic');const [mode,setMode]=useState('Standard');const download=()=>{const blob=new Blob([exportPayload({goals:sampleGoals,records:starterRecords,goalSets,reviews,preferences:{season,mode}})],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='forbair-export.json';a.click();URL.revokeObjectURL(url)};return <div className="page-wrap account-page">
- <header className="page-head"><div><p className="eyebrow">ACCOUNT</p><h1>Your Fovyn.</h1><p>Personal details and the way your world feels.</p></div></header>
- <section className="profile-card"><div className="profile-avatar">AB</div><div><h2>Adam Beadle</h2><p>adam@example.com</p><span><Flame size={14}/> 12 Days Present</span></div><button className="soft-button">Edit profile</button></section>
- <div className="settings-grid"><section className="settings-card"><div className="card-title"><Palette/><div><h3>Forest & appearance</h3><p>Shape how Fovyn responds to you.</p></div></div>
- <label className="select-setting"><span><b>Seasonal cycle</b><small>Controls the ecological calendar</small></span><select value={season} onChange={e=>setSeason(e.target.value)}><option>Automatic</option><option>Northern</option><option>Southern</option></select></label>
- <ToggleRow icon={MapPin} title="Local solar time" detail="Use approximate location for sunrise and sunset" defaultOn/><ToggleRow icon={Moon} title="Calmer evenings" detail="Reduce brightness and atmosphere after sunset" defaultOn/>
- </section><section className="settings-card"><div className="card-title"><Accessibility/><div><h3>Comfort & access</h3><p>Keep the experience calm and usable.</p></div></div><ToggleRow icon={Accessibility} title="Reduced motion" detail="Prefer gentle transitions and still encounters"/><ToggleRow icon={Volume2} title="Forest sound" detail="Ambient audio and wildlife encounters" defaultOn/><ToggleRow icon={Bell} title="Thoughtful reminders" detail="Only reminders you explicitly choose" defaultOn/></section>
- <section className="settings-card"><div className="card-title"><ShieldCheck/><div><h3>Privacy & data</h3><p>Your records remain yours.</p></div></div><button className="account-link">Privacy controls <ChevronRight/></button><button className="account-link" onClick={download}>Export your data <Download/></button><button className="account-link">Connected services <ChevronRight/></button></section>
- <section className="settings-card"><div className="card-title"><Sun/><div><h3>Current mode</h3><p>Modes change expectations, never erase progress.</p></div></div><div className="mode-options">{['Standard','Recovery','Holiday'].map(x=><button className={mode===x?'active':''} onClick={()=>setMode(x)} key={x}>{x}</button>)}</div><div className="mode-card"><span>{mode.toUpperCase()}</span><b>{mode==='Standard'?'Your usual rhythm':mode==='Recovery'?'Protect capacity and keep showing up':'Stay connected without normal pressure'}</b><p>Existing progress and permanent Forest state are protected.</p></div></section></div>
- </div>}
-
-function GoalSheet({goal,close}:{goal:Goal,close:()=>void}){const records=sampleContributions.filter(c=>c.goalIds.includes(goal.id));const rule=sampleRuleHistory.find(r=>r.goalId===goal.id);return <div className="sheet-shade" onMouseDown={close}><section className="goal-sheet" onMouseDown={e=>e.stopPropagation()}><button className="sheet-close" onClick={close} aria-label="Close"><X/></button><div className="sheet-tree"><div className="tree-token"><i/><b/></div><div><p className="eyebrow">{goal.area} · ACTIVE GOAL</p><h1>{goal.title}</h1><p>{goal.species} · permanent Tree identity</p></div></div><div className="sheet-stats"><span><b>{goal.progress}%</b>Journey</span><span><b>{goal.health}%</b>Current health</span><span><b>{records.length}</b>Recent records</span></div><section className="sheet-section"><p className="eyebrow">CURRENT RULE</p><h3>{goal.rule}</h3><p>Effective from {rule?.effectiveFrom}. Changes create a new rule period and never rewrite earlier expectations.</p><button className="soft-button">Edit goal rule</button></section><section className="sheet-section"><p className="eyebrow">RECENT CONTRIBUTIONS</p>{records.map(r=><div className="mini-record" key={r.id}><span className="source-dot"><Check/></span><span><b>{r.title}</b><small>{r.value}</small></span><time>{new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</time></div>)}{!records.length&&<p>No recent contributions yet.</p>}</section><button className="view-tree"><Leaf/> View this Tree in the Forest</button></section></div>}
-
-function GoalsPage(){const [filter,setFilter]=useState('Active');const [selected,setSelected]=useState<Goal|null>(null);const [view,setView]=useState<'Goals'|'Sets'|'Calendar'>('Goals');return <div className="page-wrap">
- <header className="page-head"><div><p className="eyebrow">GOALS</p><h1>What you’re growing.</h1><p>Clear intentions, connected to the things you do.</p></div><button className="soft-button"><Plus size={17}/> New goal</button></header>
- <div className="view-switch">{(['Goals','Sets','Calendar'] as const).map(x=><button className={view===x?'active':''} onClick={()=>setView(x)} key={x}>{x==='Sets'?<Layers3/>:x==='Calendar'?<CalendarDays/>:<Target/>}{x}</button>)}</div>
- {view==='Goals'&&<><div className="goal-tabs">{['Active','Resting','Completed'].map(x=><button className={filter===x?'active':''} onClick={()=>setFilter(x)} key={x}>{x}</button>)}</div><div className="goals-list">{filter==='Active'?sampleGoals.map((g,i)=><article className="goal-card" key={g.id} onClick={()=>setSelected(g)}><div className={`tree-token tree-${i}`}><i/><b/></div><div className="goal-info"><span>{g.area}</span><h2>{g.title}</h2><p>{g.rule}</p><div className="goal-metrics"><span><b>{g.progress}%</b> journey</span><span><b>{g.health}%</b> health</span><span><b>{g.species}</b> tree</span></div><div className="goal-progress"><i style={{width:`${g.progress}%`}}/></div></div><button className="goal-open"><ChevronRight/></button></article>):<div className="empty-state"><Leaf/><h2>No {filter.toLowerCase()} Goals</h2><p>Your Trees remain part of the same Forest identity when their state changes.</p></div>}</div></>}{view==='Sets'&&<div className="set-card"><span>ACTIVE GOAL SET</span><h2>{goalSets[0].name}</h2><p>24 August – 30 November · {goalSets[0].goalIds.length} connected Goals</p>{sampleGoals.map(g=><div key={g.id}><i style={{width:`${g.progress}%`}}/><b>{g.title}</b><small>{g.progress}%</small></div>)}</div>}{view==='Calendar'&&<CalendarView/>}{selected&&<GoalSheet goal={selected} close={()=>setSelected(null)}/>} 
- </div>}
-
-function CalendarView(){const days=Array.from({length:35},(_,i)=>i-1);return <section className="calendar-card"><header><button>‹</button><h2>September 2026</h2><button>›</button></header><div className="weekdays">{['M','T','W','T','F','S','S'].map((x,i)=><span key={i}>{x}</span>)}</div><div className="calendar-grid">{days.map((d,i)=><button className={d<1||d>30?'outside':d===6?'today':''} key={i}><b>{d<1?31:d>30?d-30:d}</b>{[1,3,6,8,10,15,22].includes(d)&&<i/>}</button>)}</div><p><i/> Planned Goal activity</p></section>}
-
-function HistoryPage(){const [view,setView]=useState<'Timeline'|'Reviews'|'Insights'>('Timeline');const groups=sampleContributions.reduce<Record<string,typeof sampleContributions>>((a,c)=>{const key=c.date.slice(0,10);(a[key]??=[]).push(c);return a},{});return <div className="page-wrap"><header className="page-head"><div><p className="eyebrow">HISTORY</p><h1>The shape of your days.</h1><p>Your records, reviews and patterns in one honest timeline.</p></div><button className="soft-button">This week</button></header><section className="history-summary"><div><b>12</b><span>Days Present</span></div><div><b>9</b><span>Days Built</span></div><div><b>18</b><span>Contributions</span></div><div><b>4</b><span>Current streak</span></div></section><div className="view-switch">{(['Timeline','Reviews','Insights'] as const).map(x=><button className={view===x?'active':''} onClick={()=>setView(x)} key={x}>{x}</button>)}</div>{view==='Timeline'&&<div className="timeline">{Object.entries(groups).map(([date,records])=><section className="day-group" key={date}><header><div><b>{new Date(date+'T12:00').toLocaleDateString('en-GB',{weekday:'long'})}</b><span>{new Date(date+'T12:00').toLocaleDateString('en-GB',{day:'numeric',month:'long'})}</span></div><span className="present-pill"><Leaf/> Day present</span></header>{records.map(r=><button className="history-row" key={r.id}><span className={`record-icon ${r.source}`}><Activity/></span><div><b>{r.title}</b><small>{r.value} · {r.source}</small></div><div className="linked-goals">{r.goalIds.map(id=><span key={id}>{sampleGoals.find(g=>g.id===id)?.title}</span>)}</div><time>{new Date(r.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</time></button>)}</section>)}</div>}{view==='Reviews'&&<ReviewsView/>}{view==='Insights'&&<InsightsView/>}</div>}
-
-function ReviewsView(){const [period,setPeriod]=useState<'Weekly'|'Monthly'>('Weekly');return <div><div className="review-toolbar"><div className="goal-tabs"><button className={period==='Weekly'?'active':''} onClick={()=>setPeriod('Weekly')}>Weekly</button><button className={period==='Monthly'?'active':''} onClick={()=>setPeriod('Monthly')}>Monthly</button></div><button className="soft-button"><Plus/> New {period} Review</button></div><article className="review-card"><span>{period.toUpperCase()} REVIEW · 24–30 AUGUST</span><h2>{period==='Weekly'?'A steadier week than it felt.':'August built a useful foundation.'}</h2><div><section><b>What worked</b>{reviews[0].wins.map(x=><p key={x}><Check/> {x}</p>)}</section><section><b>Friction</b>{reviews[0].friction.map(x=><p key={x}>{x}</p>)}</section></div><footer><span>Next focus</span><b>{reviews[0].nextFocus}</b></footer></article></div>}
-
-function InsightsView(){return <div className="insights-grid"><article className="insight-card hero-insight"><span>BASIC INSIGHT</span><h2>Your most consistent days begin with movement.</h2><p>On days with morning activity, you complete 24% more planned check-ins. This is an observation, not a prescription.</p></article><article className="insight-card"><span>PERSONAL BEST</span><h2>5.2 km</h2><p>Longest coastal run · 29 August</p></article><article className="insight-card"><span>MICRO-TREND</span><h2>7h 34m</h2><p>Average sleep · up 18 minutes</p></article><article className="insight-card"><span>STREAK</span><h2>12 days</h2><p>Longest Days Present</p></article></div>}
-
-function Placeholder({page}:{page:Page}){return <div className="placeholder"><p className="eyebrow">{page}</p><h1>A calm place for {page.toLowerCase()}.</h1><p>This foundation is ready for the next module in the locked build sequence.</p></div>}
-
-function ForestLab({close}:{close:()=>void}){
- const [wildlife,setWildlife]=useState('Great White Stag');
- const [motion,setMotion]=useState(true);
- return <div className="lab-overlay"><aside className="lab-panel"><div className="lab-head"><div><p className="eyebrow">AUTHORIZED QA</p><h2><FlaskConical size={21}/> Forest Lab</h2></div><button onClick={close}><X/></button></div>
- <p className="lab-note">Renderer overrides are isolated. Nothing here changes goals, history, streaks or unlocks.</p>
- <label>Wildlife<select value={wildlife} onChange={e=>setWildlife(e.target.value)}><option>Great White Stag</option><option>Orangutan</option><option>Gorilla</option><option>Forest Elephant</option><option>Sika Deer</option></select></label>
- <div className="control-row"><label>Season<select><option>Autumn</option><option>Winter</option><option>Spring</option><option>Summer</option></select></label><label>Weather<select><option>Mist</option><option>Snow</option><option>Post-rain</option><option>Clear</option></select></label></div>
- <div className="control-row"><label>Solar state<select><option>Sunrise</option><option>Golden hour</option><option>Night</option></select></label><label>Quality<select><option>High</option><option>Balanced</option><option>Performance</option></select></label></div>
- <label className="toggle"><span>Reduced motion</span><button onClick={()=>setMotion(!motion)} className={!motion?'on':''}><i/></button></label>
- <button className="lab-action"><RotateCcw size={17}/> Replay encounter</button><button className="lab-action subtle"><Volume2 size={17}/> Force audio encounter</button>
- </aside><div className="lab-stage"><button className="device">Desktop · 1440 × 900</button><div className="stag"><div className="antlers">⌇⌇</div><div className="stag-body"/><span>{wildlife}</span></div><p>Health · Autumn · Sunrise · Mist</p></div></div>
+function useSavedHabits() {
+  const [habits, setHabits] = useState<Habit[]>(() => {
+    try {
+      return (
+        JSON.parse(localStorage.getItem("forbair-habits") || "null") ||
+        initialHabits
+      );
+    } catch {
+      return initialHabits;
+    }
+  });
+  useEffect(
+    () => localStorage.setItem("forbair-habits", JSON.stringify(habits)),
+    [habits],
+  );
+  return [habits, setHabits] as const;
 }
 
-function App(){const [page,setPage]=useState<Page>('Home');const [logView,setLogView]=useState<'all'|'routines'>('all');const[quickLogSignal,setQuickLogSignal]=useState(0);const [lab,setLab]=useState(false);const [forest,setForest]=useState(false);const [search,setSearch]=useState(false);const [onboarding,setOnboarding]=useState(false);const [session,setSession]=useState<any>();useEffect(()=>{supabase.auth.getSession().then(({data})=>setSession(data.session));const{data}=supabase.auth.onAuthStateChange((_event,next)=>setSession(next));return()=>data.subscription.unsubscribe()},[]);if(session===undefined)return <div className="auth-loading">Loading Fovyn…</div>;if(!session)return <AuthHome/>;const finishOnboarding=async()=>{await completeOnboarding();setOnboarding(false);setPage('Home')};const beginOnboarding=(destination:'Log'|'Goals')=>{setOnboarding(true);setPage(destination)};const content=page==='Home'?<HomeModule navigate={setPage} beginOnboarding={beginOnboarding} openForest={()=>setForest(true)} openRoutines={()=>{setLogView('routines');setPage('Log')}}/>:page==='Log'?<TrackHub key={logView} initialView={logView} quickLogSignal={quickLogSignal} onFirstSetupComplete={onboarding?finishOnboarding:undefined}/>:page==='Goals'?<GoalsModule onFirstSetupComplete={onboarding?finishOnboarding:undefined}/>:page==='History'?<HistoryHub openLog={()=>{setLogView('all');setPage('Log')}}/>:page==='Account'?<SettingsModule/>:<Placeholder page={page}/>;return <div className="app"><aside className="rail"><Mark/><nav>{nav.map(n=><button key={n.name} onClick={()=>{if(n.name==='Log')setLogView('all');setPage(n.name)}} className={page===n.name?'active':''}><n.icon/><span>{n.name}</span></button>)}</nav><button className="rail-search" onClick={()=>setSearch(true)}><Search/><span>Search</span></button><button className="lab-link" onClick={()=>setLab(true)}><FlaskConical/><span>Forest Lab</span></button></aside><main>{content}</main><button className="add" onClick={()=>{setLogView('all');setPage('Log');setQuickLogSignal(value=>value+1)}} aria-label="Quick Log"><Plus/></button><nav className="bottom">{nav.map(n=><button key={n.name} onClick={()=>{if(n.name==='Log')setLogView('all');setPage(n.name)}} className={page===n.name?'active':''}><n.icon/><span>{n.name}</span></button>)}</nav>{search&&<SearchOverlayLive close={()=>setSearch(false)} navigate={setPage}/>} {forest&&<ForestView close={()=>setForest(false)}/>} {lab&&<ForestLab close={()=>setLab(false)}/>}</div>}
+function scheduleLabel(s?: Habit["schedule"]) {
+  if (!s || s.kind === "daily") return "Daily";
+  if (s.kind === "weekdays") return "Mon–Fri";
+  if (s.kind === "weekends") return "Weekends";
+  if (s.kind === "times") return `${s.timesPerWeek} times weekly`;
+  const n = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return (s.days || []).map((d) => n[d]).join(", ");
+}
+function dueToday(h: Habit) {
+  const s = h.schedule,
+    d = new Date().getDay();
+  return (
+    !s ||
+    s.kind === "daily" ||
+    s.kind === "times" ||
+    (s.kind === "weekdays" && d > 0 && d < 6) ||
+    (s.kind === "weekends" && [0, 6].includes(d)) ||
+    (s.kind === "custom" && (s.days || []).includes(d))
+  );
+}
+function HabitEditor({
+  close,
+  save,
+}: {
+  close: () => void;
+  save: (h: Habit) => void;
+}) {
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState<Habit["schedule"]["kind"]>("daily");
+  const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [times, setTimes] = useState("");
+  const toggle = (d: number) =>
+    setDays(days.includes(d) ? days.filter((x) => x !== d) : [...days, d]);
+  return (
+    <div className="sheet-shade" onMouseDown={close}>
+      <section
+        className="habit-editor"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <button className="sheet-close" onClick={close} aria-label="Close">
+          <X />
+        </button>
+        <p className="eyebrow">NEW HABIT</p>
+        <h2>Build a repeatable rhythm.</h2>
+        <label>
+          Habit name
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </label>
+        <label>
+          Repeat
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as typeof kind)}
+          >
+            <option value="daily">Every day</option>
+            <option value="weekdays">Monday–Friday</option>
+            <option value="weekends">Weekends</option>
+            <option value="custom">Selected weekdays</option>
+            <option value="times">Times per week</option>
+          </select>
+        </label>
+        {kind === "custom" && (
+          <div className="day-picker">
+            {["S", "M", "T", "W", "T", "F", "S"].map((x, d) => (
+              <button
+                className={days.includes(d) ? "active" : ""}
+                onClick={() => toggle(d)}
+                key={d}
+              >
+                {x}
+              </button>
+            ))}
+          </div>
+        )}
+        {kind === "times" && (
+          <label>
+            Times per week
+            <input
+              type="number"
+              inputMode="decimal"
+              min="1"
+              max="7"
+              value={times}
+              onChange={(e) => setTimes(e.target.value)}
+            />
+          </label>
+        )}
+        <button
+          className="save-record"
+          disabled={
+            !name.trim() ||
+            (kind === "custom" && !days.length) ||
+            (kind === "times" && times === "")
+          }
+          onClick={() =>
+            save({
+              id: Date.now(),
+              name: name.trim(),
+              detail: scheduleLabel({
+                kind,
+                days,
+                timesPerWeek: Number(times),
+              }),
+              area: "Self",
+              done: false,
+              schedule: { kind, days, timesPerWeek: Number(times) },
+            })
+          }
+        >
+          Create habit
+        </button>
+      </section>
+    </div>
+  );
+}
 
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
-if('serviceWorker'in navigator&&import.meta.env.PROD)navigator.serviceWorker.register('/sw.js');
+function QuickLog({
+  module,
+  close,
+  save,
+  initial,
+}: {
+  module: ModuleDefinition;
+  close: () => void;
+  save: (record: TrackingRecord) => void;
+  initial?: TrackingRecord;
+}) {
+  const [title, setTitle] = useState(initial?.title || "");
+  const [value, setValue] = useState(initial?.value || "");
+  const [date, setDate] = useState(
+    (initial?.occurredAt || new Date().toISOString()).slice(0, 16),
+  );
+  const [goalId, setGoalId] = useState(initial?.goalIds[0] || "");
+  return (
+    <div className="sheet-shade" onMouseDown={close}>
+      <section className="quick-log" onMouseDown={(e) => e.stopPropagation()}>
+        <button className="sheet-close" onClick={close} aria-label="Close">
+          <X />
+        </button>
+        <p className="eyebrow">
+          {initial ? "CORRECT" : "LOG"} {module.name.toUpperCase()}
+        </p>
+        <h2>{initial ? "Update this record." : "Record it clearly."}</h2>
+        <p>
+          Backdating and corrections preserve when the event actually happened.
+        </p>
+        <label>
+          What happened?
+          <input
+            autoFocus
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </label>
+        <label>
+          {module.unit ? `Value or ${module.unit}` : "Detail"}
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Add a useful detail"
+          />
+        </label>
+        <label>
+          Date and time
+          <input
+            type="datetime-local"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </label>
+        <label>
+          Connected Goal
+          <select value={goalId} onChange={(e) => setGoalId(e.target.value)}>
+            <option value="">No Goal contribution</option>
+            {sampleGoals.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="save-record"
+          disabled={!title.trim()}
+          onClick={() =>
+            save({
+              id: initial?.id || crypto.randomUUID(),
+              module: module.key,
+              title: title.trim(),
+              value: value.trim() || "Completed",
+              occurredAt: new Date(date).toISOString(),
+              goalIds: goalId ? [goalId] : [],
+              correctedAt: initial ? new Date().toISOString() : undefined,
+            })
+          }
+        >
+          {initial ? "Save correction" : "Save record"}
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function ModuleChooser({
+  choose,
+  close,
+}: {
+  choose: (module: ModuleDefinition) => void;
+  close: () => void;
+}) {
+  return (
+    <div className="sheet-shade" onMouseDown={close}>
+      <section
+        className="module-chooser"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <button className="sheet-close" onClick={close} aria-label="Close">
+          <X />
+        </button>
+        <p className="eyebrow">ADD A RECORD</p>
+        <h2>What are you adding?</h2>
+        <p>
+          Choose a type. You can connect the record to a Goal in the next step.
+        </p>
+        <div>
+          {modules.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => choose(m)}
+              style={{ "--module-color": m.color } as React.CSSProperties}
+            >
+              <span>
+                <Activity />
+              </span>
+              <b>{m.name}</b>
+              <small>{m.description}</small>
+              <ChevronRight />
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TrainingLog({
+  close,
+  save,
+}: {
+  close: () => void;
+  save: (r: TrackingRecord) => void;
+}) {
+  const [name, setName] = useState("Strength session");
+  const [duration, setDuration] = useState("45");
+  const [exercises, setExercises] = useState([
+    { id: 1, name: "", sets: "3", reps: "8", load: "" },
+  ]);
+  const update = (id: number, key: string, value: string) =>
+    setExercises(
+      exercises.map((x) => (x.id === id ? { ...x, [key]: value } : x)),
+    );
+  return (
+    <div className="sheet-shade" onMouseDown={close}>
+      <section
+        className="training-log"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <button className="sheet-close" onClick={close} aria-label="Close">
+          <X />
+        </button>
+        <p className="eyebrow">TRAINING SESSION</p>
+        <h2>Log the work.</h2>
+        <div className="training-top">
+          <label>
+            Session name
+            <input value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label>
+            Minutes
+            <input
+              type="number"
+              inputMode="decimal"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="exercise-head">
+          <span>Exercise</span>
+          <span>Sets</span>
+          <span>Reps</span>
+          <span>Load</span>
+        </div>
+        {exercises.map((x) => (
+          <div className="exercise-row" key={x.id}>
+            <input
+              value={x.name}
+              onChange={(e) => update(x.id, "name", e.target.value)}
+              placeholder="Exercise"
+            />
+            <input
+              value={x.sets}
+              onChange={(e) => update(x.id, "sets", e.target.value)}
+            />
+            <input
+              value={x.reps}
+              onChange={(e) => update(x.id, "reps", e.target.value)}
+            />
+            <input
+              value={x.load}
+              onChange={(e) => update(x.id, "load", e.target.value)}
+              placeholder="kg"
+            />
+          </div>
+        ))}
+        <button
+          className="add-exercise"
+          onClick={() =>
+            setExercises([
+              ...exercises,
+              { id: Date.now(), name: "", sets: "3", reps: "8", load: "" },
+            ])
+          }
+        >
+          <Plus /> Add exercise
+        </button>
+        <div className="pb-note">
+          <Flame />
+          <span>
+            <b>PBs are detected from saved set history</b>
+            <small>
+              They appear in Insights without changing Goal progress.
+            </small>
+          </span>
+        </div>
+        <button
+          className="save-record"
+          disabled={!exercises.some((x) => x.name.trim())}
+          onClick={() =>
+            save({
+              id: crypto.randomUUID(),
+              module: "training",
+              title: name,
+              value: `${duration} minutes · ${exercises.filter((x) => x.name).length} exercises`,
+              occurredAt: new Date().toISOString(),
+              goalIds: ["goal_move_2026"],
+              notes: JSON.stringify(exercises),
+            })
+          }
+        >
+          Save training session
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function TrackPage() {
+  const [habits, setHabits] = useSavedHabits();
+  const [addingHabit, setAddingHabit] = useState(false);
+  const [active, setActive] = useState<ModuleDefinition | null>(null);
+  const [editing, setEditing] = useState<TrackingRecord | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [records, setRecords] = useState<TrackingRecord[]>(() => {
+    try {
+      return (
+        JSON.parse(localStorage.getItem("forbair-records") || "null") ||
+        starterRecords
+      );
+    } catch {
+      return starterRecords;
+    }
+  });
+  useEffect(
+    () => localStorage.setItem("forbair-records", JSON.stringify(records)),
+    [records],
+  );
+  const todaysHabits = habits.filter(dueToday);
+  const complete = todaysHabits.filter((h) => h.done).length;
+  return (
+    <div className="page-wrap">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">TRACK</p>
+          <h1>Your daily rhythm.</h1>
+          <p>Capture the things that help you keep moving.</p>
+        </div>
+        <button className="soft-button">
+          <Settings2 size={17} /> Manage
+        </button>
+      </header>
+      <button className="unified-add" onClick={() => setChoosing(true)}>
+        <span>
+          <Plus />
+        </span>
+        <div>
+          <p className="eyebrow">QUICK ADD</p>
+          <h2>Add a record</h2>
+          <p>Habit, training, sleep, nutrition, notes and more</p>
+        </div>
+        <ChevronRight />
+      </button>
+      <section className="habit-summary">
+        <div
+          className="summary-ring"
+          style={
+            {
+              "--p": `${todaysHabits.length ? (complete / todaysHabits.length) * 360 : 0}deg`,
+            } as React.CSSProperties
+          }
+        >
+          <span>
+            {complete}
+            <small>of {todaysHabits.length}</small>
+          </span>
+        </div>
+        <div>
+          <p className="eyebrow">TODAY'S HABITS</p>
+          <h2>
+            {complete === todaysHabits.length
+              ? "Everything is complete."
+              : `${todaysHabits.length - complete} gentle check-ins remain.`}
+          </h2>
+          <p>Only habits scheduled for today appear here.</p>
+        </div>
+      </section>
+      <div className="habit-list">
+        {todaysHabits.map((h) => (
+          <button
+            className={`habit-row ${h.done ? "done" : ""}`}
+            key={h.id}
+            onClick={() =>
+              setHabits(
+                habits.map((x) =>
+                  x.id === h.id ? { ...x, done: !x.done } : x,
+                ),
+              )
+            }
+          >
+            <span className="habit-check">{h.done && <Check size={18} />}</span>
+            <span className="habit-main">
+              <b>{h.name}</b>
+              <small>
+                {scheduleLabel(h.schedule)} · {h.detail}
+              </small>
+            </span>
+            <span className="area-pill">{h.area}</span>
+            <MoreHorizontal size={19} />
+          </button>
+        ))}
+      </div>
+      <button className="wide-add" onClick={() => setAddingHabit(true)}>
+        <Plus size={18} /> Add a habit
+      </button>
+      <section className="recent-records">
+        <div className="section-title">
+          <div>
+            <p className="eyebrow">RECENT RECORDS</p>
+            <h2>Everything remains editable.</h2>
+          </div>
+        </div>
+        {records
+          .slice()
+          .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+          .slice(0, 5)
+          .map((r) => (
+            <button key={r.id} onClick={() => setEditing(r)}>
+              <span
+                style={{
+                  background: modules.find((m) => m.key === r.module)?.color,
+                }}
+              />
+              <div>
+                <b>{r.title}</b>
+                <small>
+                  {modules.find((m) => m.key === r.module)?.name} · {r.value}
+                  {r.correctedAt ? " · corrected" : ""}
+                </small>
+              </div>
+              <time>
+                {new Date(r.occurredAt).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                })}
+              </time>
+              <ChevronRight />
+            </button>
+          ))}
+      </section>
+      {addingHabit && (
+        <HabitEditor
+          close={() => setAddingHabit(false)}
+          save={(h) => {
+            setHabits([...habits, h]);
+            setAddingHabit(false);
+          }}
+        />
+      )}
+      {choosing && (
+        <ModuleChooser
+          close={() => setChoosing(false)}
+          choose={(m) => {
+            setChoosing(false);
+            setActive(m);
+          }}
+        />
+      )}
+      {active &&
+        (active.key === "training" ? (
+          <WorkoutModule
+            close={() => setActive(null)}
+            onSaved={(title, value) => {
+              setRecords([
+                {
+                  id: crypto.randomUUID(),
+                  module: "training",
+                  title,
+                  value,
+                  occurredAt: new Date().toISOString(),
+                  goalIds: ["goal_move_2026"],
+                },
+                ...records,
+              ]);
+              setActive(null);
+            }}
+          />
+        ) : (
+          <QuickLog
+            module={active}
+            close={() => setActive(null)}
+            save={(r) => {
+              setRecords([r, ...records]);
+              setActive(null);
+            }}
+          />
+        ))}
+      {editing && (
+        <QuickLog
+          module={modules.find((m) => m.key === editing.module)!}
+          initial={editing}
+          close={() => setEditing(null)}
+          save={(r) => {
+            setRecords(records.map((x) => (x.id === r.id ? r : x)));
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ToggleRow({
+  icon: Icon,
+  title,
+  detail,
+  defaultOn = false,
+}: {
+  icon: typeof Bell;
+  title: string;
+  detail: string;
+  defaultOn?: boolean;
+}) {
+  const [on, setOn] = useState(defaultOn);
+  return (
+    <button className="setting-row" onClick={() => setOn(!on)}>
+      <span className="setting-icon">
+        <Icon size={19} />
+      </span>
+      <span>
+        <b>{title}</b>
+        <small>{detail}</small>
+      </span>
+      <span className={`switch ${on ? "on" : ""}`}>
+        <i />
+      </span>
+    </button>
+  );
+}
+
+function AccountPage() {
+  const [season, setSeason] = useState("Automatic");
+  const [mode, setMode] = useState("Standard");
+  const download = () => {
+    const blob = new Blob(
+      [
+        exportPayload({
+          goals: sampleGoals,
+          records: starterRecords,
+          goalSets,
+          reviews,
+          preferences: { season, mode },
+        }),
+      ],
+      { type: "application/json" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "forbair-export.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <div className="page-wrap account-page">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">ACCOUNT</p>
+          <h1>Your Fovyn.</h1>
+          <p>Personal details and the way your world feels.</p>
+        </div>
+      </header>
+      <section className="profile-card">
+        <div className="profile-avatar">AB</div>
+        <div>
+          <h2>Adam Beadle</h2>
+          <p>adam@example.com</p>
+          <span>
+            <Flame size={14} /> 12 Days Present
+          </span>
+        </div>
+        <button className="soft-button">Edit profile</button>
+      </section>
+      <div className="settings-grid">
+        <section className="settings-card">
+          <div className="card-title">
+            <Palette />
+            <div>
+              <h3>Forest & appearance</h3>
+              <p>Shape how Fovyn responds to you.</p>
+            </div>
+          </div>
+          <label className="select-setting">
+            <span>
+              <b>Seasonal cycle</b>
+              <small>Controls the ecological calendar</small>
+            </span>
+            <select value={season} onChange={(e) => setSeason(e.target.value)}>
+              <option>Automatic</option>
+              <option>Northern</option>
+              <option>Southern</option>
+            </select>
+          </label>
+          <ToggleRow
+            icon={MapPin}
+            title="Local solar time"
+            detail="Use approximate location for sunrise and sunset"
+            defaultOn
+          />
+          <ToggleRow
+            icon={Moon}
+            title="Calmer evenings"
+            detail="Reduce brightness and atmosphere after sunset"
+            defaultOn
+          />
+        </section>
+        <section className="settings-card">
+          <div className="card-title">
+            <Accessibility />
+            <div>
+              <h3>Comfort & access</h3>
+              <p>Keep the experience calm and usable.</p>
+            </div>
+          </div>
+          <ToggleRow
+            icon={Accessibility}
+            title="Reduced motion"
+            detail="Prefer gentle transitions and still encounters"
+          />
+          <ToggleRow
+            icon={Volume2}
+            title="Forest sound"
+            detail="Ambient audio and wildlife encounters"
+            defaultOn
+          />
+          <ToggleRow
+            icon={Bell}
+            title="Thoughtful reminders"
+            detail="Only reminders you explicitly choose"
+            defaultOn
+          />
+        </section>
+        <section className="settings-card">
+          <div className="card-title">
+            <ShieldCheck />
+            <div>
+              <h3>Privacy & data</h3>
+              <p>Your records remain yours.</p>
+            </div>
+          </div>
+          <button className="account-link">
+            Privacy controls <ChevronRight />
+          </button>
+          <button className="account-link" onClick={download}>
+            Export your data <Download />
+          </button>
+          <button className="account-link">
+            Connected services <ChevronRight />
+          </button>
+        </section>
+        <section className="settings-card">
+          <div className="card-title">
+            <Sun />
+            <div>
+              <h3>Current mode</h3>
+              <p>Modes change expectations, never erase progress.</p>
+            </div>
+          </div>
+          <div className="mode-options">
+            {["Standard", "Recovery", "Holiday"].map((x) => (
+              <button
+                className={mode === x ? "active" : ""}
+                onClick={() => setMode(x)}
+                key={x}
+              >
+                {x}
+              </button>
+            ))}
+          </div>
+          <div className="mode-card">
+            <span>{mode.toUpperCase()}</span>
+            <b>
+              {mode === "Standard"
+                ? "Your usual rhythm"
+                : mode === "Recovery"
+                  ? "Protect capacity and keep showing up"
+                  : "Stay connected without normal pressure"}
+            </b>
+            <p>Existing progress and permanent Forest state are protected.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function GoalSheet({ goal, close }: { goal: Goal; close: () => void }) {
+  const records = sampleContributions.filter((c) =>
+    c.goalIds.includes(goal.id),
+  );
+  const rule = sampleRuleHistory.find((r) => r.goalId === goal.id);
+  return (
+    <div className="sheet-shade" onMouseDown={close}>
+      <section className="goal-sheet" onMouseDown={(e) => e.stopPropagation()}>
+        <button className="sheet-close" onClick={close} aria-label="Close">
+          <X />
+        </button>
+        <div className="sheet-tree">
+          <div className="tree-token">
+            <i />
+            <b />
+          </div>
+          <div>
+            <p className="eyebrow">{goal.area} · ACTIVE GOAL</p>
+            <h1>{goal.title}</h1>
+            <p>{goal.species} · permanent Tree identity</p>
+          </div>
+        </div>
+        <div className="sheet-stats">
+          <span>
+            <b>{goal.progress}%</b>Journey
+          </span>
+          <span>
+            <b>{goal.health}%</b>Current health
+          </span>
+          <span>
+            <b>{records.length}</b>Recent records
+          </span>
+        </div>
+        <section className="sheet-section">
+          <p className="eyebrow">CURRENT RULE</p>
+          <h3>{goal.rule}</h3>
+          <p>
+            Effective from {rule?.effectiveFrom}. Changes create a new rule
+            period and never rewrite earlier expectations.
+          </p>
+          <button className="soft-button">Edit goal rule</button>
+        </section>
+        <section className="sheet-section">
+          <p className="eyebrow">RECENT CONTRIBUTIONS</p>
+          {records.map((r) => (
+            <div className="mini-record" key={r.id}>
+              <span className="source-dot">
+                <Check />
+              </span>
+              <span>
+                <b>{r.title}</b>
+                <small>{r.value}</small>
+              </span>
+              <time>
+                {new Date(r.date).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                })}
+              </time>
+            </div>
+          ))}
+          {!records.length && <p>No recent contributions yet.</p>}
+        </section>
+        <button className="view-tree">
+          <Leaf /> View this Tree in the Forest
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function GoalsPage() {
+  const [filter, setFilter] = useState("Active");
+  const [selected, setSelected] = useState<Goal | null>(null);
+  const [view, setView] = useState<"Goals" | "Sets" | "Calendar">("Goals");
+  return (
+    <div className="page-wrap">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">GOALS</p>
+          <h1>What you’re growing.</h1>
+          <p>Clear intentions, connected to the things you do.</p>
+        </div>
+        <button className="soft-button">
+          <Plus size={17} /> New goal
+        </button>
+      </header>
+      <div className="view-switch">
+        {(["Goals", "Sets", "Calendar"] as const).map((x) => (
+          <button
+            className={view === x ? "active" : ""}
+            onClick={() => setView(x)}
+            key={x}
+          >
+            {x === "Sets" ? (
+              <Layers3 />
+            ) : x === "Calendar" ? (
+              <CalendarDays />
+            ) : (
+              <Target />
+            )}
+            {x}
+          </button>
+        ))}
+      </div>
+      {view === "Goals" && (
+        <>
+          <div className="goal-tabs">
+            {["Active", "Resting", "Completed"].map((x) => (
+              <button
+                className={filter === x ? "active" : ""}
+                onClick={() => setFilter(x)}
+                key={x}
+              >
+                {x}
+              </button>
+            ))}
+          </div>
+          <div className="goals-list">
+            {filter === "Active" ? (
+              sampleGoals.map((g, i) => (
+                <article
+                  className="goal-card"
+                  key={g.id}
+                  onClick={() => setSelected(g)}
+                >
+                  <div className={`tree-token tree-${i}`}>
+                    <i />
+                    <b />
+                  </div>
+                  <div className="goal-info">
+                    <span>{g.area}</span>
+                    <h2>{g.title}</h2>
+                    <p>{g.rule}</p>
+                    <div className="goal-metrics">
+                      <span>
+                        <b>{g.progress}%</b> journey
+                      </span>
+                      <span>
+                        <b>{g.health}%</b> health
+                      </span>
+                      <span>
+                        <b>{g.species}</b> tree
+                      </span>
+                    </div>
+                    <div className="goal-progress">
+                      <i style={{ width: `${g.progress}%` }} />
+                    </div>
+                  </div>
+                  <button className="goal-open">
+                    <ChevronRight />
+                  </button>
+                </article>
+              ))
+            ) : (
+              <div className="empty-state">
+                <Leaf />
+                <h2>No {filter.toLowerCase()} Goals</h2>
+                <p>
+                  Your Trees remain part of the same Forest identity when their
+                  state changes.
+                </p>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+      {view === "Sets" && (
+        <div className="set-card">
+          <span>ACTIVE GOAL SET</span>
+          <h2>{goalSets[0].name}</h2>
+          <p>
+            24 August – 30 November · {goalSets[0].goalIds.length} connected
+            Goals
+          </p>
+          {sampleGoals.map((g) => (
+            <div key={g.id}>
+              <i style={{ width: `${g.progress}%` }} />
+              <b>{g.title}</b>
+              <small>{g.progress}%</small>
+            </div>
+          ))}
+        </div>
+      )}
+      {view === "Calendar" && <CalendarView />}
+      {selected && (
+        <GoalSheet goal={selected} close={() => setSelected(null)} />
+      )}
+    </div>
+  );
+}
+
+function CalendarView() {
+  const days = Array.from({ length: 35 }, (_, i) => i - 1);
+  return (
+    <section className="calendar-card">
+      <header>
+        <button>‹</button>
+        <h2>September 2026</h2>
+        <button>›</button>
+      </header>
+      <div className="weekdays">
+        {["M", "T", "W", "T", "F", "S", "S"].map((x, i) => (
+          <span key={i}>{x}</span>
+        ))}
+      </div>
+      <div className="calendar-grid">
+        {days.map((d, i) => (
+          <button
+            className={d < 1 || d > 30 ? "outside" : d === 6 ? "today" : ""}
+            key={i}
+          >
+            <b>{d < 1 ? 31 : d > 30 ? d - 30 : d}</b>
+            {[1, 3, 6, 8, 10, 15, 22].includes(d) && <i />}
+          </button>
+        ))}
+      </div>
+      <p>
+        <i /> Planned Goal activity
+      </p>
+    </section>
+  );
+}
+
+function HistoryPage() {
+  const [view, setView] = useState<"Timeline" | "Reviews" | "Insights">(
+    "Timeline",
+  );
+  const groups = sampleContributions.reduce<
+    Record<string, typeof sampleContributions>
+  >((a, c) => {
+    const key = c.date.slice(0, 10);
+    (a[key] ??= []).push(c);
+    return a;
+  }, {});
+  return (
+    <div className="page-wrap">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">HISTORY</p>
+          <h1>The shape of your days.</h1>
+          <p>Your records, reviews and patterns in one honest timeline.</p>
+        </div>
+        <button className="soft-button">This week</button>
+      </header>
+      <section className="history-summary">
+        <div>
+          <b>12</b>
+          <span>Days Present</span>
+        </div>
+        <div>
+          <b>9</b>
+          <span>Days Built</span>
+        </div>
+        <div>
+          <b>18</b>
+          <span>Contributions</span>
+        </div>
+        <div>
+          <b>4</b>
+          <span>Current streak</span>
+        </div>
+      </section>
+      <div className="view-switch">
+        {(["Timeline", "Reviews", "Insights"] as const).map((x) => (
+          <button
+            className={view === x ? "active" : ""}
+            onClick={() => setView(x)}
+            key={x}
+          >
+            {x}
+          </button>
+        ))}
+      </div>
+      {view === "Timeline" && (
+        <div className="timeline">
+          {Object.entries(groups).map(([date, records]) => (
+            <section className="day-group" key={date}>
+              <header>
+                <div>
+                  <b>
+                    {new Date(date + "T12:00").toLocaleDateString("en-GB", {
+                      weekday: "long",
+                    })}
+                  </b>
+                  <span>
+                    {new Date(date + "T12:00").toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "long",
+                    })}
+                  </span>
+                </div>
+                <span className="present-pill">
+                  <Leaf /> Day present
+                </span>
+              </header>
+              {records.map((r) => (
+                <button className="history-row" key={r.id}>
+                  <span className={`record-icon ${r.source}`}>
+                    <Activity />
+                  </span>
+                  <div>
+                    <b>{r.title}</b>
+                    <small>
+                      {r.value} · {r.source}
+                    </small>
+                  </div>
+                  <div className="linked-goals">
+                    {r.goalIds.map((id) => (
+                      <span key={id}>
+                        {sampleGoals.find((g) => g.id === id)?.title}
+                      </span>
+                    ))}
+                  </div>
+                  <time>
+                    {new Date(r.date).toLocaleTimeString("en-GB", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </time>
+                </button>
+              ))}
+            </section>
+          ))}
+        </div>
+      )}
+      {view === "Reviews" && <ReviewsView />}
+      {view === "Insights" && <InsightsView />}
+    </div>
+  );
+}
+
+function ReviewsView() {
+  const [period, setPeriod] = useState<"Weekly" | "Monthly">("Weekly");
+  return (
+    <div>
+      <div className="review-toolbar">
+        <div className="goal-tabs">
+          <button
+            className={period === "Weekly" ? "active" : ""}
+            onClick={() => setPeriod("Weekly")}
+          >
+            Weekly
+          </button>
+          <button
+            className={period === "Monthly" ? "active" : ""}
+            onClick={() => setPeriod("Monthly")}
+          >
+            Monthly
+          </button>
+        </div>
+        <button className="soft-button">
+          <Plus /> New {period} Review
+        </button>
+      </div>
+      <article className="review-card">
+        <span>{period.toUpperCase()} REVIEW · 24–30 AUGUST</span>
+        <h2>
+          {period === "Weekly"
+            ? "A steadier week than it felt."
+            : "August built a useful foundation."}
+        </h2>
+        <div>
+          <section>
+            <b>What worked</b>
+            {reviews[0].wins.map((x) => (
+              <p key={x}>
+                <Check /> {x}
+              </p>
+            ))}
+          </section>
+          <section>
+            <b>Friction</b>
+            {reviews[0].friction.map((x) => (
+              <p key={x}>{x}</p>
+            ))}
+          </section>
+        </div>
+        <footer>
+          <span>Next focus</span>
+          <b>{reviews[0].nextFocus}</b>
+        </footer>
+      </article>
+    </div>
+  );
+}
+
+function InsightsView() {
+  return (
+    <div className="insights-grid">
+      <article className="insight-card hero-insight">
+        <span>BASIC INSIGHT</span>
+        <h2>Your most consistent days begin with movement.</h2>
+        <p>
+          On days with morning activity, you complete 24% more planned
+          check-ins. This is an observation, not a prescription.
+        </p>
+      </article>
+      <article className="insight-card">
+        <span>PERSONAL BEST</span>
+        <h2>5.2 km</h2>
+        <p>Longest coastal run · 29 August</p>
+      </article>
+      <article className="insight-card">
+        <span>MICRO-TREND</span>
+        <h2>7h 34m</h2>
+        <p>Average sleep · up 18 minutes</p>
+      </article>
+      <article className="insight-card">
+        <span>STREAK</span>
+        <h2>12 days</h2>
+        <p>Longest Days Present</p>
+      </article>
+    </div>
+  );
+}
+
+function Placeholder({ page }: { page: Page }) {
+  return (
+    <div className="placeholder">
+      <p className="eyebrow">{page}</p>
+      <h1>A calm place for {page.toLowerCase()}.</h1>
+      <p>
+        This foundation is ready for the next module in the locked build
+        sequence.
+      </p>
+    </div>
+  );
+}
+
+function ForestLab({ close }: { close: () => void }) {
+  const [wildlife, setWildlife] = useState("Great White Stag");
+  const [motion, setMotion] = useState(true);
+  return (
+    <div className="lab-overlay">
+      <aside className="lab-panel">
+        <div className="lab-head">
+          <div>
+            <p className="eyebrow">AUTHORIZED QA</p>
+            <h2>
+              <FlaskConical size={21} /> Forest Lab
+            </h2>
+          </div>
+          <button onClick={close}>
+            <X />
+          </button>
+        </div>
+        <p className="lab-note">
+          Renderer overrides are isolated. Nothing here changes goals, history,
+          streaks or unlocks.
+        </p>
+        <label>
+          Wildlife
+          <select
+            value={wildlife}
+            onChange={(e) => setWildlife(e.target.value)}
+          >
+            <option>Great White Stag</option>
+            <option>Orangutan</option>
+            <option>Gorilla</option>
+            <option>Forest Elephant</option>
+            <option>Sika Deer</option>
+          </select>
+        </label>
+        <div className="control-row">
+          <label>
+            Season
+            <select>
+              <option>Autumn</option>
+              <option>Winter</option>
+              <option>Spring</option>
+              <option>Summer</option>
+            </select>
+          </label>
+          <label>
+            Weather
+            <select>
+              <option>Mist</option>
+              <option>Snow</option>
+              <option>Post-rain</option>
+              <option>Clear</option>
+            </select>
+          </label>
+        </div>
+        <div className="control-row">
+          <label>
+            Solar state
+            <select>
+              <option>Sunrise</option>
+              <option>Golden hour</option>
+              <option>Night</option>
+            </select>
+          </label>
+          <label>
+            Quality
+            <select>
+              <option>High</option>
+              <option>Balanced</option>
+              <option>Performance</option>
+            </select>
+          </label>
+        </div>
+        <label className="toggle">
+          <span>Reduced motion</span>
+          <button
+            onClick={() => setMotion(!motion)}
+            className={!motion ? "on" : ""}
+          >
+            <i />
+          </button>
+        </label>
+        <button className="lab-action">
+          <RotateCcw size={17} /> Replay encounter
+        </button>
+        <button className="lab-action subtle">
+          <Volume2 size={17} /> Force audio encounter
+        </button>
+      </aside>
+      <div className="lab-stage">
+        <button className="device">Desktop · 1440 × 900</button>
+        <div className="stag">
+          <div className="antlers">⌇⌇</div>
+          <div className="stag-body" />
+          <span>{wildlife}</span>
+        </div>
+        <p>Health · Autumn · Sunrise · Mist</p>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [page, setPage] = useState<Page>("Home");
+  const [logView, setLogView] = useState<"all" | "routines">("all");
+  const [logEditTarget, setLogEditTarget] = useState<LogEditTarget>();
+  const [quickLogSignal, setQuickLogSignal] = useState(0);
+  const [lab, setLab] = useState(false);
+  const [forest, setForest] = useState(false);
+  const [search, setSearch] = useState(false);
+  const [onboarding, setOnboarding] = useState(false);
+  const [session, setSession] = useState<any>();
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_event, next) =>
+      setSession(next),
+    );
+    return () => data.subscription.unsubscribe();
+  }, []);
+  if (session === undefined)
+    return <div className="auth-loading">Loading Fovyn…</div>;
+  if (!session) return <AuthHome />;
+  const finishOnboarding = async () => {
+    await completeOnboarding();
+    setOnboarding(false);
+    setPage("Home");
+  };
+  const beginOnboarding = (destination: "Log" | "Goals") => {
+    setOnboarding(true);
+    setPage(destination);
+  };
+  const openHistoryRecord = (item?: HistoryItem) => {
+    if (!item) {
+      setLogEditTarget(undefined);
+      setLogView("all");
+      setPage("Log");
+      return;
+    }
+    const view = (
+      item.logView === "medication" ? "recovery" : (item.logView ?? "all")
+    ) as LogEditTarget["view"];
+    setLogEditTarget({
+      view,
+      id: item.id,
+      date: item.dateKey ?? item.occurredAt.slice(0, 10),
+    });
+    setPage("Log");
+  };
+  const content =
+    page === "Home" ? (
+      <HomeModule
+        navigate={setPage}
+        beginOnboarding={beginOnboarding}
+        openForest={() => setForest(true)}
+        openRoutines={() => {
+          setLogEditTarget(undefined);
+          setLogView("routines");
+          setPage("Log");
+        }}
+      />
+    ) : page === "Log" ? (
+      <TrackHub
+        key={
+          logEditTarget ? `${logEditTarget.view}-${logEditTarget.id}` : logView
+        }
+        initialView={logEditTarget?.view ?? logView}
+        editTarget={logEditTarget}
+        quickLogSignal={quickLogSignal}
+        onFirstSetupComplete={onboarding ? finishOnboarding : undefined}
+      />
+    ) : page === "Goals" ? (
+      <GoalsModule
+        onFirstSetupComplete={onboarding ? finishOnboarding : undefined}
+      />
+    ) : page === "History" ? (
+      <HistoryHub openLog={openHistoryRecord} />
+    ) : page === "Account" ? (
+      <SettingsModule />
+    ) : (
+      <Placeholder page={page} />
+    );
+  return (
+    <div className="app">
+      <aside className="rail">
+        <Mark />
+        <nav>
+          {nav.map((n) => (
+            <button
+              key={n.name}
+              onClick={() => {
+                if (n.name === "Log") {
+                  setLogEditTarget(undefined);
+                  setLogView("all");
+                }
+                setPage(n.name);
+              }}
+              className={page === n.name ? "active" : ""}
+            >
+              <n.icon />
+              <span>{n.name}</span>
+            </button>
+          ))}
+        </nav>
+        <button className="rail-search" onClick={() => setSearch(true)}>
+          <Search />
+          <span>Search</span>
+        </button>
+        <button className="lab-link" onClick={() => setLab(true)}>
+          <FlaskConical />
+          <span>Forest Lab</span>
+        </button>
+      </aside>
+      <main>{content}</main>
+      <button
+        className="add"
+        onClick={() => {
+          setLogEditTarget(undefined);
+          setLogView("all");
+          setPage("Log");
+          setQuickLogSignal((value) => value + 1);
+        }}
+        aria-label="Quick Log"
+      >
+        <Plus />
+      </button>
+      <nav className="bottom">
+        {nav.map((n) => (
+          <button
+            key={n.name}
+            onClick={() => {
+              if (n.name === "Log") {
+                setLogEditTarget(undefined);
+                setLogView("all");
+              }
+              setPage(n.name);
+            }}
+            className={page === n.name ? "active" : ""}
+          >
+            <n.icon />
+            <span>{n.name}</span>
+          </button>
+        ))}
+      </nav>
+      {search && (
+        <SearchOverlayLive close={() => setSearch(false)} navigate={setPage} />
+      )}{" "}
+      {forest && <ForestView close={() => setForest(false)} />}{" "}
+      {lab && <ForestLab close={() => setLab(false)} />}
+    </div>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
+if ("serviceWorker" in navigator && import.meta.env.PROD)
+  navigator.serviceWorker.register("/sw.js");

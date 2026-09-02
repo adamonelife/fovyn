@@ -1,4 +1,425 @@
-import{useEffect,useMemo,useState,type FormEvent}from'react';import{ArrowDownLeft,ArrowUpRight,PiggyBank,Plus,Trash2,X}from'lucide-react';import{loadMoney,removeMoney,saveBudget,saveCategory,saveMoney,type MoneyData,type MoneyTransaction}from'./moneyRepository';import{formatDisplayLabel}from'./displayLabels';const local=(d:Date)=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
-function Editor({data,entry,close,saved}:{data:MoneyData;entry?:MoneyTransaction;close:()=>void;saved:()=>void}){const[type,setType]=useState<MoneyTransaction['transaction_type']>(entry?.transaction_type??'spending'),[amount,setAmount]=useState(String(entry?.amount??'')),[currency,setCurrency]=useState(entry?.currency??data.currency),[category,setCategory]=useState(entry?.category_id??''),[occurred,setOccurred]=useState(local(entry?new Date(entry.occurred_at):new Date())),[note,setNote]=useState(entry?.note??''),[goalIds,setGoalIds]=useState(entry?.goalIds??[]),[error,setError]=useState(''),[busy,setBusy]=useState(false);const submit=async(e:FormEvent)=>{e.preventDefault();setBusy(true);try{await saveMoney({transaction_type:type,amount:Number(amount),currency,category_id:category||null,occurred_at:occurred,note,goalIds},entry?.id);saved()}catch(x){setError(x instanceof Error?x.message:'Unable to save')}finally{setBusy(false)}};return <div className="sheet-shade" onMouseDown={close}><form className="money-editor" onMouseDown={e=>e.stopPropagation()} onSubmit={submit}><button type="button" className="sheet-close" onClick={close}><X/></button><p className="eyebrow">{entry?'CORRECT':'LOG'} MONEY</p><h2>What happened?</h2><div className="money-type">{(['income','spending','saving']as const).map(x=><button type="button" className={type===x?'active':''} onClick={()=>setType(x)} key={x}>{formatDisplayLabel(x)}</button>)}</div><div className="money-grid"><label>Amount<input autoFocus type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Currency<input maxLength={3} value={currency} onChange={e=>setCurrency(e.target.value.toUpperCase())}/></label><label>Category<select value={category} onChange={e=>setCategory(e.target.value)}><option value="">Uncategorised</option>{data.categories.map(c=><option value={c.id} key={c.id}>{c.parent_id?'↳ ':''}{c.name}</option>)}</select></label><label>Date and time<input type="datetime-local" value={occurred} onChange={e=>setOccurred(e.target.value)}/></label></div><label>Note (optional)<textarea value={note} onChange={e=>setNote(e.target.value)}/></label>{data.goals.length>0&&<fieldset><legend>Related Goals</legend>{data.goals.map(g=><label key={g.id}><input type="checkbox" checked={goalIds.includes(g.id)} onChange={()=>setGoalIds(goalIds.includes(g.id)?goalIds.filter(x=>x!==g.id):[...goalIds,g.id])}/>{g.title}</label>)}</fieldset>}{error&&<p className="goal-error">{error}</p>}<button className="save-record" disabled={busy||amount===''}>{busy?'Saving…':'Save'}</button></form></div>}
-function Setup({data,reload}:{data:MoneyData;reload:()=>void}){const[name,setName]=useState(''),[parent,setParent]=useState(''),[budget,setBudget]=useState(''),[budgetCategory,setBudgetCategory]=useState(''),[month,setMonth]=useState(new Date().toISOString().slice(0,7));return <div className="money-setup"><section><h2>Categories</h2><div><input placeholder="Category or subcategory" value={name} onChange={e=>setName(e.target.value)}/><select value={parent} onChange={e=>setParent(e.target.value)}><option value="">Top-level category</option>{data.categories.filter(x=>!x.parent_id).map(x=><option value={x.id} key={x.id}>Under {x.name}</option>)}</select><button disabled={!name.trim()} onClick={()=>saveCategory(name,parent||null).then(()=>{setName('');reload()})}><Plus/> Add</button></div></section><section><h2>Monthly budget</h2><div><select value={budgetCategory} onChange={e=>setBudgetCategory(e.target.value)}><option value="">All spending</option>{data.categories.map(x=><option value={x.id} key={x.id}>{x.name}</option>)}</select><input type="month" value={month} onChange={e=>setMonth(e.target.value)}/><input type="number" inputMode="decimal" min="0" placeholder="Amount" value={budget} onChange={e=>setBudget(e.target.value)}/><button disabled={!budget} onClick={()=>saveBudget(budgetCategory||null,Number(budget),data.currency,month).then(()=>{setBudget('');reload()})}>Save</button></div></section></div>}
-export default function MoneyModule({query=''}:{query?:string}){const[data,setData]=useState<MoneyData>({transactions:[],categories:[],budgets:[],goals:[],currency:'USD'}),[editing,setEditing]=useState<MoneyTransaction|null|undefined>(),[setup,setSetup]=useState(false),[error,setError]=useState(''),[loading,setLoading]=useState(true);const load=async()=>{setLoading(true);try{setData(await loadMoney())}catch(e){setError(e instanceof Error?e.message:'Unable to load Money')}finally{setLoading(false)}};useEffect(()=>{load()},[]);const month=new Date().toISOString().slice(0,7),current=data.transactions.filter(x=>x.occurred_at.startsWith(month)),sum=(type:MoneyTransaction['transaction_type'])=>current.filter(x=>x.transaction_type===type).reduce((a,x)=>a+Number(x.amount),0),groups=useMemo(()=>data.categories.map(c=>({category:c,spent:current.filter(x=>x.transaction_type==='spending'&&x.category_id===c.id).reduce((a,x)=>a+Number(x.amount),0)})).filter(x=>x.spent),[data,month]),summaries=[{label:'Spent',value:sum('spending'),Icon:ArrowUpRight},{label:'Income',value:sum('income'),Icon:ArrowDownLeft},{label:'Saved',value:sum('saving'),Icon:PiggyBank}];if(loading)return <div className="page-wrap tracker-loading">Loading Money…</div>;const term=query.trim().toLowerCase(),transactions=data.transactions.filter(transaction=>`${transaction.transaction_type} ${transaction.note??''} ${data.categories.find(category=>category.id===transaction.category_id)?.name??''}`.toLowerCase().includes(term));return <div className="page-wrap money-v1"><header className="page-head"><div><p className="eyebrow">MONEY</p><h1>Money</h1></div><div className="money-actions"><button className="text-button" onClick={()=>setSetup(!setup)}>Categories & budgets</button><button className="soft-button" onClick={()=>setEditing(null)}><Plus/> Log money</button></div></header>{error&&<p className="goal-error">{error}</p>}{setup&&<Setup data={data} reload={load}/>}<section className="money-summary">{summaries.map(({label,value,Icon})=><article key={label}><Icon/><span><small>This month {label.toLowerCase()}</small><b>{data.currency} {value.toLocaleString()}</b></span></article>)}</section>{groups.length>0&&<section className="money-breakdown"><h2>Category breakdown</h2>{groups.map(x=><span key={x.category.id}><b>{x.category.name}</b><em>{data.currency} {x.spent.toLocaleString()}</em></span>)}</section>}<div className="money-list">{transactions.map(t=><article key={t.id}><button onClick={()=>setEditing(t)}><span className={t.transaction_type}>{t.transaction_type==='income'?<ArrowDownLeft/>:t.transaction_type==='saving'?<PiggyBank/>:<ArrowUpRight/>}</span><div><small>{formatDisplayLabel(t.transaction_type)} · {data.categories.find(c=>c.id===t.category_id)?.name??'Uncategorised'} · {new Date(t.occurred_at).toLocaleString()}</small><h3>{t.currency} {Number(t.amount).toLocaleString()}</h3><p>{t.note}{t.corrected_at?' · corrected':''}</p></div></button><button onClick={()=>confirm('Remove this Money entry from History and Goal progress?')&&removeMoney(t.id).then(load)}><Trash2/></button></article>)}{!transactions.length&&<div className="empty-state"><PiggyBank/><h2>{term?'No matching Money entries':'No Money entries yet'}</h2></div>}</div>{editing!==undefined&&<Editor data={data} entry={editing??undefined} close={()=>setEditing(undefined)} saved={()=>{setEditing(undefined);load()}}/>}</div>}
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  PiggyBank,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  loadMoney,
+  removeMoney,
+  saveBudget,
+  saveCategory,
+  saveMoney,
+  type MoneyData,
+  type MoneyTransaction,
+} from "./moneyRepository";
+import { formatDisplayLabel } from "./displayLabels";
+const local = (d: Date) =>
+  new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+function Editor({
+  data,
+  entry,
+  close,
+  saved,
+}: {
+  data: MoneyData;
+  entry?: MoneyTransaction;
+  close: () => void;
+  saved: () => void;
+}) {
+  const [type, setType] = useState<MoneyTransaction["transaction_type"]>(
+      entry?.transaction_type ?? "spending",
+    ),
+    [amount, setAmount] = useState(String(entry?.amount ?? "")),
+    [currency, setCurrency] = useState(entry?.currency ?? data.currency),
+    [category, setCategory] = useState(entry?.category_id ?? ""),
+    [occurred, setOccurred] = useState(
+      local(entry ? new Date(entry.occurred_at) : new Date()),
+    ),
+    [note, setNote] = useState(entry?.note ?? ""),
+    [goalIds, setGoalIds] = useState(entry?.goalIds ?? []),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await saveMoney(
+        {
+          transaction_type: type,
+          amount: Number(amount),
+          currency,
+          category_id: category || null,
+          occurred_at: occurred,
+          note,
+          goalIds,
+        },
+        entry?.id,
+      );
+      saved();
+    } catch (x) {
+      setError(x instanceof Error ? x.message : "Unable to save");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="sheet-shade" onMouseDown={close}>
+      <form
+        className="money-editor"
+        onMouseDown={(e) => e.stopPropagation()}
+        onSubmit={submit}
+      >
+        <button type="button" className="sheet-close" onClick={close}>
+          <X />
+        </button>
+        <p className="eyebrow">{entry ? "CORRECT" : "LOG"} MONEY</p>
+        <h2>What happened?</h2>
+        <div className="money-type">
+          {(["income", "spending", "saving"] as const).map((x) => (
+            <button
+              type="button"
+              className={type === x ? "active" : ""}
+              onClick={() => setType(x)}
+              key={x}
+            >
+              {formatDisplayLabel(x)}
+            </button>
+          ))}
+        </div>
+        <div className="money-grid">
+          <label>
+            Amount
+            <input
+              autoFocus
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </label>
+          <label>
+            Currency
+            <input
+              maxLength={3}
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+            />
+          </label>
+          <label>
+            Category
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="">Uncategorised</option>
+              {data.categories.map((c) => (
+                <option value={c.id} key={c.id}>
+                  {c.parent_id ? "↳ " : ""}
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Date and time
+            <input
+              type="datetime-local"
+              value={occurred}
+              onChange={(e) => setOccurred(e.target.value)}
+            />
+          </label>
+        </div>
+        <label>
+          Note (optional)
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} />
+        </label>
+        {data.goals.length > 0 && (
+          <fieldset>
+            <legend>Related Goals</legend>
+            {data.goals.map((g) => (
+              <label key={g.id}>
+                <input
+                  type="checkbox"
+                  checked={goalIds.includes(g.id)}
+                  onChange={() =>
+                    setGoalIds(
+                      goalIds.includes(g.id)
+                        ? goalIds.filter((x) => x !== g.id)
+                        : [...goalIds, g.id],
+                    )
+                  }
+                />
+                {g.title}
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {error && <p className="goal-error">{error}</p>}
+        <button className="save-record" disabled={busy || amount === ""}>
+          {busy ? "Saving…" : "Save"}
+        </button>
+      </form>
+    </div>
+  );
+}
+function Setup({ data, reload }: { data: MoneyData; reload: () => void }) {
+  const [name, setName] = useState(""),
+    [parent, setParent] = useState(""),
+    [budget, setBudget] = useState(""),
+    [budgetCategory, setBudgetCategory] = useState(""),
+    [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  return (
+    <div className="money-setup">
+      <section>
+        <h2>Categories</h2>
+        <div>
+          <input
+            placeholder="Category or subcategory"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <select value={parent} onChange={(e) => setParent(e.target.value)}>
+            <option value="">Top-level category</option>
+            {data.categories
+              .filter((x) => !x.parent_id)
+              .map((x) => (
+                <option value={x.id} key={x.id}>
+                  Under {x.name}
+                </option>
+              ))}
+          </select>
+          <button
+            disabled={!name.trim()}
+            onClick={() =>
+              saveCategory(name, parent || null).then(() => {
+                setName("");
+                reload();
+              })
+            }
+          >
+            <Plus /> Add
+          </button>
+        </div>
+      </section>
+      <section>
+        <h2>Monthly budget</h2>
+        <div>
+          <select
+            value={budgetCategory}
+            onChange={(e) => setBudgetCategory(e.target.value)}
+          >
+            <option value="">All spending</option>
+            {data.categories.map((x) => (
+              <option value={x.id} key={x.id}>
+                {x.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+          />
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            placeholder="Amount"
+            value={budget}
+            onChange={(e) => setBudget(e.target.value)}
+          />
+          <button
+            disabled={!budget}
+            onClick={() =>
+              saveBudget(
+                budgetCategory || null,
+                Number(budget),
+                data.currency,
+                month,
+              ).then(() => {
+                setBudget("");
+                reload();
+              })
+            }
+          >
+            Save
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+export default function MoneyModule({ query = "",initialEntryId }: { query?: string;initialEntryId?:string }) {
+  const [data, setData] = useState<MoneyData>({
+      transactions: [],
+      categories: [],
+      budgets: [],
+      goals: [],
+      currency: "USD",
+    }),
+    [editing, setEditing] = useState<MoneyTransaction | null | undefined>(),
+    [setup, setSetup] = useState(false),
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(true);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const next=await loadMoney();setData(next);if(initialEntryId)setEditing(next.transactions.find(entry=>entry.id===initialEntryId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load Money");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    load();
+  }, []);
+  const month = new Date().toISOString().slice(0, 7),
+    current = data.transactions.filter((x) => x.occurred_at.startsWith(month)),
+    sum = (type: MoneyTransaction["transaction_type"]) =>
+      current
+        .filter((x) => x.transaction_type === type)
+        .reduce((a, x) => a + Number(x.amount), 0),
+    groups = useMemo(
+      () =>
+        data.categories
+          .map((c) => ({
+            category: c,
+            spent: current
+              .filter(
+                (x) =>
+                  x.transaction_type === "spending" && x.category_id === c.id,
+              )
+              .reduce((a, x) => a + Number(x.amount), 0),
+          }))
+          .filter((x) => x.spent),
+      [data, month],
+    ),
+    summaries = [
+      { label: "Spent", value: sum("spending"), Icon: ArrowUpRight },
+      { label: "Income", value: sum("income"), Icon: ArrowDownLeft },
+      { label: "Saved", value: sum("saving"), Icon: PiggyBank },
+    ];
+  if (loading)
+    return <div className="page-wrap tracker-loading">Loading Money…</div>;
+  const term = query.trim().toLowerCase(),
+    transactions = data.transactions.filter((transaction) =>
+      `${transaction.transaction_type} ${transaction.note ?? ""} ${data.categories.find((category) => category.id === transaction.category_id)?.name ?? ""}`
+        .toLowerCase()
+        .includes(term),
+    );
+  return (
+    <div className="page-wrap money-v1">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">MONEY</p>
+          <h1>Money</h1>
+        </div>
+        <div className="money-actions">
+          <button className="text-button" onClick={() => setSetup(!setup)}>
+            Categories & budgets
+          </button>
+          <button className="soft-button" onClick={() => setEditing(null)}>
+            <Plus /> Log money
+          </button>
+        </div>
+      </header>
+      {error && <p className="goal-error">{error}</p>}
+      {setup && <Setup data={data} reload={load} />}
+      <section className="money-summary">
+        {summaries.map(({ label, value, Icon }) => (
+          <article key={label}>
+            <Icon />
+            <span>
+              <small>This month {label.toLowerCase()}</small>
+              <b>
+                {data.currency} {value.toLocaleString()}
+              </b>
+            </span>
+          </article>
+        ))}
+      </section>
+      {groups.length > 0 && (
+        <section className="money-breakdown">
+          <h2>Category breakdown</h2>
+          {groups.map((x) => (
+            <span key={x.category.id}>
+              <b>{x.category.name}</b>
+              <em>
+                {data.currency} {x.spent.toLocaleString()}
+              </em>
+            </span>
+          ))}
+        </section>
+      )}
+      <div className="money-list">
+        {transactions.map((t) => (
+          <article key={t.id}>
+            <button onClick={() => setEditing(t)}>
+              <span className={t.transaction_type}>
+                {t.transaction_type === "income" ? (
+                  <ArrowDownLeft />
+                ) : t.transaction_type === "saving" ? (
+                  <PiggyBank />
+                ) : (
+                  <ArrowUpRight />
+                )}
+              </span>
+              <div>
+                <small>
+                  {formatDisplayLabel(t.transaction_type)} ·{" "}
+                  {data.categories.find((c) => c.id === t.category_id)?.name ??
+                    "Uncategorised"}{" "}
+                  · {new Date(t.occurred_at).toLocaleString()}
+                </small>
+                <h3>
+                  {t.currency} {Number(t.amount).toLocaleString()}
+                </h3>
+                <p>
+                  {t.note}
+                  {t.corrected_at ? " · corrected" : ""}
+                </p>
+              </div>
+            </button>
+            <button
+              onClick={() =>
+                confirm(
+                  "Remove this Money entry from History and Goal progress?",
+                ) && removeMoney(t.id).then(load)
+              }
+            >
+              <Trash2 />
+            </button>
+          </article>
+        ))}
+        {!transactions.length && (
+          <div className="empty-state">
+            <PiggyBank />
+            <h2>
+              {term ? "No matching Money entries" : "No Money entries yet"}
+            </h2>
+          </div>
+        )}
+      </div>
+      {editing !== undefined && (
+        <Editor
+          data={data}
+          entry={editing ?? undefined}
+          close={() => setEditing(undefined)}
+          saved={() => {
+            setEditing(undefined);
+            load();
+          }}
+        />
+      )}
+    </div>
+  );
+}
