@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { growthRegistry } from "./domain";
+import { forestEnvironmentManifest, forestIconNames, forestTreeManifest } from "./forestManifest";
 
 export const FOREST_ASSET_BUCKET = "fovyn-assets";
 export const forestTreeAssetKeys = growthRegistry.map((_, index) =>
@@ -17,6 +18,7 @@ export const forestEnvironmentAssetKeys = [
   "forest.environment.dormant_woods",
   "forest.environment.heartwood",
 ] as const;
+export const forestIconAssetKeys = forestIconNames.map((name) => `forest.icon.${name.replaceAll("-", "_")}`);
 
 export type ForestAssetVariant = "default" | "desktop" | "mobile";
 export type ForestAsset = {
@@ -32,13 +34,18 @@ export type ForestAsset = {
   height: number;
   anchor_x: number;
   anchor_y: number;
+  ground_anchor_y: number;
   default_scale: number;
   mobile_scale_modifier: number;
   desktop_scale_modifier: number;
+  z_bias: number;
+  depth_preference: "far" | "mid" | "near";
+  environment_key: string | null;
+  is_active: boolean;
   url: string;
 };
 
-const columns = "asset_key,asset_version,variant,asset_kind,stage,canonical_name,storage_path,mime_type,width,height,anchor_x,anchor_y,default_scale,mobile_scale_modifier,desktop_scale_modifier";
+const columns = "asset_key,asset_version,variant,asset_kind,stage,canonical_name,storage_path,mime_type,width,height,anchor_x,anchor_y,ground_anchor_y,default_scale,mobile_scale_modifier,desktop_scale_modifier,z_bias,depth_preference,environment_key,is_active";
 
 export async function getForestAsset(assetKey: string, variant: ForestAssetVariant = "default"): Promise<ForestAsset | null> {
   const { data, error } = await supabase
@@ -59,6 +66,12 @@ export async function getForestAsset(assetKey: string, variant: ForestAssetVaria
   return { ...row, url: publicAsset.publicUrl };
 }
 
+export const localForestManifest = {
+  trees: forestTreeManifest,
+  environments: forestEnvironmentManifest,
+  icons: forestIconNames,
+} as const;
+
 export async function preloadForestAssets(assetKeys: readonly string[], variant: ForestAssetVariant = "default") {
   const assets = (await Promise.all(assetKeys.map((key) => getForestAsset(key, variant)))).filter((asset): asset is ForestAsset => Boolean(asset));
   if (typeof Image === "undefined") return assets;
@@ -75,4 +88,3 @@ export function retryForestImage(image: HTMLImageElement, asset: ForestAsset, at
   image.src = `${asset.url}${asset.url.includes("?") ? "&" : "?"}retry=${Date.now()}`;
   return true;
 }
-
