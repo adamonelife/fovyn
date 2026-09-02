@@ -1,7 +1,7 @@
 export type TrackingType='Reps'|'Seconds'|'Minutes'|'Distance';
 export type RuleType='PROGRESS'|'HARD_CAP'|'EQUIPMENT_CAP'|'QUALITY'|'TIME_CAP'|'REP_CAP'|'FIXED';
 export type SetPerformance={kg:string;value:number|null};
-export type Exercise={exerciseId:string;exerciseName:string;group:string;equipment:string;defaultSets:number;minReps:number|null;maxReps:number|null;incrementKg:number;progressionType:string;active:boolean;trackingType:TrackingType;minimumWeight?:number|null;maximumWeight?:number|null;availableWeights?:number[];weightConvention?:string|null;resistanceType?:string|null};
+export type Exercise={profileId?:string;exerciseId:string;exerciseName:string;group:string;equipment:string;defaultSets:number;minReps:number|null;maxReps:number|null;incrementKg:number;progressionType:string;active:boolean;trackingType:TrackingType;minimumWeight?:number|null;maximumWeight?:number|null;availableWeights?:number[];weightConvention?:string|null;resistanceType?:string|null};
 export type ExerciseRule={ruleId:string;exerciseId:string;ruleType:RuleType;condition:string;action:string;active:boolean};
 export type LoggedExercise={sessionId:string;date:string;exerciseId:string;sets:SetPerformance[]};
 export type TemplateSlot={workoutType:string;variant:string;order:number;slotName:string;group:string;defaultExerciseId:string;required:boolean};

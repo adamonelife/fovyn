@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { Check, MoreHorizontal, Plus, Timer, X } from "lucide-react";
 import ExerciseLibrary from './ExerciseLibrary';
+import TrainingTemplates from './TrainingTemplates';
 import { formatDisplayLabel } from './displayLabels';
 import { supabase } from "./supabase";
 import {
   listTemplates,
   loadWorkout,
   saveWorkout,
+  saveTemplate,
+  type WorkoutTemplate,
   type WorkoutSave,
 } from "./trainingRepository";
 import {
@@ -31,6 +34,7 @@ type Item = BuiltExercise & {
 };
 const isBodyweight = (exercise: Exercise) =>
   ["bodyweight", "assisted_bodyweight"].includes(exercise.resistanceType ?? "") ||
+  (exercise.weightConvention??'').startsWith('bodyweight_') ||
   exercise.equipment === "Bodyweight" || exercise.equipment === "Pull-up Bar";
 function TrainingPreviousPerformance({last}:{last:LoggedExercise}){
   return <div className="previous"><span>Previous</span><div>{last.sets.map((set,index)=><b key={index}>{set.kg||'—'}×{set.value??'—'}</b>)}</div></div>;
@@ -102,15 +106,16 @@ function Start(p: {
   close: () => void;
   onSaved: (t: string, v: string) => void;
 }) {
-  const [templates, setTemplates] = useState<
-      { type: string; variant: string }[]
-    >([]),
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([]),
     [choice, setChoice] = useState<{
       type: string;
       variant: string;
       manual: boolean;
+      templateId?:string;
+      templateName?:string;
     }>(),
     [libraryOpen,setLibraryOpen]=useState(false),
+    [templatesOpen,setTemplatesOpen]=useState(false),
     [pending, setPending] = useState(queuedWorkouts().length);
   useEffect(() => {
     listTemplates().then(setTemplates);
@@ -122,6 +127,7 @@ function Start(p: {
   }, []);
   if (choice) return <Editor {...choice} {...p} />;
   if(libraryOpen)return <ExerciseLibrary close={()=>{setLibraryOpen(false);listTemplates().then(setTemplates)}}/>;
+  if(templatesOpen)return <TrainingTemplates close={()=>{setTemplatesOpen(false);listTemplates().then(setTemplates)}} onStart={template=>setChoice({type:template.type,variant:template.variant,manual:false,templateId:template.id,templateName:template.name})}/>;
   return (
     <div className="sheet-shade">
       <section className="workout-start">
@@ -144,18 +150,20 @@ function Start(p: {
           <Plus /> Manual workout
         </button>
         <button className="exercise-library-link" onClick={()=>setLibraryOpen(true)}>Exercise Library</button>
+        <button className="exercise-library-link" onClick={()=>setTemplatesOpen(true)}>Manage Templates</button>
         <p className="choice-label">SAVED TEMPLATES</p>
         <div className="template-grid">
           {templates.map((t) => (
             <button
-              key={t.type + t.variant}
-              onClick={() => setChoice({ ...t, manual: false })}
+              key={t.id}
+              onClick={() => setChoice({type:t.type,variant:t.variant,manual:false,templateId:t.id,templateName:t.name})}
             >
-              <span>{t.type}</span>
-              <b>{t.variant}</b>
+              <span>{t.exerciseCount} exercise{t.exerciseCount===1?'':'s'}</span>
+              <b>{t.name}</b>
             </button>
           ))}
         </div>
+        {templates.length===0&&<div className="ui-empty"><p>No workout templates yet.</p><button className="soft-button" onClick={()=>setTemplatesOpen(true)}>Create Template</button></div>}
       </section>
     </div>
   );
@@ -164,12 +172,16 @@ function Editor({
   type,
   variant,
   manual,
+  templateId,
+  templateName,
   close,
   onSaved,
 }: {
   type: string;
   variant: string;
   manual: boolean;
+  templateId?:string;
+  templateName?:string;
   close: () => void;
   onSaved: (t: string, v: string) => void;
 }) {
@@ -196,7 +208,7 @@ function Editor({
       volume: number;
       pbs: string[];
       offline: boolean;
-    }>();
+    }>(),[templateDraft,setTemplateDraft]=useState(''),[templateSaved,setTemplateSaved]=useState(false);
   useEffect(() => {
     try {
       const settings = JSON.parse(
@@ -210,7 +222,7 @@ function Editor({
       // Invalid legacy preferences should not prevent a workout opening.
     }
     const cacheKey=`forbair-workout-cache:${type}:${variant}:${manual}`;
-    loadWorkout(type, variant, manual)
+    loadWorkout(type, variant, manual,templateId)
       .then((d) => {
         localStorage.setItem(cacheKey,JSON.stringify(d));
         setLibrary(d.exercises);
@@ -303,6 +315,7 @@ function Editor({
     sleep: Number(sleep) || undefined,
     notes,
     sessionType,
+    templateId,
     items: items.map((x) => ({
       exerciseId: x.exercise.exerciseId,
       exerciseName: x.exercise.exerciseName,
@@ -360,7 +373,7 @@ function Editor({
             {summary.offline ? "SAVED ON DEVICE" : "WORKOUT SAVED"}
           </p>
           <h1>
-            {type} {variant} complete
+            {templateName??`${type} ${variant}`} complete
           </h1>
           <div>
             <span>
@@ -371,11 +384,14 @@ function Editor({
             </span>
           </div>
           {summary.pbs.length > 0 && <p>New best: {summary.pbs.join(", ")}</p>}
+          {manual&&!templateSaved&&<div className="save-manual-template"><input value={templateDraft} onChange={event=>setTemplateDraft(event.target.value)} placeholder="Template name"/><button className="soft-button" disabled={!templateDraft.trim()} onClick={async()=>{try{await saveTemplate({name:templateDraft,exerciseIds:items.map(item=>item.exercise.profileId).filter((id):id is string=>Boolean(id))});setTemplateSaved(true)}catch(reason){setError(reason instanceof Error?reason.message:'Unable to save Template.')}}}>Save as Template</button></div>}
+          {templateSaved&&<p>Template saved.</p>}
+          {error&&<p className="workout-error">{error}</p>}
           <button
             className="finish-workout"
             onClick={() => {
               onSaved(
-                `${type} ${variant}`,
+                templateName??`${type} ${variant}`,
                 `${duration || "—"} min · ${items.length} exercises`,
               );
               close();
@@ -392,7 +408,7 @@ function Editor({
         <div>
           <p className="eyebrow">{manual ? "MANUAL" : "RECOMMENDED"} WORKOUT</p>
           <h1>
-            {type} {variant}
+            {templateName??`${type} ${variant}`}
           </h1>
         </div>
         <button onClick={close}>
@@ -434,7 +450,7 @@ function Editor({
                 <p>{x.slotName}</p>
                 <h2>{x.exercise.exerciseName}</h2>
                 <small>
-                  {x.exercise.group} · {x.exercise.equipment}
+                  {formatDisplayLabel(x.exercise.group)} · {formatDisplayLabel(x.exercise.resistanceType??x.exercise.equipment??'other')}
                   {x.exercise.weightConvention
                     ? ` · ${formatDisplayLabel(x.exercise.weightConvention)}`
                     : ""}
@@ -575,7 +591,7 @@ function Editor({
                 <button key={e.exerciseId} onClick={() => choose(e)}>
                   <b>{e.exerciseName}</b>
                   <small>
-                    {e.group} · {e.equipment}
+                    {formatDisplayLabel(e.group)} · {formatDisplayLabel(e.resistanceType??e.equipment??'other')}
                   </small>
                 </button>
               ))}

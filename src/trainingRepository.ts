@@ -19,24 +19,50 @@ export async function requireOwner() {
   if (error || !data.user) throw new Error("Sign in to load Training");
   return data.user.id;
 }
-export async function listTemplates() {
+export type WorkoutTemplate={id:string;name:string;description:string|null;type:string;variant:string;archived:boolean;exerciseCount:number};
+export type WorkoutTemplateDetail=WorkoutTemplate&{exercises:Array<{id:string;exerciseId:string;name:string;muscleGroup:string;position:number;required:boolean}>};
+export async function listTemplates(includeArchived=false):Promise<WorkoutTemplate[]> {
   const owner = await requireOwner();
-  const { data, error } = await supabase!
+  let query = supabase!
     .from("training_templates")
-    .select("workout_type,variant")
+    .select("id,name,description,workout_type,variant,archived_at")
     .eq("owner_id", owner)
-    .order("workout_type")
-    .order("variant");
+    .order("name");
+  if(!includeArchived)query=query.is('archived_at',null).eq('active',true);
+  const { data, error } = await query;
   fail("Templates", error);
+  const ids=(data??[]).map(row=>row.id);
+  const slots=ids.length?await supabase!.from('training_template_slots').select('template_id').in('template_id',ids):{data:[],error:null};
+  fail('Template exercises',slots.error);
   return (data ?? []).map((x) => ({
+    id:x.id as string,
+    name:(x.name||`${x.workout_type} ${x.variant}`).trim() as string,
+    description:x.description as string|null,
     type: x.workout_type as string,
     variant: x.variant as string,
+    archived:Boolean(x.archived_at),
+    exerciseCount:(slots.data??[]).filter(slot=>slot.template_id===x.id).length,
   }));
 }
+export async function loadTemplate(id:string):Promise<WorkoutTemplateDetail>{
+  const owner=await requireOwner();
+  const template=await supabase!.from('training_templates').select('id,name,description,workout_type,variant,archived_at').eq('id',id).eq('owner_id',owner).single();fail('Training template',template.error);
+  const slots=await supabase!.from('training_template_slots').select('id,position,default_exercise_id,required,training_exercises!training_template_slots_default_exercise_id_fkey(name,muscle_group)').eq('template_id',id).order('position');fail('Template exercises',slots.error);
+  const row=template.data;
+  return{id:row.id,name:row.name||`${row.workout_type} ${row.variant}`.trim(),description:row.description,type:row.workout_type,variant:row.variant,archived:Boolean(row.archived_at),exerciseCount:(slots.data??[]).length,exercises:(slots.data??[]).map(slot=>{const exercise=Array.isArray(slot.training_exercises)?slot.training_exercises[0]:slot.training_exercises;return{id:slot.id,exerciseId:slot.default_exercise_id,name:exercise?.name??'Exercise',muscleGroup:exercise?.muscle_group??'other',position:slot.position,required:slot.required}})};
+}
+export async function saveTemplate(input:{id?:string;name:string;description?:string;exerciseIds:string[]}){
+  if(!input.name.trim())throw new Error('Template name is required.');
+  if(!input.exerciseIds.length)throw new Error('Add at least one exercise.');
+  const result=await supabase!.rpc('save_training_template',{p_template_id:input.id??null,p_name:input.name.trim(),p_description:input.description?.trim()??'',p_slots:input.exerciseIds.map(exercise_id=>({exercise_id,required:true}))});if(result.error?.code==='23505')throw new Error('A Template with that name already exists.');fail(input.id?'Update Training template':'Create Training template',result.error);return result.data as string;
+}
+export async function setTemplateArchived(id:string,archived:boolean){const owner=await requireOwner(),result=await supabase!.from('training_templates').update({active:!archived,archived_at:archived?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq('id',id).eq('owner_id',owner).select('id').single();fail(archived?'Archive Training template':'Awaken Training template',result.error)}
+export async function duplicateTemplate(id:string){const source=await loadTemplate(id);let name=`${source.name} Copy`,suffix=2;const existing=await listTemplates(true);while(existing.some(item=>item.name.toLowerCase()===name.toLowerCase()))name=`${source.name} Copy ${suffix++}`;return saveTemplate({name,description:source.description??'',exerciseIds:source.exercises.map(item=>item.exerciseId)})}
 export async function loadWorkout(
   type: string,
   variant: string,
   manual = false,
+  templateId?:string,
 ) {
   const owner = await requireOwner();
   const [ex, ru, se] = await Promise.all([
@@ -59,6 +85,7 @@ export async function loadWorkout(
   fail("Rules", ru.error);
   fail("Sessions", se.error);
   const exercises: Exercise[] = (ex.data ?? []).map((r) => ({
+    profileId:r.id,
     exerciseId: r.exercise_key,
     exerciseName: r.name,
     group: r.muscle_group,
@@ -128,13 +155,13 @@ export async function loadWorkout(
       .filter((x) => x.exerciseId);
   }
   if (manual) return { exercises, items: [], rules, logs };
-  const template = await supabase!
+  let templateQuery = supabase!
     .from("training_templates")
     .select("id")
     .eq("owner_id", owner)
-    .eq("workout_type", type)
-    .eq("variant", variant)
-    .single();
+    .is('archived_at',null);
+  templateQuery=templateId?templateQuery.eq('id',templateId):templateQuery.eq("workout_type", type).eq("variant", variant);
+  const template=await templateQuery.single();
   fail("Template", template.error);
   const slots = await supabase!
     .from("training_template_slots")
@@ -170,6 +197,7 @@ export type WorkoutSave = {
   sleep?: number;
   notes?: string;
   sessionType?:'normal'|'light'|'rehab';
+  templateId?:string;
   items: Array<{
     exerciseId: string;
     exerciseName: string;
@@ -208,6 +236,7 @@ export async function saveWorkout(payload: WorkoutSave) {
       sleep_hours: payload.sleep ?? null,
       notes: payload.notes ?? "",
       session_type:payload.sessionType??'normal',
+      template_id:payload.templateId??null,
       source_payload: { source: "unified_forbair_v1" },
     })
     .select("id")
