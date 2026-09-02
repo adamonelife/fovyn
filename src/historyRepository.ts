@@ -244,7 +244,7 @@ export async function loadHistory(days = 30): Promise<HistoryData> {
   fail("History Nutrition links", nutritionLinks.error);
   let moneyQuery = supabase
     .from("money_transactions")
-    .select("id,transaction_type,amount,currency,occurred_at,note,corrected_at")
+    .select("id,transaction_type,amount,currency,title,occurred_at,note,corrected_at")
     .eq("owner_id", user.id)
     .is("deleted_at", null)
     .order("occurred_at", { ascending: false })
@@ -402,7 +402,7 @@ export async function loadHistory(days = 30): Promise<HistoryData> {
     id: m.id,
     kind: "money",
     logView: "money",
-    title: `Money · ${formatDisplayLabel(m.transaction_type)}`,
+    title: m.title || `Money · ${formatDisplayLabel(m.transaction_type)}`,
     detail: m.note || `${m.currency} ${Number(m.amount).toLocaleString()}`,
     occurredAt: m.occurred_at,
     corrected: Boolean(m.corrected_at),
