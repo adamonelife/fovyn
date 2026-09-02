@@ -11,7 +11,7 @@ import {
 import type { Tracker } from "./trackerRepository";
 import { LogDatePicker } from "./ui";
 import { fovynDateKey, shiftDateKey } from "./fovynDate";
-import { metricSummary } from "./metricSummary";
+import { metricSummary, metricSummaryContext } from "./metricSummary";
 
 const localDateTime = (date = new Date()) =>
   new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -308,7 +308,8 @@ export default function MetricsModule({
       {error && <p className="goal-error">{error}</p>}
       <div className="metric-grid">
         {series.map(({ tracker, records }) => {
-          const summary = metricSummary(records, tracker.metric_summary_mode, tracker.metric_summary_period);
+          const today = fovynDateKey(data.timezone);
+          const summary = metricSummary(records, tracker.metric_summary_mode, tracker.metric_summary_period, today, 1, data.timezone);
           return (
           <article key={tracker.id}>
             <header>
@@ -334,7 +335,7 @@ export default function MetricsModule({
               <b>
                 {summary === null ? "—" : `${summary.toLocaleString()}${unit(tracker) ? ` ${unit(tracker)}` : ""}`}
               </b>
-              <span>{records.length ? tracker.metric_summary_mode === "latest" ? "Latest" : "Current summary" : "No entries yet"}</span>
+              <span>{records.length ? metricSummaryContext(tracker.metric_summary_mode, tracker.metric_summary_period) : "No entries yet"}</span>
             </div>
             <div className="metric-history">
               {records.map((record) => (
