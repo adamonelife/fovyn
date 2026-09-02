@@ -755,20 +755,6 @@ export default function NutritionModule({
               onChange={(event) => setSelectedDate(event.target.value)}
             />
           </div>
-          {mealTypes.map((meal) => (
-            <MealSection
-              meal={meal}
-              entries={dayEntries.filter((entry) => entry.meal_type === meal)}
-              add={() => setAddingEntry({ meal, date: selectedDate })}
-              edit={setEditing}
-              remove={(entry) =>
-                confirm(
-                  "Remove this Nutrition entry from History and Goal progress?",
-                ) && removeEntry(entry.id).then(load)
-              }
-              key={meal}
-            />
-          ))}
           <section className="nutrition-daily-total">
             <p className="eyebrow">DAILY TOTAL</p>
             <div>
@@ -783,6 +769,20 @@ export default function NutritionModule({
               ))}
             </div>
           </section>
+          {mealTypes.map((meal) => (
+            <MealSection
+              meal={meal}
+              entries={dayEntries.filter((entry) => entry.meal_type === meal)}
+              add={() => setAddingEntry({ meal, date: selectedDate })}
+              edit={setEditing}
+              remove={(entry) =>
+                confirm(
+                  "Remove this Nutrition entry from History and Goal progress?",
+                ) && removeEntry(entry.id).then(load)
+              }
+              key={meal}
+            />
+          ))}
         </>
       )}
       {view === "history" && (
