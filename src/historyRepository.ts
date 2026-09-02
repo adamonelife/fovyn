@@ -1,10 +1,11 @@
 import {supabase} from './supabase';
 import {goalOwner} from './goalsRepository';
 import {formatDisplayLabel} from './displayLabels';
+import{fovynDateKey,shiftDateKey}from'./fovynDate';
 
 const fail=(label:string,error:{message:string}|null)=>{if(error)throw new Error(`${label}: ${error.message}`)};
-export type HistoryItem={id:string;kind:'record'|'habit'|'note'|'sleep'|'activity'|'nutrition'|'money'|'hobby'|'training'|'social'|'alcohol'|'recovery';iconKey?:string|null;title:string;detail:string;occurredAt:string;corrected:boolean;goalNames:string[]};
-export type HistoryData={items:HistoryItem[];daysPresent:number;currentStreak:number;contributions:number};
+export type HistoryItem={id:string;kind:'record'|'habit'|'note'|'sleep'|'activity'|'nutrition'|'money'|'hobby'|'training'|'social'|'alcohol'|'recovery';iconKey?:string|null;title:string;detail:string;occurredAt:string;dateKey?:string;corrected:boolean;goalNames:string[];nutrition?:{mealType:string;calories:number;protein:number;carbs:number;fat:number}};
+export type HistoryData={items:HistoryItem[];daysPresent:number;currentStreak:number;contributions:number;timezone:string;today:string};
 export type PeriodicReview={id:string;period_type:'weekly'|'monthly';period_start:string;period_end:string;summary:string|null;wins:string|null;friction:string|null;next_focus:string|null;updated_at:string};
 export const historyKindForModule=(module:string|undefined):HistoryItem['kind']=>module==='social'?'social':module==='alcohol'?'alcohol':module==='medication'?'recovery':'record';
 
@@ -17,7 +18,7 @@ export function streakForDates(values:string[],today=new Date()){
 }
 
 export async function loadHistory(days=30):Promise<HistoryData>{
-  const user=await goalOwner(),since=days?new Date(Date.now()-days*86400000).toISOString():undefined;
+  const user=await goalOwner(),profile=await supabase.from('profiles').select('timezone').eq('id',user.id).single();fail('History timezone',profile.error);const timezone=profile.data?.timezone||'UTC',today=fovynDateKey(timezone),sinceKey=days?shiftDateKey(today,-days):undefined,since=sinceKey?`${sinceKey}T00:00:00.000Z`:undefined;
   let recordsQuery=supabase.from('tracking_records').select('id,tracker_id,value,unit_key,custom_unit,currency,occurred_at,note,corrected_at,occurrence_status').eq('owner_id',user.id).is('deleted_at',null).order('occurred_at',{ascending:false}).limit(500);
   let habitsQuery=supabase.from('habit_entries').select('id,habit_id,status,value,note,entry_date,updated_at').eq('owner_id',user.id).order('entry_date',{ascending:false}).limit(500);
   if(since){recordsQuery=recordsQuery.gte('occurred_at',since);habitsQuery=habitsQuery.gte('entry_date',since.slice(0,10))}
@@ -40,12 +41,24 @@ export async function loadHistory(days=30):Promise<HistoryData>{
   const noteItems:HistoryItem[]=(notes.data??[]).map(n=>({id:n.id,kind:'note',title:n.title,detail:n.body,occurredAt:n.occurred_at,corrected:Boolean(n.corrected_at),goalNames:(noteLinks.data??[]).filter(x=>x.note_id===n.id).flatMap(x=>{const goal=x.goals as unknown as {title:string}|null;return goal?[goal.title]:[]})}));
   const sleepItems:HistoryItem[]=(sleep.data??[]).map(s=>({id:s.id,kind:'sleep',title:'Sleep',detail:`${Math.round((new Date(s.wake_time).getTime()-new Date(s.bedtime).getTime())/36000)/100} hours · ${formatDisplayLabel(s.quality)} · ${formatDisplayLabel(s.waking_energy)} energy`,occurredAt:s.wake_time,corrected:Boolean(s.corrected_at),goalNames:(sleepLinks.data??[]).filter(x=>x.sleep_entry_id===s.id).flatMap(x=>{const goal=x.goals as unknown as {title:string}|null;return goal?[goal.title]:[]})}));
   const activityItems:HistoryItem[]=(activities.data??[]).map(a=>({id:a.id,kind:'activity',title:a.activity,detail:`${a.duration_min} min${a.distance_km!=null?` · ${a.distance_km} km`:''}${a.is_social?' · social':''}`,occurredAt:a.occurred_at??`${a.performed_on}T12:00:00`,corrected:Boolean(a.corrected_at),goalNames:(activityLinks.data??[]).filter(x=>x.cardio_entry_id===a.id).flatMap(x=>{const goal=x.goals as unknown as {title:string}|null;return goal?[goal.title]:[]})}));
-  const nutritionItems:HistoryItem[]=(nutrition.data??[]).map(n=>({id:n.id,kind:'nutrition',title:n.name,detail:`${formatDisplayLabel(n.meal_type)} · ${n.calories} kcal · P ${n.protein_g}g · C ${n.carbs_g}g · F ${n.fat_g}g · Fibre ${n.fibre_g}g`,occurredAt:n.occurred_at,corrected:Boolean(n.corrected_at),goalNames:(nutritionLinks.data??[]).filter(x=>x.nutrition_entry_id===n.id).flatMap(x=>{const goal=x.goals as unknown as {title:string}|null;return goal?[goal.title]:[]})}));
+  const nutritionItems:HistoryItem[]=(nutrition.data??[]).map(n=>({id:n.id,kind:'nutrition',title:n.name,detail:`${formatDisplayLabel(n.meal_type)} · ${n.calories} kcal · P ${n.protein_g}g · C ${n.carbs_g}g · F ${n.fat_g}g · Fibre ${n.fibre_g}g`,occurredAt:n.occurred_at,corrected:Boolean(n.corrected_at),nutrition:{mealType:formatDisplayLabel(n.meal_type),calories:Number(n.calories),protein:Number(n.protein_g),carbs:Number(n.carbs_g),fat:Number(n.fat_g)},goalNames:(nutritionLinks.data??[]).filter(x=>x.nutrition_entry_id===n.id).flatMap(x=>{const goal=x.goals as unknown as {title:string}|null;return goal?[goal.title]:[]})}));
   const moneyItems:HistoryItem[]=(money.data??[]).map(m=>({id:m.id,kind:'money',title:`Money · ${formatDisplayLabel(m.transaction_type)}`,detail:m.note||`${m.currency} ${Number(m.amount).toLocaleString()}`,occurredAt:m.occurred_at,corrected:Boolean(m.corrected_at),goalNames:(moneyLinks.data??[]).filter(x=>x.transaction_id===m.id).flatMap(x=>{const goal=x.goals as unknown as {title:string}|null;return goal?[goal.title]:[]})}));
   const hobbyItems:HistoryItem[]=(hobbyEntries.data??[]).map(e=>({id:e.id,kind:'hobby',title:(hobbies.data??[]).find(h=>h.id===e.hobby_id)?.name??'Archived Hobby',detail:e.note||`${e.amount==null?'Completed':`${Number(e.amount)} ${e.unit}`}`,occurredAt:e.occurred_at,corrected:Boolean(e.corrected_at),goalNames:(hobbyLinks.data??[]).filter(x=>x.entry_id===e.id).flatMap(x=>{const goal=x.goals as unknown as {title:string}|null;return goal?[goal.title]:[]})}));
   const trainingItems:HistoryItem[]=(training.data??[]).map(session=>{const source=session.source_payload as Record<string,unknown>|null,mode=session.session_type==='normal'?'':`${session.session_type[0].toUpperCase()+session.session_type.slice(1)} · `;return{id:session.id,kind:'training',title:`${session.workout_type} ${session.variant}`,detail:`${mode}${session.notes||`${session.duration_min==null?'Workout':`${session.duration_min} min`}`}`,occurredAt:`${session.performed_on}T12:00:00`,corrected:Boolean(source?.corrected_at),goalNames:[]}});
-  const items=[...recordItems,...habitItems,...noteItems,...sleepItems,...activityItems,...nutritionItems,...moneyItems,...hobbyItems,...trainingItems].sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt)),dates=[...new Set(items.map(x=>x.occurredAt.slice(0,10)))];
-  return{items,daysPresent:dates.length,currentStreak:streakForDates(dates),contributions:[...recordItems,...activityItems,...nutritionItems,...moneyItems,...hobbyItems].filter(x=>x.goalNames.length>0).length};
+  const items=[...recordItems,...habitItems,...noteItems,...sleepItems,...activityItems,...nutritionItems,...moneyItems,...hobbyItems,...trainingItems].map(item=>({...item,dateKey:fovynDateKey(timezone,new Date(item.occurredAt))})).filter(item=>!sinceKey||item.dateKey>=sinceKey).sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt)),dates=[...new Set(items.map(x=>x.dateKey))];
+  return{items,daysPresent:dates.length,currentStreak:streakForDates(dates),contributions:items.filter(x=>x.goalNames.length>0).length,timezone,today};
+}
+const softDeleteTable:Partial<Record<HistoryItem['kind'],string>>={record:'tracking_records',social:'tracking_records',alcohol:'tracking_records',recovery:'tracking_records',note:'notes',sleep:'sleep_entries',activity:'cardio_entries',nutrition:'nutrition_entries',money:'money_transactions',hobby:'hobby_entries'};
+export const historyDeleteTarget=(kind:HistoryItem['kind'])=>softDeleteTable[kind]??(kind==='habit'?'habit_entries':kind==='training'?'training_sessions':null);
+export async function deleteHistoryItem(item:HistoryItem){
+  const user=await goalOwner(),table=softDeleteTable[item.kind];
+  if(table){
+    const result=await supabase.from(table).update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',item.id).eq('owner_id',user.id).is('deleted_at',null).select('id').single();
+    fail('Delete History entry',result.error);return;
+  }
+  if(item.kind==='habit'){const result=await supabase.from('habit_entries').delete().eq('id',item.id).eq('owner_id',user.id).select('id').single();fail('Delete Habit occurrence',result.error);return}
+  if(item.kind==='training'){const result=await supabase.from('training_sessions').delete().eq('id',item.id).eq('owner_id',user.id).select('id').single();fail('Delete Training session',result.error);return}
+  throw new Error('This History event cannot be deleted.');
 }
 export async function loadReviews(){const user=await goalOwner();const result=await supabase.from('periodic_reviews').select('*').eq('owner_id',user.id).order('period_start',{ascending:false});fail('Reviews',result.error);return(result.data??[]) as PeriodicReview[]}
 export async function saveReview(input:Omit<PeriodicReview,'id'|'updated_at'>,id?:string){const user=await goalOwner(),payload={...input,owner_id:user.id,updated_at:new Date().toISOString()};const result=id?await supabase.from('periodic_reviews').update(payload).eq('id',id).eq('owner_id',user.id):await supabase.from('periodic_reviews').insert(payload);fail('Save Review',result.error)}

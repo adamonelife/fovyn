@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {historyKindForModule,streakForDates} from './historyRepository';
+import {historyDeleteTarget,historyKindForModule,streakForDates} from './historyRepository';
 
 describe('history streak',()=>{
   const today=new Date('2026-08-31T12:00:00Z');
@@ -8,3 +8,4 @@ describe('history streak',()=>{
   it('stops at the first gap',()=>expect(streakForDates(['2026-08-31','2026-08-29'],today)).toBe(1));
 });
 describe('History module grouping',()=>{it.each([['social','social'],['alcohol','alcohol'],['medication','recovery'],['metrics','record']])('maps %s records to %s',(module,kind)=>expect(historyKindForModule(module)).toBe(kind))});
+describe('History canonical deletion targets',()=>{it.each([['record','tracking_records'],['nutrition','nutrition_entries'],['activity','cardio_entries'],['habit','habit_entries'],['note','notes'],['training','training_sessions']])('maps %s to %s',(kind,table)=>expect(historyDeleteTarget(kind as Parameters<typeof historyDeleteTarget>[0])).toBe(table))});

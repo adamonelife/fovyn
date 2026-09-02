@@ -54,7 +54,7 @@ export async function listGoals():Promise<GoalBundle[]>{
     rule:((rules.data??[]).find(x=>x.goal_id===goal.id&&x.effective_to===null)??null) as RuleRow|null,
     ruleHistory:(rules.data??[]).filter(x=>x.goal_id===goal.id) as RuleRow[],
     tracker_id:(links.data??[]).find(x=>x.goal_id===goal.id)?.tracker_id??null,
-    records:(contributions.data??[]).filter(x=>x.goal_id===goal.id).flatMap(x=>x.tracking_records?[x.tracking_records as unknown as RecordRow]:[]),
+    records:(contributions.data??[]).filter(x=>x.goal_id===goal.id).flatMap(x=>x.tracking_records?[x.tracking_records as unknown as RecordRow]:[]).filter(record=>!record.deleted_at),
     events:(events.data??[]).filter(x=>x.goal_id===goal.id) as GoalEvent[]
   }));
 }
