@@ -1713,6 +1713,8 @@ function App() {
   const [page, setPage] = useState<Page>("Home");
   const [logView, setLogView] = useState<LogView>("all");
   const [logEditTarget, setLogEditTarget] = useState<LogEditTarget>();
+  const [logQuery, setLogQuery] = useState("");
+  const [logHabitId, setLogHabitId] = useState("");
   const [goalTrackerId, setGoalTrackerId] = useState("");
   const [quickLogSignal, setQuickLogSignal] = useState(0);
   const [lab, setLab] = useState(false);
@@ -1739,6 +1741,26 @@ function App() {
     setOnboarding(true);
     setPage(destination);
   };
+  const moduleLogView = (module: string): LogView =>
+    module === "medication"
+      ? "recovery"
+      : module === "training"
+        ? "all"
+        : (module as LogView);
+  const openConfiguredLog = (module: string, name: string) => {
+    setLogEditTarget(undefined);
+    setLogHabitId("");
+    setLogView(moduleLogView(module));
+    setLogQuery(name);
+    setPage("Log");
+  };
+  const openHomeHabit = (habitId: string) => {
+    setLogEditTarget(undefined);
+    setLogQuery("");
+    setLogHabitId(habitId);
+    setLogView("habits");
+    setPage("Log");
+  };
   const openHistoryRecord = (item?: HistoryItem) => {
     if (!item) {
       setLogEditTarget(undefined);
@@ -1764,17 +1786,25 @@ function App() {
         openForest={() => setForest(true)}
         openRoutines={() => {
           setLogEditTarget(undefined);
+          setLogQuery("");
+          setLogHabitId("");
           setLogView("routines");
           setPage("Log");
         }}
+        openTracker={openConfiguredLog}
+        openHabit={openHomeHabit}
       />
     ) : page === "Log" ? (
       <TrackHub
         key={
-          logEditTarget ? `${logEditTarget.view}-${logEditTarget.id}` : logView
+          logEditTarget
+            ? `${logEditTarget.view}-${logEditTarget.id}`
+            : `${logView}-${logQuery}-${logHabitId}`
         }
         initialView={logEditTarget?.view ?? logView}
         editTarget={logEditTarget}
+        initialQuery={logQuery}
+        initialHabitId={logHabitId || undefined}
         quickLogSignal={quickLogSignal}
         onFirstSetupComplete={onboarding ? finishOnboarding : undefined}
         onMakeGoal={(trackerId) => { setGoalTrackerId(trackerId); setPage("Goals"); }}
@@ -1784,7 +1814,7 @@ function App() {
         onFirstSetupComplete={onboarding ? finishOnboarding : undefined}
         initialTrackerId={goalTrackerId}
         onInitialTrackerHandled={() => setGoalTrackerId("")}
-        openLog={(module) => { setGoalTrackerId(""); setLogView((module === "medication" ? "recovery" : module === "training" ? "all" : module) as LogView); setPage("Log"); }}
+        openLog={(module, name) => { setGoalTrackerId(""); openConfiguredLog(module, name); }}
       />
     ) : page === "History" ? (
       <HistoryHub openLog={openHistoryRecord} />
@@ -1804,6 +1834,8 @@ function App() {
               onClick={() => {
                 if (n.name === "Log") {
                   setLogEditTarget(undefined);
+                  setLogQuery("");
+                  setLogHabitId("");
                   setLogView("all");
                 }
                 setPage(n.name);
@@ -1829,6 +1861,8 @@ function App() {
         className="add"
         onClick={() => {
           setLogEditTarget(undefined);
+          setLogQuery("");
+          setLogHabitId("");
           setLogView("all");
           setPage("Log");
           setQuickLogSignal((value) => value + 1);

@@ -387,7 +387,7 @@ function Record({
     </div>
   );
 }
-export default function HabitsModule({ query = "",initialEntryId,initialDate }: { query?: string;initialEntryId?:string;initialDate?:string }) {
+export default function HabitsModule({ query = "",initialEntryId,initialHabitId,initialDate }: { query?: string;initialEntryId?:string;initialHabitId?:string;initialDate?:string }) {
   const [habits, setHabits] = useState<Habit[]>([]),
     [areas, setAreas] = useState<AreaRow[]>([]),
     [subcategories, setSubcategories] = useState<SubcategoryRow[]>([]),
@@ -410,6 +410,7 @@ export default function HabitsModule({ query = "",initialEntryId,initialDate }: 
       if (!selected) setToday(x.today);
       if(initialDate)setSelected(initialDate===x.today?null:initialDate);
       if(initialEntryId)setRecording(x.habits.find(habit=>habit.today?.id===initialEntryId));
+      else if(initialHabitId)setRecording(x.habits.find(habit=>habit.id===initialHabitId));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load habits");
     } finally {

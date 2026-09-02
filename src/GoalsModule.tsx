@@ -191,7 +191,7 @@ function PruneEditor({goal,options,close,saved}:{goal:GoalBundle;options:Options
 </section>
 </div>}
 
-function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Options;close:()=>void;changed:()=>void;openLog?:(module:string)=>void}){
+function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Options;close:()=>void;changed:()=>void;openLog?:(module:string,name:string)=>void}){
   const[editing,setEditing]=useState<'details'|'prune'|null>(null),[value,setValue]=useState(''),[note,setNote]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const currentDate=fovynDateKey(options.timezone),minimumDate=[goal.starts_on,shiftDateKey(currentDate,-7)].sort().at(-1)!,[occurrenceDate,setOccurrenceDate]=useState(currentDate);
   const[correcting,setCorrecting]=useState<RecordRow|null>(null),[correctedValue,setCorrectedValue]=useState(''),[correctedNote,setCorrectedNote]=useState(''),[correctedDate,setCorrectedDate]=useState(currentDate);
@@ -207,7 +207,7 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
 <X/>
 </button>
 <p className="eyebrow">{formatDisplayLabel(goal.area_key)} · {formatDisplayLabel(goal.status)} Goal</p>
-<h1>{goal.title}</h1>{goal.description&&<p>{goal.description}</p>}{goal.tracker&&<section className="goal-tracked-by"><span>Tracked by</span><b>{goal.tracker.name}</b>{openLog&&<button onClick={()=>openLog(goal.tracker!.module)}>Log {goal.tracker.name}</button>}</section>}<div className="goal-live-progress">
+<h1>{goal.title}</h1>{goal.description&&<p>{goal.description}</p>}{goal.tracker&&<section className="goal-tracked-by"><span>Tracked by</span><b>{goal.tracker.name}</b>{openLog&&<button onClick={()=>openLog(goal.tracker!.module,goal.tracker!.name)}>Log {goal.tracker.name}</button>}</section>}<div className="goal-live-progress">
 <div>
 <b>{Math.round(progress.percent)}%</b>
 <span>Current progress</span>
@@ -272,7 +272,7 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
 </div>;
 }
 
-export default function GoalsModule({onFirstSetupComplete,initialTrackerId='',onInitialTrackerHandled,openLog}:{onFirstSetupComplete?:()=>Promise<void>|void;initialTrackerId?:string;onInitialTrackerHandled?:()=>void;openLog?:(module:string)=>void}={}){
+export default function GoalsModule({onFirstSetupComplete,initialTrackerId='',onInitialTrackerHandled,openLog}:{onFirstSetupComplete?:()=>Promise<void>|void;initialTrackerId?:string;onInitialTrackerHandled?:()=>void;openLog?:(module:string,name:string)=>void}={}){
   const[sessionChecked,setSessionChecked]=useState(false),[signedIn,setSignedIn]=useState(false),[goals,setGoals]=useState<GoalBundle[]>([]),[options,setOptions]=useState<Options>({areas:[],units:[],subcategories:[],trackers:[],timezone:'UTC'}),[loading,setLoading]=useState(true),[error,setError]=useState(''),[creating,setCreating]=useState(Boolean(initialTrackerId)),[selected,setSelected]=useState<GoalBundle|null>(null),[filter,setFilter]=useState<'primary'|'secondary'|'dormant'|'completed'|'ended'>('primary'),[view,setView]=useState<'goals'|'groves'>('goals');
   const load=async()=>{setLoading(true);setError('');try{const[o,g]=await Promise.all([loadGoalOptions(),listGoals()]);setOptions(o);setGoals(g);setSignedIn(true);}catch(e){setError(e instanceof Error?e.message:'Unable to load Goals')}finally{setLoading(false);setSessionChecked(true)}};
   useEffect(()=>{supabase.auth.getSession().then(x=>{if(x.data.session)load();else{setSessionChecked(true);setLoading(false)}});const{data}=supabase.auth.onAuthStateChange((_e,s)=>{setSignedIn(Boolean(s));if(s)load()});return()=>data.subscription.unsubscribe();},[]);
