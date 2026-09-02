@@ -8,6 +8,7 @@ const fail = (label: string, error: { message: string } | null) => {
 };
 export type HistoryItem = {
   id: string;
+  canonicalId?: string;
   kind:
     | "record"
     | "habit"
@@ -67,6 +68,42 @@ export const historyKindForModule = (
         ? "recovery"
         : "record";
 
+const historyDomainPriority: Record<HistoryItem["kind"], number> = {
+  alcohol: 120,
+  nutrition: 115,
+  training: 110,
+  money: 105,
+  sleep: 100,
+  recovery: 95,
+  social: 90,
+  activity: 85,
+  hobby: 80,
+  habit: 75,
+  note: 70,
+  record: 10,
+};
+
+export function deduplicateHistoryItems(items: HistoryItem[]) {
+  const canonical = new Map<string, HistoryItem>();
+  for (const item of items) {
+    const key = item.canonicalId ?? `${item.kind}:${item.id}`,
+      existing = canonical.get(key);
+    if (!existing) {
+      canonical.set(key, item);
+      continue;
+    }
+    const primary = historyDomainPriority[item.kind] > historyDomainPriority[existing.kind] ? item : existing,
+      secondary = primary === item ? existing : item;
+    canonical.set(key, {
+      ...primary,
+      canonicalId: key,
+      corrected: primary.corrected || secondary.corrected,
+      goalNames: [...new Set([...primary.goalNames, ...secondary.goalNames])],
+    });
+  }
+  return [...canonical.values()];
+}
+
 export function streakForDates(values: string[], today = new Date()) {
   const localKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const days = new Set(values),
@@ -96,7 +133,7 @@ export async function loadHistory(days = 30): Promise<HistoryData> {
   let recordsQuery = supabase
     .from("tracking_records")
     .select(
-      "id,tracker_id,value,unit_key,custom_unit,currency,occurred_at,note,corrected_at,occurrence_status",
+      "id,canonical_record_id,tracker_id,value,unit_key,custom_unit,currency,occurred_at,note,corrected_at,occurrence_status",
     )
     .eq("owner_id", user.id)
     .is("deleted_at", null)
@@ -268,6 +305,7 @@ export async function loadHistory(days = 30): Promise<HistoryData> {
         : `${r.value}${unit ? ` ${unit}` : ""}`;
     return {
       id: r.id,
+      canonicalId: r.canonical_record_id,
       kind,
       logView: tracker?.module,
       iconKey: tracker?.icon_key,
@@ -410,7 +448,7 @@ export async function loadHistory(days = 30): Promise<HistoryData> {
       goalNames: [],
     };
   });
-  const items = [
+  const items = deduplicateHistoryItems([
       ...recordItems,
       ...habitItems,
       ...noteItems,
@@ -420,7 +458,7 @@ export async function loadHistory(days = 30): Promise<HistoryData> {
       ...moneyItems,
       ...hobbyItems,
       ...trainingItems,
-    ]
+    ])
       .map((item) => ({
         ...item,
         dateKey: fovynDateKey(timezone, new Date(item.occurredAt)),
@@ -460,17 +498,18 @@ export async function deleteHistoryItem(item: HistoryItem) {
   const user = await goalOwner(),
     table = softDeleteTable[item.kind];
   if (table) {
-    const result = await supabase
+    let query = supabase
       .from(table)
       .update({
         deleted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", item.id)
       .eq("owner_id", user.id)
-      .is("deleted_at", null)
-      .select("id")
-      .single();
+      .is("deleted_at", null);
+    query = table === "tracking_records" && item.canonicalId
+      ? query.eq("canonical_record_id", item.canonicalId)
+      : query.eq("id", item.id);
+    const result = await query.select("id");
     fail("Delete History entry", result.error);
     return;
   }
