@@ -1,8 +1,10 @@
 import {stablePlacementSeed} from './domain';
 import type {HomeGoal} from './homeRepository';
 
-export type ForestSlot={id:string;x:number;y:number;depth:'far'|'mid'|'near';scale:number;zIndex:number;labelAnchor:'left'|'centre'|'right';labelOffsetX?:number;labelOffsetY?:number};
+export type CardDirection='auto'|'left'|'right'|'above'|'below';
+export type ForestSlot={id:string;x:number;y:number;depth:'far'|'mid'|'near';scale:number;zIndex:number;labelAnchor:'left'|'centre'|'right';labelAnchorX?:number;labelAnchorY?:number;labelOffsetX?:number;labelOffsetY?:number;preferredCardDirection?:CardDirection};
 export type ForestAssignment={goal:HomeGoal;slot:ForestSlot;page:number};
+export type ForestLabelPlacement={goalId:string;x:number;y:number;anchor:ForestSlot['labelAnchor']};
 
 // Calibrated against the seven visible planting beds in the approved Nursery master.
 export const nurserySlots:readonly ForestSlot[]=[
@@ -45,3 +47,20 @@ export function forestAssignments(environment:string,goals:HomeGoal[]):ForestAss
 }
 export function nurseryAssignments(goals:HomeGoal[]){return forestAssignments('nursery',canonicalNurseryGoals(goals))}
 export function forestAssignmentDebug(environment:string,assignments:ForestAssignment[]){return assignments.map(({goal,slot,page})=>({goal_id:goal.id,tree_stage:goal.tree_stage,environment,slot_id:slot.id,anchor_x:slot.x,anchor_y:slot.y,scale:slot.scale,visibility:true,asset_key:goal.tree_asset_key,page}))}
+
+export function forestLabelPlacements(assignments:ForestAssignment[]):ForestLabelPlacement[]{
+  const placed:ForestLabelPlacement[]=[];
+  for(const {goal,slot} of assignments){
+    let x=slot.x+(slot.labelAnchorX??(slot.labelAnchor==='left'?-3:slot.labelAnchor==='right'?3:0)),y=slot.y+(slot.labelAnchorY??1.5);
+    for(let attempt=0;attempt<5&&placed.some(item=>Math.abs(item.x-x)<16&&Math.abs(item.y-y)<6);attempt++){
+      const direction=attempt%2===0?1:-1;x=Math.max(7,Math.min(93,x+direction*(5+attempt*2)));y=Math.max(8,Math.min(94,y+3));
+    }
+    placed.push({goalId:goal.id,x,y,anchor:slot.labelAnchor});
+  }
+  return placed;
+}
+
+export function resolvedCardDirection(slot:ForestSlot):Exclude<CardDirection,'auto'>{
+  if(slot.preferredCardDirection&&slot.preferredCardDirection!=='auto')return slot.preferredCardDirection;
+  if(slot.y>72)return'above';if(slot.x>62)return'left';if(slot.x<38)return'right';return slot.y<40?'below':'right';
+}

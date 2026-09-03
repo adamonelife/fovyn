@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {ChevronLeft,X} from 'lucide-react';
 import {forestEnvironmentManifest} from './forestManifest';
-import {ForestTreeCard,ForestTreeLayer,useForestCardState,useForestSceneAssets} from './ForestSceneEngine';
+import {ForestTreeCard,ForestTreeLabels,ForestTreeLayer,useForestInteraction,useForestSceneAssets} from './ForestSceneEngine';
 import {forestAssignments,forestEnvironmentSlots,nurseryAssignments} from './forestLayout';
 import type {HomeClearing,HomeGoal} from './homeRepository';
 
@@ -9,7 +9,7 @@ const assetKey=(key:string)=>'forest.environment.'+(key.startsWith('area-')?'are
 
 export default function ForestOverview({goals,currentClearing,close,onViewGoals,onLog}:{goals:HomeGoal[];currentClearing:HomeClearing|null;close:()=>void;onViewGoals:()=>void;onLog:()=>void}){
   const [environment,setEnvironment]=useState('clearing');
-  const [selected,setSelected]=useState<string>();
+  const interaction=useForestInteraction();
   const [nurseryPage,setNurseryPage]=useState(0);
   const [error,setError]=useState('');
   const focusedGoalIds=currentClearing?.focusedGoalIds??[],clearingName=currentClearing?.name??'';
@@ -28,9 +28,8 @@ export default function ForestOverview({goals,currentClearing,close,onViewGoals,
   const allAssignments=environment==='nursery'?nursery:forestAssignments(environment,visible);
   const sceneAssignments=allAssignments.filter(item=>item.page===nurseryPage);
   const{background,trees}=useForestSceneAssets(assetKey(environment),sceneAssignments);
-  useEffect(()=>{setSelected(undefined);setNurseryPage(0)},[environment]);
-  useForestCardState(selected);
-  const selectedGoal=visible.find(goal=>goal.id===selected);
+  useEffect(()=>{interaction.close();setNurseryPage(0)},[environment]);
+  const selectedGoal=visible.find(goal=>goal.id===interaction.active);
   const label=environment==='clearing'&&clearingName?clearingName:forestEnvironmentManifest.find(([key])=>key===environment)?.[1]??environment;
   return <div className="forest-overview-shade" role="dialog" aria-modal="true" aria-label="Forest Overview">
     <section className="forest-overview">
@@ -40,9 +39,9 @@ export default function ForestOverview({goals,currentClearing,close,onViewGoals,
         <div className="forest-overview-status"><b>{visible.length}</b><span>{visible.length===1?'Goal Tree':'Goal Trees'}</span></div>
         {error&&<div className="forest-overview-empty"><h2>{error}</h2></div>}
         {!error&&visible.length===0&&<div className="forest-overview-empty"><h2>{environment==='nursery'?'No new Goal Trees':'This part of your Forest is quiet.'}</h2><button onClick={onViewGoals}>{environment==='nursery'?'Plant a Goal':'View Goals'}</button></div>}
-        <ForestTreeLayer assignments={sceneAssignments} trees={trees} variant="overview" environment={environment} onSelect={setSelected}/>
+        <div className="forest-world-layer"><ForestTreeLayer assignments={sceneAssignments} trees={trees} variant="overview" environment={environment} onSelect={interaction.select} onHover={interaction.hover} onLeave={interaction.leave}/></div>
         {allAssignments.length>(forestEnvironmentSlots[environment]?.length??5)&&<div className="nursery-pages"><button disabled={nurseryPage===0} onClick={()=>setNurseryPage(page=>page-1)}>Previous</button><span>{nurseryPage+1} / {Math.ceil(allAssignments.length/(forestEnvironmentSlots[environment]?.length??5))}</span><button disabled={nurseryPage>=Math.max(...allAssignments.map(item=>item.page))} onClick={()=>setNurseryPage(page=>page+1)}>Next</button></div>}
-        {selectedGoal&&(()=>{const assignment=sceneAssignments.find(item=>item.goal.id===selectedGoal.id);return assignment?<ForestTreeCard assignment={assignment} variant="overview" onClose={()=>setSelected(undefined)} onViewGoal={onViewGoals} onLog={onLog}>{environment==='nursery'?<div className="nursery-progress"><b>{selectedGoal.nursery_label}</b><i><span style={{width:selectedGoal.nursery_progress+'%'}}/></i><small>{selectedGoal.nursery_next}</small></div>:undefined}</ForestTreeCard>:null})()}
+        <div className="forest-interaction-layer"><ForestTreeLabels assignments={sceneAssignments} environment={environment} onSelect={interaction.select} onHover={interaction.hover} onLeave={interaction.leave}/>{selectedGoal&&(()=>{const assignment=sceneAssignments.find(item=>item.goal.id===selectedGoal.id);return assignment?<ForestTreeCard assignment={assignment} variant="overview" onClose={interaction.close} onViewGoal={onViewGoals} onLog={onLog} onMouseEnter={()=>interaction.hover(selectedGoal.id)} onMouseLeave={interaction.leave}>{environment==='nursery'?<div className="nursery-progress"><b>{selectedGoal.nursery_label}</b><i><span style={{width:selectedGoal.nursery_progress+'%'}}/></i><small>{selectedGoal.nursery_next}</small></div>:undefined}</ForestTreeCard>:null})()}</div>
       </div>
     </section>
   </div>;

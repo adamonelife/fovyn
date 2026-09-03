@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {canonicalNurseryGoals,forestAssignmentDebug,forestAssignments,forestEnvironmentSlots,nurseryAssignments,nurserySlots} from './forestLayout';
+import {canonicalNurseryGoals,forestAssignmentDebug,forestAssignments,forestEnvironmentSlots,forestLabelPlacements,nurseryAssignments,nurserySlots,resolvedCardDirection} from './forestLayout';
 
 const goal=(id:string,stage:number,status='active')=>({id,tree_stage:stage,status} as never);
 
@@ -53,5 +53,18 @@ describe('canonical Nursery layout',()=>{
     const rows=forestAssignmentDebug('nursery',nurseryAssignments([goal('audit-tree',2)]));
     expect(rows[0]).toMatchObject({goal_id:'audit-tree',tree_stage:2,environment:'nursery',visibility:true,page:0});
     expect(rows[0].slot_id).toMatch(/^nursery_slot_/);
+  });
+
+  it('keeps compact labels separated without changing Tree slots',()=>{
+    const assignments=nurseryAssignments(['a','b','c','d','e'].map(id=>goal(id,2))),labels=forestLabelPlacements(assignments);
+    expect(labels).toHaveLength(5);
+    expect(labels.every((label,index)=>label.goalId===assignments[index].goal.id&&label.x>=7&&label.x<=93&&label.y>=8&&label.y<=94)).toBe(true);
+    for(let i=0;i<labels.length;i++)for(let j=i+1;j<labels.length;j++)expect(Math.abs(labels[i].x-labels[j].x)>=16||Math.abs(labels[i].y-labels[j].y)>=6).toBe(true);
+  });
+
+  it('resolves contextual cards toward available viewport space',()=>{
+    expect(resolvedCardDirection({...nurserySlots[4],preferredCardDirection:'auto'})).toBe('left');
+    expect(resolvedCardDirection({...nurserySlots[0],preferredCardDirection:'below'})).toBe('below');
+    expect(resolvedCardDirection({...nurserySlots[6],preferredCardDirection:'auto'})).toBe('above');
   });
 });
