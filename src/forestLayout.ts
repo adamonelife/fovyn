@@ -42,6 +42,7 @@ export const forestEnvironmentSlots:Record<string,readonly ForestSlot[]>={
 };
 
 export function canonicalNurseryGoals(goals:HomeGoal[]){return goals.filter(goal=>goal.status==='active'&&goal.tree_stage<=3)}
+export function forestSlotsForViewport(slots:readonly ForestSlot[],profile:'desktop'|'mobile'){return profile==='mobile'?slots.slice(0,3):slots}
 export function forestAssignments(environment:string,goals:HomeGoal[],configuredSlots?:readonly ForestSlot[]):ForestAssignment[]{
   const slots=(configuredSlots?.length?configuredSlots:forestEnvironmentSlots[environment]??areaSlots).filter(slot=>slot.enabled!==false);
   if(!slots.length&&goals.length)throw new Error(`No placement slots configured for ${environment}`);

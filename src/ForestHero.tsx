@@ -2,7 +2,7 @@ import {useMemo} from 'react';
 import {ChevronRight} from 'lucide-react';
 import {ForestTreeCard,ForestTreeLabels,ForestTreeLayer,useForestInteraction,useForestSceneAssets} from './ForestSceneEngine';
 import {ForestEnvironmentScene} from './ForestEnvironmentScene';
-import {forestAssignments,forestEnvironmentSlots,nurseryAssignments} from './forestLayout';
+import {forestAssignments,forestEnvironmentSlots,forestSlotsForViewport,nurseryAssignments} from './forestLayout';
 import type {HomeClearing,HomeGoal} from './homeRepository';
 import {useForestViewportProfile,usePublishedForestSlots,usePublishedForestView} from './forestComposerRepository';
 
@@ -11,9 +11,9 @@ const environmentKey=(name:string)=>'forest.environment.'+(['health','mind','sel
 export default function ForestHero({goals,currentClearing,onViewGoal,onLog}:{goals:HomeGoal[];currentClearing:HomeClearing|null;onViewGoal:()=>void;onLog:()=>void}){
   const clearing=useMemo(()=>{const active=goals.filter(goal=>goal.status==='active'&&goal.tree_stage>=4),focused=currentClearing?active.filter(goal=>currentClearing.focusedGoalIds.includes(goal.id)):[];return(focused.length?focused:active.filter(goal=>goal.presentation_priority==='primary')).slice(0,4)},[goals,currentClearing]);
   const environment=clearing.length?'clearing':'nursery';
-  const profile=useForestViewportProfile(),slots=usePublishedForestSlots(environment,forestEnvironmentSlots[environment],profile),view=usePublishedForestView(environment,profile);
-  const nursery=useMemo(()=>nurseryAssignments(goals,environment==='nursery'?slots:undefined),[goals,environment,slots]);
-  const assignments=environment==='nursery'?nursery.filter(item=>item.page===0):forestAssignments('clearing',clearing,slots).filter(item=>item.page===0);
+  const profile=useForestViewportProfile(),slots=usePublishedForestSlots(environment,forestEnvironmentSlots[environment],profile),pageSlots=useMemo(()=>forestSlotsForViewport(slots,profile),[slots,profile]),view=usePublishedForestView(environment,profile);
+  const nursery=useMemo(()=>nurseryAssignments(goals,environment==='nursery'?pageSlots:undefined),[goals,environment,pageSlots]);
+  const assignments=environment==='nursery'?nursery.filter(item=>item.page===0):forestAssignments('clearing',clearing,pageSlots).filter(item=>item.page===0);
   const{background,trees}=useForestSceneAssets(environmentKey(environment),assignments);
   const interaction=useForestInteraction();
   const selectedItem=assignments.find(item=>item.goal.id===interaction.active),clearingActive=Boolean(currentClearing&&environment==='clearing');

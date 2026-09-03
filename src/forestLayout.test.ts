@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {canonicalNurseryGoals,forestAssignmentDebug,forestAssignments,forestEnvironmentSlots,forestLabelPlacements,nurseryAssignments,nurserySlots,resolvedCardDirection} from './forestLayout';
+import {canonicalNurseryGoals,forestAssignmentDebug,forestAssignments,forestEnvironmentSlots,forestLabelPlacements,forestSlotsForViewport,nurseryAssignments,nurserySlots,resolvedCardDirection} from './forestLayout';
 
 const goal=(id:string,stage:number,status='active')=>({id,tree_stage:stage,status} as never);
 
@@ -32,6 +32,15 @@ describe('canonical Nursery layout',()=>{
       const pageAssignments=assignments.filter(item=>item.page===page);
       expect(new Set(pageAssignments.map(item=>item.slot.id)).size).toBe(pageAssignments.length);
     }
+  });
+
+  it('caps mobile environment pages at three Trees without reducing desktop capacity',()=>{
+    const mobile=forestSlotsForViewport(nurserySlots,'mobile'),desktop=forestSlotsForViewport(nurserySlots,'desktop');
+    expect(mobile).toHaveLength(3);expect(desktop).toHaveLength(7);
+    const assignments=nurseryAssignments(Array.from({length:7},(_,index)=>goal(String(index),1)),mobile);
+    expect(assignments.filter(item=>item.page===0)).toHaveLength(3);
+    expect(assignments.filter(item=>item.page===1)).toHaveLength(3);
+    expect(assignments.filter(item=>item.page===2)).toHaveLength(1);
   });
 
   it('uses the shared collision-free engine in every production environment',()=>{
