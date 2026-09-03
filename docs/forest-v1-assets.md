@@ -25,23 +25,20 @@ Production uploads use these prefixes:
 
 Use immutable filenames that include the asset version, for example `tree-stage-04.v1.webp`. Set long-lived cache control on uploaded production files. Replacements use a new manifest version and new filename; never overwrite a cached production path in place.
 
-## Current asset audit — 2 September 2026
+## Current asset audit — 3 September 2026
 
-Present and production-usable:
+Present, uploaded and production-ready:
 
-- Approved standalone Fovyn F mark is available locally and already represented by the app's current brand files.
+- 27/27 individual transparent canonical Tree masters.
+- 10/10 clean environment masters: Nursery, Clearing, six Areas, Dormant Woods and Heartwood.
+- 29/29 individual custom SVG icons.
+- Approved standalone Fovyn F mark is available locally and represented by the app's current brand files.
+- Supabase Storage contains all 66 production objects and the manifest marks all 27 Trees, 10 environments and 29 icons ready.
 
-Present but reference-only:
+Reference-only materials remain separate:
 
 - Six approved Area direction boards: Health, Mind, Self, People, Work and Wealth.
 - Approved 27-stage Tree ladder/contact boards.
 - Forest-first UI concepts, environment-kit boards and other visual-direction boards in the supplied folder.
 
-Missing production masters:
-
-- 27 individual transparent canonical Tree assets.
-- Nursery, Clearing, Health, Mind, Self, People, Work, Wealth, Dormant Woods and Heartwood clean environment masters.
-- Any responsive derivatives required after clean masters are tested.
-
-The boards contain text, palettes, thumbnails or UI and must not be rendered as production environments. Forest V1 renderer work remains blocked until the missing clean masters are supplied and the 27 Tree identities plus all 10 environments pass the required visual QA.
-
+The boards contain text, palettes, thumbnails or UI and must not be rendered as production environments. Runtime derivatives remain optional and must preserve the approved masters. Forest Lab now performs manifest-backed Tree, ground-anchor and environment QA using the same assets as the live renderer.
