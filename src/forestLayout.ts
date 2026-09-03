@@ -22,6 +22,7 @@ const clearingSlots:readonly ForestSlot[]=[
   {id:'clearing_slot_02',x:.43,y:.68,depth:'mid',scale:.76,zIndex:68,labelAnchor:'centre'},
   {id:'clearing_slot_03',x:.66,y:.71,depth:'near',scale:1,zIndex:71,labelAnchor:'centre'},
   {id:'clearing_slot_04',x:.82,y:.64,depth:'far',scale:.58,zIndex:64,labelAnchor:'right'},
+  {id:'clearing_slot_05',x:.52,y:.82,depth:'near',scale:.92,zIndex:82,labelAnchor:'centre'},
 ] as const;
 
 const areaSlots:readonly ForestSlot[]=[
