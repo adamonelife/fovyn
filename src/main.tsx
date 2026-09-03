@@ -70,6 +70,7 @@ import "./forest-nursery.css";
 import "./forest-health.css";
 import "./forest-grounding.css";
 import "./forest-resilience.css";
+import "./forest-responsive.css";
 import WorkoutModule from "./WorkoutModule";
 import GoalsModule from "./GoalsModule";
 import SettingsModule from "./SettingsModule";
@@ -80,8 +81,6 @@ import HomeModule from "./HomeModule";
 import HistoryHub from "./HistoryHub";
 import SearchOverlayLive from "./SearchOverlay";
 import AuthHome from "./AuthHome";
-import ForestLabQA from "./ForestLabQA";
-import ForestOverview from "./ForestOverview";
 import { supabase } from "./supabase";
 import { completeOnboarding } from "./homeRepository";
 import {
@@ -98,6 +97,9 @@ import {
   TrackingRecord,
 } from "./modules";
 import { exportPayload, goalSets, reviews } from "./planning";
+
+const ForestLabQA=React.lazy(()=>import("./ForestLabQA"));
+const ForestOverview=React.lazy(()=>import("./ForestOverview"));
 
 type Page = "Home" | "Log" | "Goals" | "History" | "Account";
 const nav: { name: Page; icon: typeof Home }[] = [
@@ -1904,8 +1906,8 @@ function App() {
       {search && (
         <SearchOverlayLive close={() => setSearch(false)} navigate={setPage} />
       )}{" "}
-      {forest && <ForestOverview close={() => setForest(false)} onViewGoals={() => {setForest(false);setPage("Goals")}} onLog={() => {setForest(false);setPage("Log")}} />}{" "}
-      {lab && <ForestLabQA close={() => setLab(false)} />}
+      {forest && <React.Suspense fallback={<div className="forest-lazy-loading">Loading your Forest…</div>}><ForestOverview close={() => setForest(false)} onViewGoals={() => {setForest(false);setPage("Goals")}} onLog={() => {setForest(false);setPage("Log")}} /></React.Suspense>}{" "}
+      {lab && <React.Suspense fallback={<div className="forest-lazy-loading">Loading Forest Lab…</div>}><ForestLabQA close={() => setLab(false)} /></React.Suspense>}
     </div>
   );
 }
