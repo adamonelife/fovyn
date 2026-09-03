@@ -58,8 +58,8 @@ describe('canonical Nursery layout',()=>{
   it('keeps compact labels separated without changing Tree slots',()=>{
     const assignments=nurseryAssignments(['a','b','c','d','e'].map(id=>goal(id,2))),labels=forestLabelPlacements(assignments);
     expect(labels).toHaveLength(5);
-    expect(labels.every((label,index)=>label.goalId===assignments[index].goal.id&&label.x>=7&&label.x<=93&&label.y>=8&&label.y<=94)).toBe(true);
-    for(let i=0;i<labels.length;i++)for(let j=i+1;j<labels.length;j++)expect(Math.abs(labels[i].x-labels[j].x)>=16||Math.abs(labels[i].y-labels[j].y)>=6).toBe(true);
+    expect(labels.every((label,index)=>label.goalId===assignments[index].goal.id&&label.x>=.07&&label.x<=.93&&label.y>=.08&&label.y<=.94)).toBe(true);
+    for(let i=0;i<labels.length;i++)for(let j=i+1;j<labels.length;j++)expect(Math.abs(labels[i].x-labels[j].x)>=.16||Math.abs(labels[i].y-labels[j].y)>=.06).toBe(true);
   });
 
   it('resolves contextual cards toward available viewport space',()=>{
