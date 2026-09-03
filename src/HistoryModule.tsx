@@ -103,7 +103,7 @@ function RecordRow({
           })}
         </time>
       </button>
-      <div className="history-row-menu">
+      {!item.derived&&<div className="history-row-menu">
         <button
           type="button"
           aria-label={`Manage ${item.title} entry`}
@@ -136,7 +136,7 @@ function RecordRow({
             </button>
           </div>
         )}
-      </div>
+      </div>}
     </article>
   );
 }

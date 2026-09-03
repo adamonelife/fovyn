@@ -21,7 +21,8 @@ export type HistoryItem = {
     | "training"
     | "social"
     | "alcohol"
-    | "recovery";
+    | "recovery"
+    | "growth";
   logView?: string;
   iconKey?: string | null;
   title: string;
@@ -30,6 +31,7 @@ export type HistoryItem = {
   dateKey?: string;
   corrected: boolean;
   goalNames: string[];
+  derived?: boolean;
   nutrition?: {
     mealType: string;
     calories: number;
@@ -81,6 +83,7 @@ const historyDomainPriority: Record<HistoryItem["kind"], number> = {
   habit: 75,
   note: 70,
   record: 10,
+  growth: 5,
 };
 
 export function deduplicateHistoryItems(items: HistoryItem[]) {
@@ -290,6 +293,10 @@ export async function loadHistory(days = 30): Promise<HistoryData> {
     trainingQuery = trainingQuery.gte("performed_on", since.slice(0, 10));
   const training = await trainingQuery;
   fail("History Training", training.error);
+  let growthQuery=supabase.from("goal_events").select("id,goal_id,occurred_at,details,goals(title)").eq("owner_id",user.id).eq("event_type","tree_grew").order("occurred_at",{ascending:false}).limit(500);
+  if(since)growthQuery=growthQuery.gte("occurred_at",since);
+  const growth=await growthQuery;
+  fail("History Tree growth",growth.error);
   const recordItems: HistoryItem[] = (records.data ?? []).map((r) => {
     const tracker = (trackers.data ?? []).find((t) => t.id === r.tracker_id),
       goalNames = (links.data ?? [])
@@ -448,6 +455,7 @@ export async function loadHistory(days = 30): Promise<HistoryData> {
       goalNames: [],
     };
   });
+  const growthItems:HistoryItem[]=(growth.data??[]).map(event=>{const goal=event.goals as unknown as {title:string}|null,details=event.details as Record<string,unknown>;return{id:event.id,kind:"growth",iconKey:"growth-rings",title:goal?`${goal.title} grew`:"Goal Tree grew",detail:`Stage ${details.to_stage??"advanced"}`,occurredAt:event.occurred_at,corrected:false,goalNames:goal?[goal.title]:[],derived:true}});
   const items = deduplicateHistoryItems([
       ...recordItems,
       ...habitItems,
@@ -458,6 +466,7 @@ export async function loadHistory(days = 30): Promise<HistoryData> {
       ...moneyItems,
       ...hobbyItems,
       ...trainingItems,
+      ...growthItems,
     ])
       .map((item) => ({
         ...item,

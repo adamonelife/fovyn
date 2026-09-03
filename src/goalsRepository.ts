@@ -17,7 +17,7 @@ export type SubcategoryRow={id:string;area_key:string;name:string;archived_at:st
 export type GoalRow={id:string;title:string;description:string|null;area_key:string;subcategory_id:string|null;status:'active'|'dormant'|'completed'|'ended'|'archived';presentation_priority:'primary'|'secondary';goal_kind:'permanent'|'finite'|'maintenance';negotiability:'negotiable'|'non_negotiable';starts_on:string;ends_on:string|null;created_at:string};
 export type RuleRow={id:string;goal_id:string;measurement_type:MeasurementType;unit_key:string|null;custom_unit:string|null;target_operator:TargetOperator;target_min:number;target_max:number|null;period:GoalPeriod;aggregation:Aggregation;effective_from:string;effective_to:string|null};
 export type RecordRow={id:string;value:number;occurred_at:string;note:string|null;corrected_at:string|null;deleted_at:string|null;unit_key:string|null;custom_unit:string|null};
-export type GoalEvent={id:string;event_type:'planted'|'pruned'|'dormant'|'awakened'|'completed'|'ended';occurred_at:string;details:Record<string,unknown>};
+export type GoalEvent={id:string;event_type:'planted'|'pruned'|'dormant'|'awakened'|'completed'|'ended'|'tree_grew';occurred_at:string;details:Record<string,unknown>};
 export type GoalTracker={id:string;name:string;module:ModuleKey;area_key:string;subcategory_id:string|null;measurement_type:MeasurementType;unit_key:string|null;custom_unit:string|null};
 export type GoalBundle=GoalRow&{rule:RuleRow|null;ruleHistory:RuleRow[];records:RecordRow[];events:GoalEvent[];tracker_id:string|null;tracker:GoalTracker|null};
 
