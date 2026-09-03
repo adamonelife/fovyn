@@ -215,6 +215,7 @@ function Roundup({
 export default function HomeModule({
   navigate,
   beginOnboarding = navigate,
+  openForest,
   openRoutines,
   openTracker,
   openHabit,
@@ -323,7 +324,7 @@ export default function HomeModule({
       )}
       <ForestHero
         goals={data.goals}
-        onViewGoal={() => navigate("Goals")}
+        onViewGoal={openForest}
         onLog={() => navigate("Log")}
       />
       {data.clearingReviewPending && (

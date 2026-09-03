@@ -64,6 +64,7 @@ import "./history-management.css";
 import "./recovery-programmes.css";
 import "./forest-lab-qa.css";
 import "./forest-hero.css";
+import "./forest-overview.css";
 import WorkoutModule from "./WorkoutModule";
 import GoalsModule from "./GoalsModule";
 import SettingsModule from "./SettingsModule";
@@ -75,6 +76,7 @@ import HistoryHub from "./HistoryHub";
 import SearchOverlayLive from "./SearchOverlay";
 import AuthHome from "./AuthHome";
 import ForestLabQA from "./ForestLabQA";
+import ForestOverview from "./ForestOverview";
 import { supabase } from "./supabase";
 import { completeOnboarding } from "./homeRepository";
 import {
@@ -1897,7 +1899,7 @@ function App() {
       {search && (
         <SearchOverlayLive close={() => setSearch(false)} navigate={setPage} />
       )}{" "}
-      {forest && <ForestView close={() => setForest(false)} />}{" "}
+      {forest && <ForestOverview close={() => setForest(false)} onViewGoals={() => {setForest(false);setPage("Goals")}} onLog={() => {setForest(false);setPage("Log")}} />}{" "}
       {lab && <ForestLabQA close={() => setLab(false)} />}
     </div>
   );
