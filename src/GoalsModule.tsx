@@ -8,7 +8,8 @@ import {formatDisplayLabel} from './displayLabels';
 import {fovynDateKey,shiftDateKey} from './fovynDate';
 import {LogDatePicker} from './ui';
 import TreeThumbnail from './TreeThumbnail';
-import {goalTreeIdentity} from './forestGoalState';
+import TreeGuide from './TreeGuide';
+import {goalTreeIdentity,treeLevelLabel} from './forestGoalState';
 
 type Options={areas:AreaRow[];units:UnitRow[];subcategories:SubcategoryRow[];trackers:GoalTracker[];timezone:string};
 const today=()=>new Date().toISOString().slice(0,10);
@@ -194,7 +195,7 @@ function PruneEditor({goal,options,close,saved}:{goal:GoalBundle;options:Options
 </div>}
 
 function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Options;close:()=>void;changed:()=>void;openLog?:(module:string,name:string)=>void}){
-  const[editing,setEditing]=useState<'details'|'prune'|null>(null),[value,setValue]=useState(''),[note,setNote]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const[editing,setEditing]=useState<'details'|'prune'|null>(null),[guideOpen,setGuideOpen]=useState(false),[value,setValue]=useState(''),[note,setNote]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const currentDate=fovynDateKey(options.timezone),minimumDate=[goal.starts_on,shiftDateKey(currentDate,-7)].sort().at(-1)!,[occurrenceDate,setOccurrenceDate]=useState(currentDate);
   const[correcting,setCorrecting]=useState<RecordRow|null>(null),[correctedValue,setCorrectedValue]=useState(''),[correctedNote,setCorrectedNote]=useState(''),[correctedDate,setCorrectedDate]=useState(currentDate);
   const submitGuard=useRef(false);
@@ -203,13 +204,14 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
   const act=async(fn:()=>Promise<unknown>)=>{setBusy(true);setError('');try{await fn();changed();close();}catch(e){setError(e instanceof Error?e.message:'Unable to update Goal')}finally{setBusy(false)}};
   if(editing==='details')return <Editor options={options} goal={goal} close={()=>setEditing(null)} saved={()=>{setEditing(null);changed();close()}}/>;
   if(editing==='prune')return <PruneEditor options={options} goal={goal} close={()=>setEditing(null)} saved={()=>{setEditing(null);changed();close()}}/>;
+  if(guideOpen)return <TreeGuide goal={{title:goal.title,tree_stage:goal.tree_stage,tree_asset_key:goal.tree_asset_key,tree_species:goal.tree_species}} close={()=>setGuideOpen(false)}/>;
   return <div className="sheet-shade" onMouseDown={close}>
 <section className="goal-detail-v1" onMouseDown={e=>e.stopPropagation()}>
 <button className="sheet-close" onClick={close} aria-label="Close">
 <X/>
 </button>
 <p className="eyebrow">{formatDisplayLabel(goal.area_key)} · {formatDisplayLabel(goal.status)} Goal</p>
-<div className="goal-tree-identity"><TreeThumbnail stage={goal.tree_stage} assetKey={goal.tree_asset_key} species={goal.tree_species}/><div><span>CURRENT TREE</span><h1>{goal.title}</h1><b>Stage {String(goal.tree_stage).padStart(2,'0')} · {goal.tree_species}</b><small>{formatDisplayLabel(goal.tree_health)} · {formatDisplayLabel(goal.area_key)}</small></div></div>{goal.description&&<p>{goal.description}</p>}{goal.tracker&&<section className="goal-tracked-by"><span>Tracked by</span><b>{goal.tracker.name}</b>{openLog&&<button onClick={()=>openLog(goal.tracker!.module,goal.tracker!.name)}>Log {goal.tracker.name}</button>}</section>}<div className="goal-live-progress">
+<div className="goal-tree-identity"><TreeThumbnail stage={goal.tree_stage} assetKey={goal.tree_asset_key} species={goal.tree_species}/><div><span>YOUR TREE</span><h1>{goal.title}</h1><button className="goal-tree-guide-link" onClick={()=>setGuideOpen(true)}>{treeLevelLabel(goal.tree_stage)} <ChevronRight/></button><small>{formatDisplayLabel(goal.tree_health)} · {formatDisplayLabel(goal.area_key)}</small></div></div>{goal.description&&<p>{goal.description}</p>}{goal.tracker&&<section className="goal-tracked-by"><span>Tracked by</span><b>{goal.tracker.name}</b>{openLog&&<button onClick={()=>openLog(goal.tracker!.module,goal.tracker!.name)}>Log {goal.tracker.name}</button>}</section>}<div className="goal-live-progress">
 <div>
 <b>{Math.round(progress.percent)}%</b>
 <span>Current progress</span>
@@ -261,7 +263,7 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
 <div key={event.id}>
 {event.event_type==='tree_grew'?<TreeThumbnail className="growth-ring-tree" stage={Number(event.details.tree_stage??goal.tree_stage)} species={goalTreeIdentity(Number(event.details.tree_stage??goal.tree_stage)).species}/>:null}
 <span>
-<b>{formatDisplayLabel(event.event_type)}</b>
+<b>{event.event_type==='tree_grew'?`Grew to ${treeLevelLabel(Number(event.details.tree_stage??goal.tree_stage))}`:formatDisplayLabel(event.event_type)}</b>
 </span>
 <time>{new Date(event.occurred_at).toLocaleString()}</time>
 </div>)}</section>}{error&&<p className="goal-error">{error}</p>}<div className="goal-actions">
@@ -303,6 +305,7 @@ export default function GoalsModule({onFirstSetupComplete,initialTrackerId='',on
 <div className="goal-info">
 <span>{options.areas.find(x=>x.key===goal.area_key)?.name??formatDisplayLabel(goal.area_key)} · {formatDisplayLabel(goal.negotiability)}</span>
 <h2>{goal.title}</h2>
+<strong className="goal-card-tree-label">{treeLevelLabel(goal.tree_stage)}</strong>
 <p>{goal.rule?targetLabel(goal.rule,unit):'No active rule'}</p>
 <div className="goal-metrics">
 <span>

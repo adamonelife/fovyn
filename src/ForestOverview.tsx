@@ -6,11 +6,13 @@ import {ForestEnvironmentScene} from './ForestEnvironmentScene';
 import {forestAssignments,forestEnvironmentSlots,forestSlotsForViewport,nurseryAssignments} from './forestLayout';
 import type {HomeClearing,HomeGoal} from './homeRepository';
 import {useForestViewportProfile,usePublishedForestSlots,usePublishedForestView} from './forestComposerRepository';
+import TreeGuide from './TreeGuide';
 
 const assetKey=(key:string)=>'forest.environment.'+(key.startsWith('area-')?'area.'+key.slice(5):key.replaceAll('-','_'));
 
 export default function ForestOverview({goals,currentClearing,close,onViewGoals,onLog}:{goals:HomeGoal[];currentClearing:HomeClearing|null;close:()=>void;onViewGoals:()=>void;onLog:()=>void}){
   const [environment,setEnvironment]=useState('clearing');
+  const [guideOpen,setGuideOpen]=useState(false);
   const interaction=useForestInteraction();
   const [nurseryPage,setNurseryPage]=useState(0);
   const [error,setError]=useState('');
@@ -37,7 +39,7 @@ export default function ForestOverview({goals,currentClearing,close,onViewGoals,
   return <div className="forest-overview-shade" role="dialog" aria-modal="true" aria-label="Forest Overview">
     <section className="forest-overview">
       <header><button onClick={close} aria-label="Close Forest Overview"><ChevronLeft/></button><div><span>MY FOREST</span><h1>{label}</h1></div><button onClick={close} aria-label="Close"><X/></button></header>
-      <nav aria-label="Forest environments">{forestEnvironmentManifest.map(([key,name])=><button key={key} className={environment===key?'active':''} onClick={()=>setEnvironment(key)}>{name}</button>)}</nav>
+      <nav aria-label="Forest environments">{forestEnvironmentManifest.map(([key,name])=><button key={key} className={environment===key?'active':''} onClick={()=>setEnvironment(key)}>{name}</button>)}<button className="tree-guide-button" onClick={()=>setGuideOpen(true)}>Tree Guide</button></nav>
       <div className={'forest-overview-scene '+(environment==='nursery'?'dedicated-nursery':'')}>
         {background&&<ForestEnvironmentScene asset={background} positionX={view.positionX} positionY={view.positionY} zoom={view.zoom} scrollable={profile==='mobile'&&view.scrollable} className="forest-overview-projected-scene" overlay="linear-gradient(180deg,rgba(3,24,18,.12),rgba(3,24,18,.42))">
           <div className="forest-world-layer"><ForestTreeLayer assignments={sceneAssignments} trees={trees} variant="overview" environment={environment} onSelect={interaction.select} onHover={interaction.hover} onLeave={interaction.leave}/></div>
@@ -48,6 +50,6 @@ export default function ForestOverview({goals,currentClearing,close,onViewGoals,
         {!error&&visible.length===0&&<div className="forest-overview-empty"><h2>{environment==='nursery'?'No new Goal Trees':'This part of your Forest is quiet.'}</h2><button onClick={onViewGoals}>{environment==='nursery'?'Plant a Goal':'View Goals'}</button></div>}
         {allAssignments.length>pageSlots.length&&<div className="nursery-pages"><button disabled={nurseryPage===0} onClick={()=>setNurseryPage(page=>page-1)}>Previous</button><span>{nurseryPage+1} / {Math.ceil(allAssignments.length/pageSlots.length)}</span><button disabled={nurseryPage>=Math.max(...allAssignments.map(item=>item.page))} onClick={()=>setNurseryPage(page=>page+1)}>Next</button></div>}
       </div>
-    </section>
+    </section>{guideOpen&&<TreeGuide close={()=>setGuideOpen(false)}/>}
   </div>;
 }

@@ -3,15 +3,22 @@
 1. Forest Asset Preparation / Production Forest V1
 2. Training Exercise Name Standardisation
 3. Canopy Beta V1
-4. UX Friction / Global Polish
-5. Analytics Foundation / Population Insights Skeleton
-6. Full QA
-7. Minimum Beta Security Gate
-8. Friends Beta
+4. Private Cycle Tracking Foundation
+5. UX Friction / Global Polish
+6. Analytics Foundation / Population Insights Skeleton
+7. Full QA
+8. Minimum Beta Security Gate
+9. Friends Beta
 
 ## After Friends Beta, before V1.5
 
-9. Full Safety/Admin + Population Insights Platform
+10. Full Safety/Admin + Population Insights Platform
+
+## Private Cycle Tracking Foundation scope
+
+This optional, private-by-default V1 module establishes canonical reproductive-health data, fast logging and a calm Cycle timeline without becoming a full fertility product. It includes enable/disable controls; period start/end, daily flow and spotting; optional symptoms, mood, libido and simple protected/unprotected sex logging; pregnancy-test records and a basic pregnancy-state foundation; cycle and period history; clearly labelled estimated next-period and PMS windows; restrained late-period handling; discreet notification preferences; record deletion/export readiness; Super Admin test fixtures; and analytics-ready links to existing canonical facts.
+
+Cycle data must never be shared automatically or duplicated across modules. Future sharing must be explicit, revocable and granular, with sexual activity separately permissioned. Predictions are estimates, must never describe a day as safe contraception, and must not automatically alter training or nutrition targets. Advanced personalised predictions, correlations, richer fertility and pregnancy features, health integrations and partner-sharing UX remain V1.5 work.
 
 ## Training exercise-name standardisation scope
 
