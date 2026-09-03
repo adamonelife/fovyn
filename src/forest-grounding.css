@@ -1,0 +1,6 @@
+/* The manifest anchor, rather than the PNG edge, meets the environment ground. Anything below it is clipped. */
+.production-tree>span,.forest-overview-tree>span{overflow:hidden}
+.production-tree img,.forest-overview-tree img{left:50%;top:calc(100% - (var(--ground-anchor) * 100%));width:auto;height:100%;max-width:none;object-fit:contain;transform:translateX(-50%) scale(var(--tree-scale));transform-origin:50% calc(var(--ground-anchor) * 100%)}
+.production-tree>span i,.forest-overview-tree>span i{bottom:0;height:16%;background:linear-gradient(transparent,rgba(23,53,40,.88) 54%,#173528 100%)}
+.tree-viewport img{left:50%;top:calc(72% - var(--tree-ground));width:auto;height:100%;max-width:none;object-fit:contain;transform:translateX(-50%) scale(var(--tree-scale));transform-origin:50% var(--tree-ground)}
+.tree-contact-sheet article>div img{left:50%;top:calc(77% - var(--contact-anchor));width:auto;height:100%;max-width:none;object-fit:contain;transform:translateX(-50%)}

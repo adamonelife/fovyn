@@ -16,6 +16,7 @@ describe("Forest asset canon", () => {
     expect(forestTreeManifest).toHaveLength(27);
     expect(new Set(forestTreeManifest.map((entry) => entry.storagePath)).size).toBe(27);
     expect(forestTreeManifest.every((entry) => entry.groundAnchorY > 0 && entry.groundAnchorY <= 1)).toBe(true);
+    expect(forestTreeManifest.every((entry) => entry.groundAnchorY >= .68 && entry.groundAnchorY <= .95)).toBe(true);
     expect(forestTreeManifest[0].canonicalName).toBe("Seed");
     expect(forestTreeManifest[26].canonicalName).toBe("Coast Redwood");
   });
