@@ -45,13 +45,18 @@ export async function prepareRecoveryWorkout(){
   const rows=[...unique.values()].map(exercise=>({
     owner_id:owner,exercise_key:`recovery_${exercise.exercise_key}`,name:exercise.name,
     muscle_group:({'Core':'core','Glute':'glutes','Quad':'quadriceps','Hamstring':'hamstrings','Calf':'calves','Full Body':'full_body','Upper Body':'other','Lower Body':'other','Lower Back':'back','Upper Back':'back'} as Record<string,string>)[exercise.regions[0]??'']??'other',equipment:exercise.equipment.join(' / '),
-    default_sets:Number(exercise.default_prescription?.match(/^\d+/)?.[0]??1),min_target:null,max_target:null,
+    default_sets:recoveryPrescriptionSetCount(exercise.default_prescription),min_target:null,max_target:null,
     increment_kg:0,measurement_type:/minute|second/i.test(exercise.default_prescription??'')?'Duration':'Reps',progression_type:'Recovery',active:true,
     source_payload:{source:'recovery_programme',recovery_exercise_id:exercise.id,unilateral:exercise.unilateral,regions:exercise.regions,goals:exercise.goal_tags},
   }));
   const result=await supabase!.from('training_exercises').upsert(rows,{onConflict:'owner_id,exercise_key'});
   fail('Prepare Recovery exercises',result.error);
   return{...data,enrolment};
+}
+
+export function recoveryPrescriptionSetCount(prescription:string|null){
+  const explicitSets=prescription?.match(/^\s*(\d+)\s*[x×]/i)?.[1];
+  return explicitSets?Number(explicitSets):1;
 }
 
 export async function changeRecoveryStage(enrolment:RecoveryEnrolment,nextStageId:string,notes=''){
