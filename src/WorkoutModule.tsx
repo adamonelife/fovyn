@@ -4,7 +4,7 @@ import ExerciseLibrary from './ExerciseLibrary';
 import TrainingTemplates from './TrainingTemplates';
 import { formatDisplayLabel } from './displayLabels';
 import { supabase } from "./supabase";
-import {prepareRecoveryWorkout,type RecoveryProgrammeData} from './recoveryProgrammeRepository';
+import {prepareRecoveryWorkout,recoveryPrescriptionSetCount,type RecoveryProgrammeData} from './recoveryProgrammeRepository';
 import {
   listTemplates,
   loadWorkout,
@@ -312,12 +312,15 @@ function Editor({
   const addRecoveryStage=()=>{
     const selected=recovery?.exercises[recoveryStageId]??[],existing=new Set(items.map(item=>item.exercise.exerciseId));
     const additions=selected.flatMap(candidate=>{
-      const exercise=library.find(item=>item.exerciseId===`recovery_${candidate.exercise_key}`);
-      if(!exercise||existing.has(exercise.exerciseId))return[];
-      const last=latestForExercise(logs,exercise.exerciseId),rule=rules.find(item=>item.exerciseId===exercise.exerciseId)??null,target=calculateTarget(exercise,last,rule);
+      const storedExercise=library.find(item=>item.exerciseId===`recovery_${candidate.exercise_key}`);
+      if(!storedExercise||existing.has(storedExercise.exerciseId))return[];
+      const exercise={...storedExercise,defaultSets:recoveryPrescriptionSetCount(candidate.default_prescription)};
+      const last=latestForExercise(logs,exercise.exerciseId),rule=rules.find(item=>item.exerciseId===exercise.exerciseId)??null;
+      const target=Array.from({length:exercise.defaultSets},()=>({kg:'0',value:null}));
       return[{order:items.length+1,slotName:'Recovery',group:exercise.group,exercise,rule,last,target,sets:target,sideSets:exercise.unilateral?{left:target.map(set=>({...set})),right:target.map(set=>({...set}))}:undefined,rpe:'',notes:''} as Item];
     });
-    setItems([...items,...additions].map((item,index)=>({...item,order:index+1})));
+    setItems(current=>[...current,...additions].map((item,index)=>({...item,order:index+1})));
+    setAdd(false);
   };
   const move = (i: number, d: number) => {
     const n = i + d;

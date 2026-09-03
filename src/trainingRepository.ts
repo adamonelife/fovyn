@@ -271,7 +271,7 @@ export async function saveWorkout(payload: WorkoutSave) {
         .select("id")
         .single();
       fail(`Save ${item.exerciseName}`, row.error);
-      const recordedSides=item.sides?.filter(side=>side.load!=null||side.reps!=null||side.durationSeconds!=null||side.rpe!=null)??[];
+      const recordedSides=item.sides?.filter(isRecordedRecoverySide)??[];
       if(recordedSides.length){const sides=await supabase!.from('recovery_side_performance').insert(recordedSides.map(side=>({owner_id:owner,session_exercise_id:row.data.id,side:side.side,set_number:side.setNumber,load_kg:side.load??null,reps:side.reps??null,duration_seconds:side.durationSeconds??null,rpe:side.rpe??null})));fail(`Save ${item.exerciseName} sides`,sides.error)}
       const sets = item.sets.map((s, n) => ({
         session_exercise_id: row.data.id,
@@ -292,6 +292,10 @@ export async function saveWorkout(payload: WorkoutSave) {
     throw reason;
   }
   return session.data.id;
+}
+
+export function isRecordedRecoverySide(side:{load?:number;reps?:number;durationSeconds?:number;rpe?:number}){
+  return side.reps!=null||side.durationSeconds!=null||side.rpe!=null||(side.load!=null&&side.load!==0);
 }
 
 export type TrainingSessionType='normal'|'light'|'rehab';
