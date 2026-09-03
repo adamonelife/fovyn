@@ -1,16 +1,23 @@
 # Fovyn V1 remaining roadmap
 
 1. Forest Asset Preparation / Production Forest V1
-2. Canopy Beta V1
-3. UX Friction / Global Polish
-4. Analytics Foundation / Population Insights Skeleton
-5. Full QA
-6. Minimum Beta Security Gate
-7. Friends Beta
+2. Training Exercise Name Standardisation
+3. Canopy Beta V1
+4. UX Friction / Global Polish
+5. Analytics Foundation / Population Insights Skeleton
+6. Full QA
+7. Minimum Beta Security Gate
+8. Friends Beta
 
 ## After Friends Beta, before V1.5
 
-8. Full Safety/Admin + Population Insights Platform
+9. Full Safety/Admin + Population Insights Platform
+
+## Training exercise-name standardisation scope
+
+This block separates canonical movement identity from each private user Exercise Profile and optional user alias. It must preserve Exercise IDs, machine-specific profiles, Templates, Workout History, PBs, progression, loads, repetitions and notes.
+
+High-confidence migrated shorthand may be mapped in batch while preserving the original name as the alias. Ambiguous names require user review and must not be guessed or auto-merged. New Exercise creation should search and suggest an expandable curated canonical dictionary, while still allowing custom Exercises. Search covers both canonical names and aliases. Canonical movement keys may support future de-identified analytics; aliases remain private personal data.
 
 ## Analytics scope boundary
 
