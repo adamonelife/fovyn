@@ -1,11 +1,10 @@
-import {useEffect,useMemo,useState,type CSSProperties} from 'react';
-import {ChevronLeft,Plus,X} from 'lucide-react';
-import {getForestAsset,type ForestAsset} from './forestAssets';
+import {useEffect,useMemo,useState} from 'react';
+import {ChevronLeft,X} from 'lucide-react';
 import {forestEnvironmentManifest} from './forestManifest';
-import {stablePlacementSeed} from './domain';
+import {ForestTreeCard,ForestTreeLayer,useForestCardState,useForestSceneAssets} from './ForestSceneEngine';
+import {forestAssignments,forestEnvironmentSlots,nurseryAssignments} from './forestLayout';
 import {loadHome,type HomeGoal} from './homeRepository';
 
-const slots=[{x:15,y:76,scale:.88},{x:32,y:69,scale:.68},{x:50,y:77,scale:1},{x:68,y:68,scale:.66},{x:85,y:75,scale:.84}] as const;
 const assetKey=(key:string)=>'forest.environment.'+(key.startsWith('area-')?'area.'+key.slice(5):key.replaceAll('-','_'));
 
 export default function ForestOverview({close,onViewGoals,onLog}:{close:()=>void;onViewGoals:()=>void;onLog:()=>void}){
@@ -13,23 +12,27 @@ export default function ForestOverview({close,onViewGoals,onLog}:{close:()=>void
   const [focusedGoalIds,setFocusedGoalIds]=useState<string[]>([]);
   const [clearingName,setClearingName]=useState('');
   const [environment,setEnvironment]=useState('clearing');
-  const [background,setBackground]=useState<ForestAsset|null>();
-  const [trees,setTrees]=useState<Record<string,ForestAsset>>({});
   const [selected,setSelected]=useState<string>();
+  const [nurseryPage,setNurseryPage]=useState(0);
   const [error,setError]=useState('');
   useEffect(()=>{loadHome().then(data=>{setGoals(data.goals);setFocusedGoalIds(data.currentClearing?.focusedGoalIds??[]);setClearingName(data.currentClearing?.name??'')}).catch(()=>setError('Your Forest could not be loaded.'))},[]);
   const visible=useMemo(()=>{
     if(environment==='clearing'){
       const eligible=goals.filter(goal=>goal.status==='active'&&goal.tree_stage>=4);
-      return(focusedGoalIds.length?eligible.filter(goal=>focusedGoalIds.includes(goal.id)):eligible.filter(goal=>goal.presentation_priority==='primary')).slice(0,4);
+      return focusedGoalIds.length?eligible.filter(goal=>focusedGoalIds.includes(goal.id)):eligible.filter(goal=>goal.presentation_priority==='primary');
     }
-    if(environment==='nursery')return goals.filter(goal=>goal.status==='active'&&goal.tree_stage<=3);
+    if(environment==='nursery')return nurseryAssignments(goals).map(item=>item.goal);
     if(environment==='dormant-woods')return goals.filter(goal=>goal.status==='dormant');
     if(environment==='heartwood')return goals.filter(goal=>goal.status==='completed');
     const area=environment.replace('area-','');
     return goals.filter(goal=>goal.status==='active'&&goal.tree_stage>=4&&goal.area_key.toLowerCase()===area);
   },[environment,goals,focusedGoalIds]);
-  useEffect(()=>{let current=true;setSelected(undefined);Promise.all([getForestAsset(assetKey(environment)),...visible.slice(0,5).map(goal=>getForestAsset(goal.tree_asset_key))]).then(([scene,...assets])=>{if(!current)return;setBackground(scene);setTrees(Object.fromEntries(visible.slice(0,5).flatMap((goal,index)=>assets[index]?[[goal.id,assets[index] as ForestAsset]]:[])))});return()=>{current=false}},[environment,visible.map(goal=>goal.id+':'+goal.tree_stage).join('|')]);
+  const nursery=useMemo(()=>nurseryAssignments(goals),[goals]);
+  const allAssignments=environment==='nursery'?nursery:forestAssignments(environment,visible);
+  const sceneAssignments=allAssignments.filter(item=>item.page===nurseryPage);
+  const{background,trees}=useForestSceneAssets(assetKey(environment),sceneAssignments);
+  useEffect(()=>{setSelected(undefined);setNurseryPage(0)},[environment]);
+  useForestCardState(selected);
   const selectedGoal=visible.find(goal=>goal.id===selected);
   const label=environment==='clearing'&&clearingName?clearingName:forestEnvironmentManifest.find(([key])=>key===environment)?.[1]??environment;
   return <div className="forest-overview-shade" role="dialog" aria-modal="true" aria-label="Forest Overview">
@@ -40,9 +43,9 @@ export default function ForestOverview({close,onViewGoals,onLog}:{close:()=>void
         <div className="forest-overview-status"><b>{visible.length}</b><span>{visible.length===1?'Goal Tree':'Goal Trees'}</span></div>
         {error&&<div className="forest-overview-empty"><h2>{error}</h2></div>}
         {!error&&visible.length===0&&<div className="forest-overview-empty"><h2>{environment==='nursery'?'No new Goal Trees':'This part of your Forest is quiet.'}</h2><button onClick={onViewGoals}>{environment==='nursery'?'Plant a Goal':'View Goals'}</button></div>}
-        {visible.slice(0,5).map((goal,index)=>{const asset=trees[goal.id],slot=slots[(stablePlacementSeed(goal.id)+index)%slots.length];if(!asset)return null;return <button className={'forest-overview-tree '+goal.health_state.toLowerCase().replaceAll(' ','-')} key={goal.id} onClick={()=>setSelected(goal.id)} style={{left:slot.x+'%',top:slot.y+'%','--tree-scale':String(slot.scale*asset.default_scale),'--ground-anchor':String(asset.ground_anchor_y),'--z':String(Math.round(slot.y+asset.z_bias))} as CSSProperties}><span><img src={asset.url} alt=""/><i/></span><label>{goal.title}<small>{environment==='nursery'?goal.nursery_label:goal.tree_species}</small></label></button>})}
-        {visible.length>5&&<div className="nursery-roster" aria-label="More Nursery Goal Trees">{visible.slice(5).map(goal=><button key={goal.id} onClick={()=>setSelected(goal.id)}><b>{goal.title}</b><span>{goal.nursery_label}</span></button>)}</div>}
-        {selectedGoal&&<article className="forest-overview-card"><button aria-label="Close Tree details" onClick={()=>setSelected(undefined)}><X/></button><span>{selectedGoal.area_key.toUpperCase()}</span><h2>{selectedGoal.title}</h2><p>{selectedGoal.tree_species} · {selectedGoal.health_state}</p>{environment==='nursery'?<div className="nursery-progress"><b>{selectedGoal.nursery_label}</b><i><span style={{width:selectedGoal.nursery_progress+'%'}}/></i><small>{selectedGoal.nursery_next}</small></div>:<small>{Math.round(selectedGoal.growth_consistency)}% Growth Consistency</small>}<div><button onClick={onViewGoals}>View Goal</button><button onClick={onLog}><Plus/> Log</button></div></article>}
+        <ForestTreeLayer assignments={sceneAssignments} trees={trees} variant="overview" environment={environment} onSelect={setSelected}/>
+        {allAssignments.length>(forestEnvironmentSlots[environment]?.length??5)&&<div className="nursery-pages"><button disabled={nurseryPage===0} onClick={()=>setNurseryPage(page=>page-1)}>Previous</button><span>{nurseryPage+1} / {Math.ceil(allAssignments.length/(forestEnvironmentSlots[environment]?.length??5))}</span><button disabled={nurseryPage>=Math.max(...allAssignments.map(item=>item.page))} onClick={()=>setNurseryPage(page=>page+1)}>Next</button></div>}
+        {selectedGoal&&(()=>{const assignment=sceneAssignments.find(item=>item.goal.id===selectedGoal.id);return assignment?<ForestTreeCard assignment={assignment} variant="overview" onClose={()=>setSelected(undefined)} onViewGoal={onViewGoals} onLog={onLog}>{environment==='nursery'?<div className="nursery-progress"><b>{selectedGoal.nursery_label}</b><i><span style={{width:selectedGoal.nursery_progress+'%'}}/></i><small>{selectedGoal.nursery_next}</small></div>:undefined}</ForestTreeCard>:null})()}
       </div>
     </section>
   </div>;

@@ -1,17 +1,23 @@
-import {useEffect,useMemo,useState,type CSSProperties} from 'react';
-import {ChevronRight,Plus,X} from 'lucide-react';
-import {getForestAsset,type ForestAsset} from './forestAssets';
-import {stablePlacementSeed} from './domain';
+import {useMemo,useState} from 'react';
+import {ChevronRight} from 'lucide-react';
+import {ForestTreeCard,ForestTreeLayer,useForestCardState,useForestSceneAssets} from './ForestSceneEngine';
+import {forestAssignments,nurseryAssignments} from './forestLayout';
 import type {HomeClearing,HomeGoal} from './homeRepository';
 
-const slots=[{x:18,y:73,depth:'near'},{x:43,y:68,depth:'mid'},{x:66,y:71,depth:'near'},{x:82,y:64,depth:'far'}] as const;
 const environmentKey=(name:string)=>'forest.environment.'+(['health','mind','self','people','work','wealth'].includes(name)?'area.'+name:name.replaceAll('-','_'));
 
 export default function ForestHero({goals,currentClearing,onViewGoal,onLog}:{goals:HomeGoal[];currentClearing:HomeClearing|null;onViewGoal:()=>void;onLog:()=>void}){
-  const visible=useMemo(()=>{const active=goals.filter(goal=>goal.status==='active'),focused=currentClearing?active.filter(goal=>currentClearing.focusedGoalIds.includes(goal.id)&&goal.tree_stage>=4):[],clearing=focused.length?focused.slice(0,4):active.filter(goal=>goal.presentation_priority==='primary'&&goal.tree_stage>=4).slice(0,4),nursery=active.filter(goal=>goal.tree_stage<=3);return clearing.length?clearing:nursery.slice(0,4)},[goals,currentClearing]);
-  const environment=visible.some(goal=>goal.tree_stage>=4)?'clearing':'nursery';
-  const [background,setBackground]=useState<ForestAsset|null>(),[trees,setTrees]=useState<Record<string,ForestAsset>>({}),[selected,setSelected]=useState<string>();
-  useEffect(()=>{let current=true;Promise.all([getForestAsset(environmentKey(environment)),...visible.map(goal=>getForestAsset(goal.tree_asset_key))]).then(([scene,...assets])=>{if(!current)return;setBackground(scene);setTrees(Object.fromEntries(visible.flatMap((goal,index)=>assets[index]?[[goal.id,assets[index] as ForestAsset]]:[])))});return()=>{current=false}},[environment,visible.map(goal=>goal.id+':'+goal.tree_stage).join('|')]);
-  const clearingActive=Boolean(currentClearing&&environment==='clearing');
-  return <section className={'production-forest-hero forest-'+environment+(clearingActive?' current-clearing':'')} style={background?{backgroundImage:'linear-gradient(90deg,rgba(5,30,23,.66),rgba(5,30,23,.05) 55%,rgba(5,30,23,.2)),url("'+background.url+'")'}:undefined}><div className="production-forest-copy"><span>{environment==='nursery'?'NURSERY':clearingActive?currentClearing?.name.toUpperCase():'THE CLEARING'}</span><h2>{environment==='nursery'?(visible.length?visible.length+' young Goal Tree'+(visible.length===1?'':'s'):'Plant your first Goal'):clearingActive?visible.length+' focused Goal'+(visible.length===1?'':'s')+' in your Current Clearing.':visible.length+' Primary Goal'+(visible.length===1?'':'s')+' in focus.'}</h2>{clearingActive&&currentClearing?.intention?<small>{currentClearing.intention}</small>:null}</div><div className="production-trees">{visible.map((goal,index)=>{const asset=trees[goal.id],seed=stablePlacementSeed(goal.id),slot=slots[(seed+index)%slots.length];if(!asset)return null;const scale=(slot.depth==='far'?.58:slot.depth==='mid'?.76:1)*asset.default_scale;return <button key={goal.id} className={'production-tree '+goal.health_state.toLowerCase().replaceAll(' ','-')} style={{left:slot.x+'%',top:slot.y+'%','--tree-scale':String(scale),'--ground-anchor':String(asset.ground_anchor_y),'--z':String(Math.round(slot.y+asset.z_bias))} as CSSProperties} onClick={()=>setSelected(goal.id)} aria-label={goal.title+', '+goal.tree_species}><span><img src={asset.url} alt=""/><i/></span><label>{goal.title}<small>{goal.tree_species}</small></label></button>})}</div>{selected&&(()=>{const goal=visible.find(item=>item.id===selected);return goal?<article className="forest-tree-card"><button aria-label="Close Tree details" onClick={()=>setSelected(undefined)}><X/></button><span>{goal.area_key.toUpperCase()}</span><h3>{goal.title}</h3><p>{goal.tree_species} · {goal.health_state}</p><small>{Math.round(goal.growth_consistency)}% Growth Consistency</small><div><button onClick={onViewGoal}>View Goal</button><button onClick={onLog}><Plus/> Log</button></div></article>:null})()}<button className="forest-overview-link" onClick={onViewGoal}>{environment==='nursery'?'View Goals':'Forest Overview'} <ChevronRight/></button></section>;
+  const nursery=useMemo(()=>nurseryAssignments(goals),[goals]);
+  const clearing=useMemo(()=>{const active=goals.filter(goal=>goal.status==='active'&&goal.tree_stage>=4),focused=currentClearing?active.filter(goal=>currentClearing.focusedGoalIds.includes(goal.id)):[];return(focused.length?focused:active.filter(goal=>goal.presentation_priority==='primary')).slice(0,4)},[goals,currentClearing]);
+  const environment=clearing.length?'clearing':'nursery';
+  const assignments=environment==='nursery'?nursery.filter(item=>item.page===0):forestAssignments('clearing',clearing).filter(item=>item.page===0);
+  const{background,trees}=useForestSceneAssets(environmentKey(environment),assignments);
+  const[selected,setSelected]=useState<string>();useForestCardState(selected);
+  const selectedItem=assignments.find(item=>item.goal.id===selected),clearingActive=Boolean(currentClearing&&environment==='clearing');
+  return <section className={'production-forest-hero forest-'+environment+(clearingActive?' current-clearing':'')} style={background?{backgroundImage:'linear-gradient(90deg,rgba(5,30,23,.66),rgba(5,30,23,.05) 55%,rgba(5,30,23,.2)),url("'+background.url+'")'}:undefined}>
+    <div className="production-forest-copy"><span>{environment==='nursery'?'NURSERY':clearingActive?currentClearing?.name.toUpperCase():'THE CLEARING'}</span><h2>{environment==='nursery'?(nursery.length?nursery.length+' young Goal Tree'+(nursery.length===1?'':'s'):'Plant your first Goal'):clearingActive?assignments.length+' focused Goal'+(assignments.length===1?'':'s')+' in your Current Clearing.':assignments.length+' Primary Goal'+(assignments.length===1?'':'s')+' in focus.'}</h2>{clearingActive&&currentClearing?.intention?<small>{currentClearing.intention}</small>:null}</div>
+    <div className="production-trees"><ForestTreeLayer assignments={assignments} trees={trees} variant="hero" environment={environment} onSelect={setSelected}/></div>
+    {selectedItem&&<ForestTreeCard assignment={selectedItem} variant="hero" onClose={()=>setSelected(undefined)} onViewGoal={onViewGoal} onLog={onLog}/>}
+    <button className="forest-overview-link" onClick={onViewGoal}>{environment==='nursery'?'View Nursery':'Forest Overview'} <ChevronRight/></button>
+  </section>;
 }

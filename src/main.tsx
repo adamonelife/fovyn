@@ -71,6 +71,7 @@ import "./forest-health.css";
 import "./forest-grounding.css";
 import "./forest-resilience.css";
 import "./forest-responsive.css";
+import "./forest-renderer-fixes.css";
 import WorkoutModule from "./WorkoutModule";
 import GoalsModule from "./GoalsModule";
 import SettingsModule from "./SettingsModule";
