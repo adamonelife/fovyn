@@ -3,19 +3,16 @@ import {ChevronLeft,X} from 'lucide-react';
 import {forestEnvironmentManifest} from './forestManifest';
 import {ForestTreeCard,ForestTreeLayer,useForestCardState,useForestSceneAssets} from './ForestSceneEngine';
 import {forestAssignments,forestEnvironmentSlots,nurseryAssignments} from './forestLayout';
-import {loadHome,type HomeGoal} from './homeRepository';
+import type {HomeClearing,HomeGoal} from './homeRepository';
 
 const assetKey=(key:string)=>'forest.environment.'+(key.startsWith('area-')?'area.'+key.slice(5):key.replaceAll('-','_'));
 
-export default function ForestOverview({close,onViewGoals,onLog}:{close:()=>void;onViewGoals:()=>void;onLog:()=>void}){
-  const [goals,setGoals]=useState<HomeGoal[]>([]);
-  const [focusedGoalIds,setFocusedGoalIds]=useState<string[]>([]);
-  const [clearingName,setClearingName]=useState('');
+export default function ForestOverview({goals,currentClearing,close,onViewGoals,onLog}:{goals:HomeGoal[];currentClearing:HomeClearing|null;close:()=>void;onViewGoals:()=>void;onLog:()=>void}){
   const [environment,setEnvironment]=useState('clearing');
   const [selected,setSelected]=useState<string>();
   const [nurseryPage,setNurseryPage]=useState(0);
   const [error,setError]=useState('');
-  useEffect(()=>{loadHome().then(data=>{setGoals(data.goals);setFocusedGoalIds(data.currentClearing?.focusedGoalIds??[]);setClearingName(data.currentClearing?.name??'')}).catch(()=>setError('Your Forest could not be loaded.'))},[]);
+  const focusedGoalIds=currentClearing?.focusedGoalIds??[],clearingName=currentClearing?.name??'';
   const visible=useMemo(()=>{
     if(environment==='clearing'){
       const eligible=goals.filter(goal=>goal.status==='active'&&goal.tree_stage>=4);

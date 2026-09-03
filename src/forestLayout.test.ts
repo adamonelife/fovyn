@@ -17,15 +17,21 @@ describe('canonical Nursery layout',()=>{
   it('assigns five Trees to five stable distinct beds',()=>{
     const goals=['a','b','c','d','e'].map(id=>goal(id,2));
     const first=nurseryAssignments(goals),again=nurseryAssignments([...goals].reverse());
+    expect(first).toHaveLength(5);
     expect(first.map(item=>item.goal.id)).toEqual(again.map(item=>item.goal.id));
     expect(new Set(first.map(item=>item.slot.id)).size).toBe(5);
     expect(first.every(item=>item.page===0)).toBe(true);
+    expect(forestAssignmentDebug('nursery',first).every(item=>item.visibility&&item.anchor_x>=0&&item.anchor_y>=0)).toBe(true);
   });
 
   it('paginates only after every visible bed is occupied',()=>{
     const assignments=nurseryAssignments(Array.from({length:8},(_,index)=>goal(String(index),1)));
     expect(assignments.filter(item=>item.page===0)).toHaveLength(7);
     expect(assignments.filter(item=>item.page===1)).toHaveLength(1);
+    for(const page of new Set(assignments.map(item=>item.page))){
+      const pageAssignments=assignments.filter(item=>item.page===page);
+      expect(new Set(pageAssignments.map(item=>item.slot.id)).size).toBe(pageAssignments.length);
+    }
   });
 
   it('uses the shared collision-free engine in every production environment',()=>{

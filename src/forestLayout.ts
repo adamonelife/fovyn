@@ -1,7 +1,7 @@
 import {stablePlacementSeed} from './domain';
 import type {HomeGoal} from './homeRepository';
 
-export type ForestSlot={id:string;x:number;y:number;depth:'far'|'mid'|'near';scale:number;zIndex:number;labelAnchor:'left'|'centre'|'right'};
+export type ForestSlot={id:string;x:number;y:number;depth:'far'|'mid'|'near';scale:number;zIndex:number;labelAnchor:'left'|'centre'|'right';labelOffsetX?:number;labelOffsetY?:number};
 export type ForestAssignment={goal:HomeGoal;slot:ForestSlot;page:number};
 
 // Calibrated against the seven visible planting beds in the approved Nursery master.
@@ -40,6 +40,7 @@ export const forestEnvironmentSlots:Record<string,readonly ForestSlot[]>={
 export function canonicalNurseryGoals(goals:HomeGoal[]){return goals.filter(goal=>goal.status==='active'&&goal.tree_stage<=3)}
 export function forestAssignments(environment:string,goals:HomeGoal[]):ForestAssignment[]{
   const slots=forestEnvironmentSlots[environment]??areaSlots;
+  if(!slots.length&&goals.length)throw new Error(`No placement slots configured for ${environment}`);
   return [...goals].sort((a,b)=>stablePlacementSeed(a.id)-stablePlacementSeed(b.id)||a.id.localeCompare(b.id)).map((goal,index)=>({goal,slot:slots[index%slots.length],page:Math.floor(index/slots.length)}));
 }
 export function nurseryAssignments(goals:HomeGoal[]){return forestAssignments('nursery',canonicalNurseryGoals(goals))}

@@ -222,7 +222,7 @@ export default function HomeModule({
 }: {
   navigate: (page: "Log" | "Goals" | "Account") => void;
   beginOnboarding?: (page: "Log" | "Goals") => void;
-  openForest: () => void;
+  openForest: (snapshot: Pick<HomeData,"goals"|"currentClearing">) => void;
   openRoutines: () => void;
   openTracker: (module: string, name: string) => void;
   openHabit: (habitId: string) => void;
@@ -325,7 +325,7 @@ export default function HomeModule({
       <ForestHero
         goals={data.goals}
         currentClearing={data.currentClearing}
-        onViewGoal={openForest}
+        onViewGoal={() => openForest({goals:data.goals,currentClearing:data.currentClearing})}
         onLog={() => navigate("Log")}
       />
       {data.clearingReviewPending && (

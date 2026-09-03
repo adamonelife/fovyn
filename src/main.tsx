@@ -85,7 +85,7 @@ import SearchOverlayLive from "./SearchOverlay";
 import AuthHome from "./AuthHome";
 import { supabase } from "./supabase";
 import { dataContextEvent, getDataContext, isSuperAdmin, resetDataContext, type DataContext } from "./testMode";
-import { completeOnboarding } from "./homeRepository";
+import { completeOnboarding, type HomeData } from "./homeRepository";
 import {
   Goal,
   sampleContributions,
@@ -1736,6 +1736,7 @@ function App() {
   const [quickLogSignal, setQuickLogSignal] = useState(0);
   const [lab, setLab] = useState(false);
   const [forest, setForest] = useState(false);
+  const [forestSnapshot, setForestSnapshot] = useState<Pick<HomeData,'goals'|'currentClearing'>>();
   const [search, setSearch] = useState(false);
   const [onboarding, setOnboarding] = useState(false);
   const [session, setSession] = useState<any>();
@@ -1806,7 +1807,7 @@ function App() {
       <HomeModule
         navigate={setPage}
         beginOnboarding={beginOnboarding}
-        openForest={() => setForest(true)}
+        openForest={(snapshot) => {setForestSnapshot(snapshot);setForest(true)}}
         openRoutines={() => {
           setLogEditTarget(undefined);
           setLogQuery("");
@@ -1916,15 +1917,16 @@ function App() {
       {search && (
         <SearchOverlayLive close={() => setSearch(false)} navigate={setPage} />
       )}{" "}
-      {forest && <React.Suspense fallback={<div className="forest-lazy-loading">Loading your Forest…</div>}><ForestOverview close={() => setForest(false)} onViewGoals={() => {setForest(false);setPage("Goals")}} onLog={() => {setForest(false);setPage("Log")}} /></React.Suspense>}{" "}
+      {forest&&forestSnapshot && <React.Suspense fallback={<div className="forest-lazy-loading">Loading your Forest…</div>}><ForestOverview goals={forestSnapshot.goals} currentClearing={forestSnapshot.currentClearing} close={() => setForest(false)} onViewGoals={() => {setForest(false);setPage("Goals")}} onLog={() => {setForest(false);setPage("Log")}} /></React.Suspense>}{" "}
       {lab && <React.Suspense fallback={<div className="forest-lazy-loading">Loading Forest Lab…</div>}><ForestLabQA close={() => setLab(false)} /></React.Suspense>}
     </div>
   );
 }
 
+const localForestQA=import.meta.env.DEV&&new URLSearchParams(location.search).has('forest-qa');
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    {localForestQA?<React.Suspense fallback={<div className="forest-lazy-loading">Loading Forest QA…</div>}><ForestLabQA close={()=>history.back()}/></React.Suspense>:<App />}
   </React.StrictMode>,
 );
 if ("serviceWorker" in navigator && import.meta.env.PROD)

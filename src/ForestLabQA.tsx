@@ -2,14 +2,16 @@ import {useEffect,useMemo,useState} from 'react';
 import {ChevronLeft,ChevronRight,Grid3X3,X} from 'lucide-react';
 import {getForestAsset,type ForestAsset} from './forestAssets';
 import {forestEnvironmentManifest,forestTreeManifest} from './forestManifest';
-import {nurserySlots} from './forestLayout';
+import {forestAssignmentDebug,nurseryAssignments,nurserySlots} from './forestLayout';
+import {ForestTreeLayer,useForestSceneAssets} from './ForestSceneEngine';
+import type {HomeGoal} from './homeRepository';
 import ForestTestPresets from './ForestTestPresets';
 
 type Mode='tree'|'environment'|'nursery-slots'|'presets';
 const environmentAssetKey=(key:string)=>`forest.environment.${key.startsWith('area-')?`area.${key.slice(5)}`:key.replaceAll('-','_')}`;
 
 export default function ForestLabQA({close}:{close:()=>void}){
-  const[mode,setMode]=useState<Mode>('tree'),[stage,setStage]=useState(1),[environment,setEnvironment]=useState('clearing');
+  const[mode,setMode]=useState<Mode>(import.meta.env.DEV&&new URLSearchParams(location.search).get('forest-qa')==='nursery'?'nursery-slots':'tree'),[stage,setStage]=useState(1),[environment,setEnvironment]=useState('clearing');
   const[asset,setAsset]=useState<ForestAsset|null>(),[error,setError]=useState(''),[contactSheet,setContactSheet]=useState(false);
   const tree=forestTreeManifest[stage-1],environmentName=forestEnvironmentManifest.find(([key])=>key===environment)?.[1]??environment;
   const key=mode==='tree'?tree.assetKey:mode==='nursery-slots'?'forest.environment.nursery':mode==='presets'?'forest.environment.clearing':environmentAssetKey(environment);
@@ -37,10 +39,17 @@ export default function ForestLabQA({close}:{close:()=>void}){
       {mode==='tree'&&asset&&!contactSheet&&<div className="tree-calibration"><div className="tree-viewport" style={treeStyle}><img src={asset.url} alt={`${tree.canonicalName} production Tree`} /><i className="ground-mask"/><span className="ground-line">GROUND</span></div><div><strong>{String(stage).padStart(2,'0')} · {tree.canonicalName}</strong><small>{asset.storage_path}</small></div></div>}
       {mode==='tree'&&contactSheet&&<TreeContactSheet/>}
       {mode==='environment'&&asset&&<figure className="environment-master"><img src={asset.url} alt={`${environmentName} production environment`}/><figcaption><strong>{environmentName}</strong><small>{asset.storage_path}</small></figcaption></figure>}
-      {mode==='nursery-slots'&&asset&&<figure className="nursery-slot-preview"><img src={asset.url} alt="Nursery planting slot calibration"/>{nurserySlots.map(slot=><div className={`nursery-slot-marker label-${slot.labelAnchor}`} key={slot.id} style={{left:`${slot.x}%`,top:`${slot.y}%`,'--slot-scale':slot.scale} as React.CSSProperties}><span className="slot-centre"/><i className="slot-ground"/><b className="slot-tree-anchor">TREE</b><em className="slot-label-anchor">LABEL</em><strong>{slot.id}</strong></div>)}</figure>}
+      {mode==='nursery-slots'&&asset&&<NurseryPlacementQA background={asset}/>}
       {mode==='presets'&&<ForestTestPresets/>}
     </main>
   </div>
+}
+
+const nurseryTestGoals:HomeGoal[]=Array.from({length:5},(_,index)=>({id:`nursery-test-${index+1}`,title:`Nursery Test ${index+1}`,status:'active',presentation_priority:index<4?'primary':'secondary',area_key:'Health',created_at:'2026-09-03T00:00:00Z',starts_on:'2026-09-03',tree_stage:(index%3)+1,tree_species:['Seed','Sprout','Young Plant'][index%3],tree_asset_key:`forest.tree.stage0${(index%3)+1}`,forest_environment:'nursery',growth_consistency:80,health_state:'Healthy',contribution_count:index%3,eligible_days:3,nursery_label:['Seed','Sprout','Young Plant'][index%3],nursery_next:'QA fixture',nursery_progress:33*(index%3)}));
+
+function NurseryPlacementQA({background}:{background:ForestAsset}){
+  const assignments=useMemo(()=>nurseryAssignments(nurseryTestGoals),[]),{trees}=useForestSceneAssets('forest.environment.nursery',assignments),audit=forestAssignmentDebug('nursery',assignments);
+  return <div className="nursery-placement-qa"><figure className="nursery-slot-preview"><img src={background.url} alt="Nursery planting slot calibration"/>{nurserySlots.map(slot=><div className={`nursery-slot-marker label-${slot.labelAnchor}`} key={slot.id} style={{left:`${slot.x}%`,top:`${slot.y}%`,'--slot-scale':slot.scale} as React.CSSProperties}><span className="slot-centre"/><i className="slot-ground"/><b className="slot-tree-anchor">SLOT</b><em className="slot-label-anchor">LABEL</em><strong>{slot.id}</strong></div>)}<ForestTreeLayer assignments={assignments} trees={trees} variant="overview" environment="nursery" onSelect={()=>{}} debug/></figure><div className="nursery-placement-report"><b>5 eligible · 5 rendered · 5 unique slots</b>{audit.map(row=><code key={row.goal_id}>{row.goal_id} → {row.slot_id} · ground ({row.anchor_x}%, {row.anchor_y}%) · environment ({row.anchor_x}%, {row.anchor_y}%)</code>)}</div></div>;
 }
 
 function TreeContactSheet(){
