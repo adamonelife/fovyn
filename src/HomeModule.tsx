@@ -324,6 +324,7 @@ export default function HomeModule({
       )}
       <ForestHero
         goals={data.goals}
+        currentClearing={data.currentClearing}
         onViewGoal={openForest}
         onLog={() => navigate("Log")}
       />

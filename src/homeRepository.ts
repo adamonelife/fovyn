@@ -8,7 +8,7 @@ const fail=(label:string,error:{message:string}|null)=>{if(error)throw new Error
 export type HomeHabit={id:string;name:string;tracking_type?:'check'|'count'|'duration';target_value?:number;unit?:string|null;status:'complete'|'failed'|'skipped'|null;frequency_type:'daily'|'specific_days'|'times_per_week'|null;days_of_week:number[]};
 export type HomeTracker={id:string;name:string;module:string;icon_key:string;daypart:'morning'|'day'|'evening'|null;specific_time:string|null;recorded:boolean};
 export type HomeGoal={id:string;title:string;status:'active'|'dormant'|'completed'|'ended'|'archived';presentation_priority:'primary'|'secondary';area_key:string;created_at:string;starts_on:string|null;tree_stage:number;tree_species:string;tree_asset_key:string;forest_environment:string;growth_consistency:number;health_state:string};
-export type HomeClearing={id:string;name:string;intention:string|null;starts_at:string;ends_at:string;focusedGoals:string[]};
+export type HomeClearing={id:string;name:string;intention:string|null;starts_at:string;ends_at:string;focusedGoals:string[];focusedGoalIds:string[]};
 export type HomeMoneyExpected={id:string;name:string;transaction_type:'income'|'expense';amount:number;currency:string;next_expected_date:string};
 export type HomeData={profile:{first_name:string|null;display_name:string|null;current_climate:string;onboarding_completed_at:string|null;timezone:string};habits:HomeHabit[];trackers:HomeTracker[];routines:Routine[];moneyExpected:HomeMoneyExpected[];goals:HomeGoal[];recentCount:number;configuredCount:number;unresolvedRoundupDate:string|null;unresolvedHabits:HomeHabit[];currentClearing:HomeClearing|null;clearingReviewPending:{id:string;name:string}|null};
 export type HabitResolution={habitId:string;status:'complete'|'failed'|'skipped';value:number|null};
@@ -37,11 +37,12 @@ export async function loadHome():Promise<HomeData>{
     supabase.from('current_clearings').select('id,name').eq('owner_id',user.id).eq('status','review_pending').order('ends_at',{ascending:false}).limit(1).maybeSingle()
   ]);
   fail('Home Goals',goals.error);fail('Home habits',habits.error);fail('Home trackers',trackers.error);fail('Expected Money',moneyExpected.error);fail('Recent activity',recent.error);fail('Configured items',configured.error);fail('Yesterday records',yesterdayRecords.error);fail('Yesterday Round-Up',yesterdayRoundup.error);fail('Current Clearing',currentClearing.error);fail('Clearing review',clearingReview.error);
-  let focusedGoals:string[]=[];
+  let focusedGoals:string[]=[],focusedGoalIds:string[]=[];
   if(currentClearing.data){
     const focused=await supabase.from('clearing_goal_treatments').select('goal_id,goals(title)').eq('clearing_id',currentClearing.data.id).eq('is_focused',true);
     fail('Clearing focus',focused.error);
     focusedGoals=(focused.data??[]).map(row=>(row.goals as unknown as {title:string}|null)?.title).filter((title):title is string=>Boolean(title));
+    focusedGoalIds=(focused.data??[]).map(row=>row.goal_id);
   }
   const goalIds=(goals.data??[]).map(x=>x.id);
   const[goalContributions,goalRules,dormancy]=goalIds.length?await Promise.all([
@@ -71,7 +72,7 @@ export async function loadHome():Promise<HomeData>{
   fail('Home tracker schedules',trackerSchedules.error);fail('Home tracker records',trackerRecords.error);
   const expectedTrackers=(trackers.data??[]).flatMap(tracker=>{const schedule=(trackerSchedules.data??[]).find(x=>x.tracker_id===tracker.id);if(!schedule||!(schedule.frequency_type==='daily'||(schedule.frequency_type==='specific_days'&&schedule.days_of_week.includes(dateWeekday(day)))))return[];return[{...tracker,daypart:schedule.daypart??null,specific_time:schedule.specific_time??null,recorded:(trackerRecords.data??[]).some(x=>x.tracker_id===tracker.id)} as HomeTracker]});
   const routineData=await loadRoutines(day),routines=routineData.routines.filter(r=>r.status==='active'&&(r.schedule.frequency_type==='daily'||r.schedule.frequency_type==='times_per_week'||(r.schedule.frequency_type==='specific_days'&&r.schedule.days_of_week.includes(dateWeekday(day)))));
-  return{profile:profile.data,goals:forestGoals,recentCount:recent.count??0,configuredCount:configured.count??0,unresolvedRoundupDate:(hadYesterdayActivity||unresolvedHabits.length)&&!yesterdayRoundup.data?yesterday:null,unresolvedHabits,habits:todayHabits,trackers:expectedTrackers,routines,moneyExpected:(moneyExpected.data??[]).map(item=>({...item,amount:Number(item.amount)})) as HomeMoneyExpected[],currentClearing:currentClearing.data?{...currentClearing.data,focusedGoals}:null,clearingReviewPending:clearingReview.data};
+  return{profile:profile.data,goals:forestGoals,recentCount:recent.count??0,configuredCount:configured.count??0,unresolvedRoundupDate:(hadYesterdayActivity||unresolvedHabits.length)&&!yesterdayRoundup.data?yesterday:null,unresolvedHabits,habits:todayHabits,trackers:expectedTrackers,routines,moneyExpected:(moneyExpected.data??[]).map(item=>({...item,amount:Number(item.amount)})) as HomeMoneyExpected[],currentClearing:currentClearing.data?{...currentClearing.data,focusedGoals,focusedGoalIds}:null,clearingReviewPending:clearingReview.data};
 }
 
 export async function completeOnboarding(){const user=await goalOwner();fail('Complete onboarding',(await supabase.from('profiles').update({onboarding_completed_at:new Date().toISOString()}).eq('id',user.id)).error)}

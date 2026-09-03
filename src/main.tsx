@@ -65,6 +65,7 @@ import "./recovery-programmes.css";
 import "./forest-lab-qa.css";
 import "./forest-hero.css";
 import "./forest-overview.css";
+import "./forest-clearing.css";
 import WorkoutModule from "./WorkoutModule";
 import GoalsModule from "./GoalsModule";
 import SettingsModule from "./SettingsModule";

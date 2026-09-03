@@ -1,0 +1,4 @@
+.production-forest-hero.current-clearing{box-shadow:0 0 0 2px #c8de6d55,0 25px 60px #234b3644}
+.production-forest-hero.current-clearing:after{content:"CURRENT CLEARING";position:absolute;right:20px;top:18px;z-index:31;border:1px solid #dceba766;border-radius:999px;background:#08251dcc;color:#dceba7;padding:7px 10px;font-size:8px;font-weight:800;letter-spacing:.13em;backdrop-filter:blur(8px)}
+.production-forest-copy>small{display:block;max-width:330px;font-size:10px;line-height:1.5;color:#eef3e8}
+@media(max-width:760px){.production-forest-hero.current-clearing:after{right:12px;top:12px;font-size:7px}.production-forest-copy>small{max-width:210px}}
