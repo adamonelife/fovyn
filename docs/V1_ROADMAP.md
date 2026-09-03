@@ -5,14 +5,47 @@
 3. Canopy Beta V1
 4. Private Cycle Tracking Foundation
 5. UX Friction / Global Polish
-6. Analytics Foundation / Population Insights Skeleton
-7. Full QA
-8. Minimum Beta Security Gate
-9. Friends Beta
+6. Guidance & Discovery V1
+7. Analytics Foundation / Population Insights Skeleton
+8. Full QA
+9. Minimum Beta Security Gate
+10. Friends Beta
 
 ## After Friends Beta, before V1.5
 
-10. Full Safety/Admin + Population Insights Platform
+11. Full Safety/Admin + Population Insights Platform
+
+## Guidance & Discovery V1 scope
+
+This Friends-Beta gate makes Fovyn independently understandable through two
+complementary systems: structured, contextual suggestions that answer “What
+could I create?” and stateful just-in-time introductions that answer “What
+does this do?”. It must not become a long signup tour or a persistent layer of
+explanatory copy.
+
+Suggestions are curated and rule-based in V1, understand the six canonical
+Areas, and pre-populate editable structure for relevant Goals, Habits,
+Metrics, Training, Nutrition, Money and subcategory creation. Suggestions are
+never canonical records until the user reviews and saves them, and every
+supported flow must retain a clear Custom route. Suggestion definitions must
+live in a shared structured taxonomy rather than being scattered through UI
+components, with architecture for later Super Admin management and optional
+personalisation without implementing an AI recommendation engine in V1.
+
+First-use guidance is concise, contextual and versioned. Seen state must be
+persisted per user across devices, shown once by default, deliberately
+replayable through Help, and resettable only for Test Data through Super Admin
+Test Mode. Required introductions cover Goals and first Goal concepts, Log,
+History, Forest and its relevant environments, Tree Guide, enabled specialist
+modules, Canopy Beta and private Cycle Tracking. Guidance teaches Fovyn
+concepts when they become relevant; it does not explain ordinary controls or
+interrupt simple actions.
+
+Beta verification must cover a genuinely new account, an established account,
+all six Area suggestion sets, editable suggestion defaults, the Custom path,
+cross-device seen-state persistence, Help replay and Test Mode reset. Existing
+privacy-conscious analytics may record non-sensitive suggestion and tutorial
+interaction events, but must not collect user-created content unnecessarily.
 
 ## Private Cycle Tracking Foundation scope
 
