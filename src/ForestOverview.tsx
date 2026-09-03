@@ -5,7 +5,7 @@ import {ForestTreeCard,ForestTreeLabels,ForestTreeLayer,useForestInteraction,use
 import {ForestEnvironmentScene} from './ForestEnvironmentScene';
 import {forestAssignments,forestEnvironmentSlots,nurseryAssignments} from './forestLayout';
 import type {HomeClearing,HomeGoal} from './homeRepository';
-import {usePublishedForestSlots} from './forestComposerRepository';
+import {useForestViewportProfile,usePublishedForestSlots,usePublishedForestView} from './forestComposerRepository';
 
 const assetKey=(key:string)=>'forest.environment.'+(key.startsWith('area-')?'area.'+key.slice(5):key.replaceAll('-','_'));
 
@@ -15,7 +15,7 @@ export default function ForestOverview({goals,currentClearing,close,onViewGoals,
   const [nurseryPage,setNurseryPage]=useState(0);
   const [error,setError]=useState('');
   const focusedGoalIds=currentClearing?.focusedGoalIds??[],clearingName=currentClearing?.name??'';
-  const slots=usePublishedForestSlots(environment,forestEnvironmentSlots[environment]??[]);
+  const profile=useForestViewportProfile(),slots=usePublishedForestSlots(environment,forestEnvironmentSlots[environment]??[],profile),view=usePublishedForestView(environment,profile);
   const visible=useMemo(()=>{
     if(environment==='clearing'){
       const eligible=goals.filter(goal=>goal.status==='active'&&goal.tree_stage>=4);
@@ -39,7 +39,7 @@ export default function ForestOverview({goals,currentClearing,close,onViewGoals,
       <header><button onClick={close} aria-label="Close Forest Overview"><ChevronLeft/></button><div><span>MY FOREST</span><h1>{label}</h1></div><button onClick={close} aria-label="Close"><X/></button></header>
       <nav aria-label="Forest environments">{forestEnvironmentManifest.map(([key,name])=><button key={key} className={environment===key?'active':''} onClick={()=>setEnvironment(key)}>{name}</button>)}</nav>
       <div className={'forest-overview-scene '+(environment==='nursery'?'dedicated-nursery':'')}>
-        {background&&<ForestEnvironmentScene asset={background} className="forest-overview-projected-scene" overlay="linear-gradient(180deg,rgba(3,24,18,.12),rgba(3,24,18,.42))">
+        {background&&<ForestEnvironmentScene asset={background} positionX={view.positionX} positionY={view.positionY} zoom={view.zoom} scrollable={profile==='mobile'&&view.scrollable} className="forest-overview-projected-scene" overlay="linear-gradient(180deg,rgba(3,24,18,.12),rgba(3,24,18,.42))">
           <div className="forest-world-layer"><ForestTreeLayer assignments={sceneAssignments} trees={trees} variant="overview" environment={environment} onSelect={interaction.select} onHover={interaction.hover} onLeave={interaction.leave}/></div>
           <div className="forest-interaction-layer"><ForestTreeLabels assignments={sceneAssignments} environment={environment} onSelect={interaction.select} onHover={interaction.hover} onLeave={interaction.leave}/>{selectedGoal&&(()=>{const assignment=sceneAssignments.find(item=>item.goal.id===selectedGoal.id);return assignment?<ForestTreeCard assignment={assignment} variant="overview" onClose={interaction.close} onViewGoal={onViewGoals} onLog={onLog} onMouseEnter={()=>interaction.hover(selectedGoal.id)} onMouseLeave={interaction.leave}>{environment==='nursery'?<div className="nursery-progress"><b>{selectedGoal.nursery_label}</b><i><span style={{width:selectedGoal.nursery_progress+'%'}}/></i><small>{selectedGoal.nursery_next}</small></div>:undefined}</ForestTreeCard>:null})()}</div>
         </ForestEnvironmentScene>}

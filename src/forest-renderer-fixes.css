@@ -11,7 +11,7 @@ body.forest-tree-card-open>.app>.add{opacity:0;pointer-events:none}
    while labels and cards share one interaction plane above every Tree. */
 .production-forest-hero,.forest-overview-scene{isolation:isolate}
 .forest-world-layer{position:absolute;inset:0;z-index:10;pointer-events:none}
-.forest-environment-scene{position:absolute;inset:0;overflow:hidden}.forest-environment-background{position:absolute;inset:0;width:100%;height:100%;user-select:none;pointer-events:none}.forest-environment-overlay{position:absolute;inset:0;pointer-events:none}.production-forest-scene,.forest-overview-projected-scene{z-index:1}
+.forest-environment-scene{position:absolute;inset:0;overflow:hidden}.forest-environment-scene.forest-environment-scrollable{overflow:auto;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:thin}.forest-environment-background{position:absolute;user-select:none;pointer-events:none}.forest-environment-overlay{position:sticky;display:block;inset:0;width:100%;height:100%;pointer-events:none}.production-forest-scene,.forest-overview-projected-scene{z-index:1}
 .forest-world-layer .production-tree,.forest-world-layer .forest-overview-tree{pointer-events:auto}
 .tree-asset-shell>i{display:none}
 .tree-asset-shell>img{background:transparent}

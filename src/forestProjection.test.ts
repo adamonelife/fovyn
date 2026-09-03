@@ -13,4 +13,10 @@ describe('Forest environment projection',()=>{
     const screen=environmentPointToViewport({x:0,y:.5},{...source,viewportWidth:320,viewportHeight:440});
     expect(screen.x).toBeLessThan(0);expect(screen.y).toBeCloseTo(220);
   });
+  it('keeps projection and inverse projection aligned at a calibrated zoom',()=>{
+    const view:ForestViewport={...source,viewportWidth:390,viewportHeight:500,positionX:.3,positionY:.65,zoom:1.55};
+    const point={x:.72,y:.61},screen=environmentPointToViewport(point,view);
+    expect(viewportPointToEnvironment(screen,view).x).toBeCloseTo(point.x,8);
+    expect(viewportPointToEnvironment(screen,view).y).toBeCloseTo(point.y,8);
+  });
 });

@@ -1,10 +1,10 @@
 export type ForestFit='cover'|'contain';
-export type ForestViewport={sourceWidth:number;sourceHeight:number;viewportWidth:number;viewportHeight:number;fit:ForestFit;positionX:number;positionY:number};
+export type ForestViewport={sourceWidth:number;sourceHeight:number;viewportWidth:number;viewportHeight:number;fit:ForestFit;positionX:number;positionY:number;zoom?:number};
 export type ForestPoint={x:number;y:number};
 
 export function environmentTransform(input:ForestViewport){
   const{sourceWidth,sourceHeight,viewportWidth,viewportHeight,fit,positionX,positionY}=input;
-  const scale=(fit==='cover'?Math.max:Math.min)(viewportWidth/sourceWidth,viewportHeight/sourceHeight);
+  const scale=(fit==='cover'?Math.max:Math.min)(viewportWidth/sourceWidth,viewportHeight/sourceHeight)*(input.zoom??1);
   const width=sourceWidth*scale,height=sourceHeight*scale;
   return{scale,width,height,offsetX:(viewportWidth-width)*positionX,offsetY:(viewportHeight-height)*positionY};
 }
