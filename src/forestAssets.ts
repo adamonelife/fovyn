@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { growthRegistry } from "./domain";
-import { forestEnvironmentManifest, forestIconNames, forestTreeManifest } from "./forestManifest";
+import { FOREST_ASSET_VERSION, FOREST_STORAGE_ROOT, forestEnvironmentManifest, forestIconNames, forestTreeManifest } from "./forestManifest";
 
 export const FOREST_ASSET_BUCKET = "fovyn-assets";
 export const forestTreeAssetKeys = growthRegistry.map((_, index) =>
@@ -47,6 +47,14 @@ export type ForestAsset = {
 
 const columns = "asset_key,asset_version,variant,asset_kind,stage,canonical_name,storage_path,mime_type,width,height,anchor_x,anchor_y,ground_anchor_y,default_scale,mobile_scale_modifier,desktop_scale_modifier,z_bias,depth_preference,environment_key,is_active";
 
+export function forestAssetFallback(assetKey:string):ForestAsset|null{
+  const tree=forestTreeManifest.find(item=>item.assetKey===assetKey);
+  if(tree){const {data}=supabase.storage.from(FOREST_ASSET_BUCKET).getPublicUrl(tree.storagePath);return{asset_key:tree.assetKey,asset_version:FOREST_ASSET_VERSION,variant:'default',asset_kind:'tree',stage:tree.stage,canonical_name:tree.canonicalName,storage_path:tree.storagePath,mime_type:'image/png',width:tree.width,height:tree.height,anchor_x:.5,anchor_y:tree.groundAnchorY,ground_anchor_y:tree.groundAnchorY,default_scale:tree.defaultScale,mobile_scale_modifier:tree.mobileScaleModifier,desktop_scale_modifier:tree.desktopScaleModifier,z_bias:tree.zBias,depth_preference:tree.depthPreference,environment_key:null,is_active:true,url:data.publicUrl}}
+  const environment=forestEnvironmentManifest.find(([key])=>`forest.environment.${key.startsWith('area-')?`area.${key.slice(5)}`:key.replaceAll('-','_')}`===assetKey);
+  if(environment){const storagePath=`${FOREST_STORAGE_ROOT}/environments/${environment[0]}.png`,{data}=supabase.storage.from(FOREST_ASSET_BUCKET).getPublicUrl(storagePath);return{asset_key:assetKey,asset_version:FOREST_ASSET_VERSION,variant:'default',asset_kind:'environment',stage:null,canonical_name:environment[1],storage_path:storagePath,mime_type:'image/png',width:1536,height:1024,anchor_x:.5,anchor_y:.5,ground_anchor_y:1,default_scale:1,mobile_scale_modifier:1,desktop_scale_modifier:1,z_bias:0,depth_preference:'mid',environment_key:environment[0],is_active:true,url:data.publicUrl}}
+  return null;
+}
+
 export async function getForestAsset(assetKey: string, variant: ForestAssetVariant = "default"): Promise<ForestAsset | null> {
   const { data, error } = await supabase
     .from("forest_asset_manifest")
@@ -57,11 +65,11 @@ export async function getForestAsset(assetKey: string, variant: ForestAssetVaria
     .order("asset_version", { ascending: false });
   if (error) {
     console.warn("Forest asset lookup failed", { assetKey, variant });
-    return null;
+    return forestAssetFallback(assetKey);
   }
   const rows = (data ?? []) as unknown as Omit<ForestAsset, "url">[];
   const row = rows.find((item) => item.variant === variant) ?? rows.find((item) => item.variant === "default");
-  if (!row?.storage_path) return null;
+  if (!row?.storage_path) return forestAssetFallback(assetKey);
   const { data: publicAsset } = supabase.storage.from(FOREST_ASSET_BUCKET).getPublicUrl(row.storage_path);
   return { ...row, url: publicAsset.publicUrl };
 }

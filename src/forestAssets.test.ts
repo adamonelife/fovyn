@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { growthRegistry } from "./domain";
-import { forestEnvironmentAssetKeys, forestIconAssetKeys, forestTreeAssetKeys } from "./forestAssets";
+import { forestAssetFallback, forestEnvironmentAssetKeys, forestIconAssetKeys, forestTreeAssetKeys } from "./forestAssets";
 import { forestEnvironmentManifest, forestIconNames, forestTreeManifest } from "./forestManifest";
 
 describe("Forest asset canon", () => {
@@ -36,5 +36,11 @@ describe("Forest asset canon", () => {
 
   it("keeps all environment identities unique", () => {
     expect(new Set(forestEnvironmentManifest.map(([key]) => key)).size).toBe(10);
+  });
+
+  it("can recover production Tree and environment paths without the remote manifest",()=>{
+    expect(forestAssetFallback('forest.tree.stage01')?.storage_path).toContain('tree-01.png');
+    expect(forestAssetFallback('forest.environment.heartwood')?.storage_path).toContain('heartwood.png');
+    expect(forestAssetFallback('forest.unknown')).toBeNull();
   });
 });
