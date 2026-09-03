@@ -48,11 +48,17 @@ export type ForestAsset = {
 
 const columns = "asset_key,asset_version,variant,asset_kind,stage,canonical_name,storage_path,mime_type,width,height,anchor_x,anchor_y,ground_anchor_y,default_scale,mobile_scale_modifier,desktop_scale_modifier,z_bias,depth_preference,environment_key,is_active";
 
+export function versionedForestAssetUrl(publicUrl:string,assetVersion:number){
+  const url=new URL(publicUrl);
+  url.searchParams.set('v',String(assetVersion));
+  return url.toString();
+}
+
 export function forestAssetFallback(assetKey:string):ForestAsset|null{
   const tree=forestTreeManifest.find(item=>item.assetKey===assetKey);
-  if(tree){const {data}=supabase.storage.from(FOREST_ASSET_BUCKET).getPublicUrl(tree.storagePath);return{asset_key:tree.assetKey,asset_version:FOREST_ASSET_VERSION,variant:'default',asset_kind:'tree',stage:tree.stage,canonical_name:tree.canonicalName,storage_path:tree.storagePath,mime_type:'image/png',width:tree.width,height:tree.height,anchor_x:.5,anchor_y:tree.groundAnchorY,ground_anchor_y:tree.groundAnchorY,default_scale:tree.defaultScale,mobile_scale_modifier:tree.mobileScaleModifier,desktop_scale_modifier:tree.desktopScaleModifier,z_bias:tree.zBias,depth_preference:tree.depthPreference,environment_key:null,is_active:true,url:data.publicUrl}}
+  if(tree){const {data}=supabase.storage.from(FOREST_ASSET_BUCKET).getPublicUrl(tree.storagePath);return{asset_key:tree.assetKey,asset_version:FOREST_ASSET_VERSION,variant:'default',asset_kind:'tree',stage:tree.stage,canonical_name:tree.canonicalName,storage_path:tree.storagePath,mime_type:'image/png',width:tree.width,height:tree.height,anchor_x:.5,anchor_y:tree.groundAnchorY,ground_anchor_y:tree.groundAnchorY,default_scale:tree.defaultScale,mobile_scale_modifier:tree.mobileScaleModifier,desktop_scale_modifier:tree.desktopScaleModifier,z_bias:tree.zBias,depth_preference:tree.depthPreference,environment_key:null,is_active:true,url:versionedForestAssetUrl(data.publicUrl,FOREST_ASSET_VERSION)}}
   const environment=forestEnvironmentManifest.find(([key])=>`forest.environment.${key.startsWith('area-')?`area.${key.slice(5)}`:key.replaceAll('-','_')}`===assetKey);
-  if(environment){const storagePath=`${FOREST_STORAGE_ROOT}/environments/${environment[0]}.png`,{data}=supabase.storage.from(FOREST_ASSET_BUCKET).getPublicUrl(storagePath);return{asset_key:assetKey,asset_version:FOREST_ASSET_VERSION,variant:'default',asset_kind:'environment',stage:null,canonical_name:environment[1],storage_path:storagePath,mime_type:'image/png',width:1536,height:1024,anchor_x:.5,anchor_y:.5,ground_anchor_y:1,default_scale:1,mobile_scale_modifier:1,desktop_scale_modifier:1,z_bias:0,depth_preference:'mid',environment_key:environment[0],is_active:true,url:data.publicUrl}}
+  if(environment){const storagePath=`${FOREST_STORAGE_ROOT}/environments/${environment[0]}.png`,{data}=supabase.storage.from(FOREST_ASSET_BUCKET).getPublicUrl(storagePath);return{asset_key:assetKey,asset_version:FOREST_ASSET_VERSION,variant:'default',asset_kind:'environment',stage:null,canonical_name:environment[1],storage_path:storagePath,mime_type:'image/png',width:1536,height:1024,anchor_x:.5,anchor_y:.5,ground_anchor_y:1,default_scale:1,mobile_scale_modifier:1,desktop_scale_modifier:1,z_bias:0,depth_preference:'mid',environment_key:environment[0],is_active:true,url:versionedForestAssetUrl(data.publicUrl,FOREST_ASSET_VERSION)}}
   return null;
 }
 
@@ -73,7 +79,7 @@ export async function getForestAsset(assetKey: string, variant: ForestAssetVaria
   const row = rows.find((item) => item.variant === variant) ?? rows.find((item) => item.variant === "default");
   if (!row?.storage_path) return forestAssetFallback(assetKey);
   const { data: publicAsset } = supabase.storage.from(FOREST_ASSET_BUCKET).getPublicUrl(row.storage_path);
-  return { ...row,default_scale:calibration?.canonical_visual_scale??row.default_scale, url: publicAsset.publicUrl };
+  return { ...row,default_scale:calibration?.canonical_visual_scale??row.default_scale, url: versionedForestAssetUrl(publicAsset.publicUrl,row.asset_version) };
 }
 
 export const localForestManifest = {

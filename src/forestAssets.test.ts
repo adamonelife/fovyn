@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { growthRegistry } from "./domain";
-import { forestAssetFallback, forestEnvironmentAssetKeys, forestIconAssetKeys, forestTreeAssetKeys } from "./forestAssets";
+import { forestAssetFallback, forestEnvironmentAssetKeys, forestIconAssetKeys, forestTreeAssetKeys, versionedForestAssetUrl } from "./forestAssets";
 import { forestEnvironmentManifest, forestIconNames, forestTreeManifest } from "./forestManifest";
 
 describe("Forest asset canon", () => {
@@ -41,6 +41,14 @@ describe("Forest asset canon", () => {
   it("can recover production Tree and environment paths without the remote manifest",()=>{
     expect(forestAssetFallback('forest.tree.stage01')?.storage_path).toContain('tree-01.png');
     expect(forestAssetFallback('forest.environment.heartwood')?.storage_path).toContain('heartwood.png');
+    expect(forestAssetFallback('forest.environment.heartwood')?.url).toContain('?v=1');
     expect(forestAssetFallback('forest.unknown')).toBeNull();
+  });
+
+  it('changes browser cache identity when an asset version changes',()=>{
+    const url='https://example.supabase.co/storage/v1/object/public/fovyn-assets/forest/v1/environments/area-mind.png';
+    expect(versionedForestAssetUrl(url,1)).toContain('area-mind.png?v=1');
+    expect(versionedForestAssetUrl(url,2)).toContain('area-mind.png?v=2');
+    expect(versionedForestAssetUrl(url,1)).not.toBe(versionedForestAssetUrl(url,2));
   });
 });
