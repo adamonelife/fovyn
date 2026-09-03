@@ -1,0 +1,7 @@
+import {growthRegistry} from './domain';
+export type ForestGoalFacts={contributionCount:number;eligibleDays:number;growthConsistency:number};
+const thresholds=[7,14,21,28,42,56,70,84,98,112,140,168,196,224,252,280,308,365,426,487,548,609,670,730] as const;
+export function forestStageFromFacts({contributionCount,eligibleDays,growthConsistency}:ForestGoalFacts){if(contributionCount<=0)return 1;if(contributionCount===1)return 2;if(contributionCount===2||eligibleDays<7||growthConsistency<70)return 3;let stage=4;thresholds.forEach((days,index)=>{const candidate=index+4,required=candidate>=22?85:candidate>=16?80:candidate>=10?75:70;if(eligibleDays>=days&&growthConsistency>=required)stage=Math.min(27,candidate)});return stage}
+export function forestSpecies(stage:number){return growthRegistry[Math.max(0,Math.min(26,stage-1))]}
+export function forestHealth(consistency:number,status:string){if(status==='dormant')return'Dormant';if(consistency>=85)return'Thriving';if(consistency>=70)return'Healthy';if(consistency>=45)return'Needs Water';return'May Need Pruning'}
+export function forestEnvironment(status:string,stage:number,area:string){if(status==='completed')return'heartwood';if(status==='dormant')return'dormant-woods';if(stage<=3)return'nursery';return area.toLowerCase()}

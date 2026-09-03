@@ -2,11 +2,12 @@ import {supabase} from './supabase';
 import {goalOwner} from './goalsRepository';
 import{dateWeekday,fovynDateKey,fovynDateRange,shiftDateKey}from'./fovynDate';
 import{loadRoutines,type Routine}from'./routinesRepository';
+import{forestEnvironment,forestHealth,forestSpecies,forestStageFromFacts}from'./forestGoalState';
 
 const fail=(label:string,error:{message:string}|null)=>{if(error)throw new Error(`${label}: ${error.message}`)};
 export type HomeHabit={id:string;name:string;tracking_type?:'check'|'count'|'duration';target_value?:number;unit?:string|null;status:'complete'|'failed'|'skipped'|null;frequency_type:'daily'|'specific_days'|'times_per_week'|null;days_of_week:number[]};
 export type HomeTracker={id:string;name:string;module:string;icon_key:string;daypart:'morning'|'day'|'evening'|null;specific_time:string|null;recorded:boolean};
-export type HomeGoal={id:string;title:string;status:'active'|'dormant'|'completed'|'ended'|'archived';presentation_priority:'primary'|'secondary';area_key:string};
+export type HomeGoal={id:string;title:string;status:'active'|'dormant'|'completed'|'ended'|'archived';presentation_priority:'primary'|'secondary';area_key:string;created_at:string;starts_on:string|null;tree_stage:number;tree_species:string;tree_asset_key:string;forest_environment:string;growth_consistency:number;health_state:string};
 export type HomeClearing={id:string;name:string;intention:string|null;starts_at:string;ends_at:string;focusedGoals:string[]};
 export type HomeMoneyExpected={id:string;name:string;transaction_type:'income'|'expense';amount:number;currency:string;next_expected_date:string};
 export type HomeData={profile:{first_name:string|null;display_name:string|null;current_climate:string;onboarding_completed_at:string|null;timezone:string};habits:HomeHabit[];trackers:HomeTracker[];routines:Routine[];moneyExpected:HomeMoneyExpected[];goals:HomeGoal[];recentCount:number;configuredCount:number;unresolvedRoundupDate:string|null;unresolvedHabits:HomeHabit[];currentClearing:HomeClearing|null;clearingReviewPending:{id:string;name:string}|null};
@@ -24,7 +25,7 @@ export async function loadHome():Promise<HomeData>{
   const day=fovynDateKey(profile.data.timezone||'UTC'),yesterday=shiftDateKey(day,-1),since=new Date(Date.now()-86400000).toISOString();
   fail('Synchronise Current Clearing',(await supabase.rpc('sync_current_clearing')).error);
   const[goals,habits,trackers,moneyExpected,recent,configured,yesterdayRecords,yesterdayRoundup,currentClearing,clearingReview]=await Promise.all([
-    supabase.from('goals').select('id,title,status,presentation_priority,area_key').eq('owner_id',user.id).order('created_at'),
+    supabase.from('goals').select('id,title,status,presentation_priority,area_key,created_at,starts_on').eq('owner_id',user.id).order('created_at'),
     supabase.from('habits').select('id,name,tracking_type,target_value,unit').eq('owner_id',user.id).eq('active',true).is('archived_at',null).lte('start_date',day).or(`ends_on.is.null,ends_on.gte.${yesterday}`),
     supabase.from('trackers').select('id,name,module,icon_key').eq('owner_id',user.id).eq('status','active').neq('module','routines'),
     supabase.from('money_recurring_items').select('id,name,transaction_type,amount,currency,next_expected_date').eq('owner_id',user.id).eq('status','active').lte('next_expected_date',day).order('next_expected_date'),
@@ -42,6 +43,16 @@ export async function loadHome():Promise<HomeData>{
     fail('Clearing focus',focused.error);
     focusedGoals=(focused.data??[]).map(row=>(row.goals as unknown as {title:string}|null)?.title).filter((title):title is string=>Boolean(title));
   }
+  const goalIds=(goals.data??[]).map(x=>x.id);
+  const[goalContributions,goalRules,dormancy]=goalIds.length?await Promise.all([
+    supabase.from('goal_contributions').select('goal_id,record_id,created_at').in('goal_id',goalIds),
+    supabase.from('goal_rules').select('goal_id,target_min,period,effective_from,effective_to').in('goal_id',goalIds).or(`effective_to.is.null,effective_to.gte.${day}`),
+    supabase.from('goal_dormancy_periods').select('goal_id,dormant_from,awakened_at').in('goal_id',goalIds),
+  ]):[{data:[],error:null},{data:[],error:null},{data:[],error:null}];
+  fail('Forest contributions',goalContributions.error);fail('Forest Goal rules',goalRules.error);fail('Forest dormancy',dormancy.error);
+  const recordIds=(goalContributions.data??[]).map(row=>row.record_id),goalRecords=recordIds.length?await supabase.from('tracking_records').select('id,occurred_at,value,deleted_at').in('id',recordIds).is('deleted_at',null):{data:[],error:null};fail('Forest contribution records',goalRecords.error);
+  const recordById=new Map((goalRecords.data??[]).map(row=>[row.id,row])),dayMs=86400000;
+  const forestGoals=(goals.data??[]).map(goal=>{const start=goal.starts_on??goal.created_at.slice(0,10),elapsed=Math.max(1,Math.floor((new Date(`${day}T12:00:00Z`).getTime()-new Date(`${start}T12:00:00Z`).getTime())/dayMs)+1),periods=(dormancy.data??[]).filter(row=>row.goal_id===goal.id),dormantDays=periods.reduce((sum,row)=>{const from=row.dormant_from.slice(0,10),to=(row.awakened_at??`${day}T23:59:59Z`).slice(0,10),a=Math.max(new Date(`${start}T12:00:00Z`).getTime(),new Date(`${from}T12:00:00Z`).getTime()),b=Math.min(new Date(`${day}T12:00:00Z`).getTime(),new Date(`${to}T12:00:00Z`).getTime());return sum+Math.max(0,Math.floor((b-a)/dayMs)+1)},0),eligibleDays=Math.max(0,elapsed-dormantDays),contributions=(goalContributions.data??[]).filter(row=>row.goal_id===goal.id).map(row=>recordById.get(row.record_id)).filter(Boolean),rule=(goalRules.data??[]).find(row=>row.goal_id===goal.id),target=Math.max(1,Number(rule?.target_min??1)),periodDays=rule?.period==='week'?7:rule?.period==='month'?30:rule?.period==='year'?365:1,expected=target*Math.max(1,eligibleDays/periodDays),actual=contributions.reduce((sum,row)=>sum+Number(row?.value??1),0),growthConsistency=Math.min(100,actual/expected*100),stage=forestStageFromFacts({contributionCount:contributions.length,eligibleDays,growthConsistency});return{...goal,tree_stage:stage,tree_species:forestSpecies(stage),tree_asset_key:`forest.tree.stage${String(stage).padStart(2,'0')}`,forest_environment:forestEnvironment(goal.status,stage,goal.area_key),growth_consistency:growthConsistency,health_state:forestHealth(growthConsistency,goal.status)} as HomeGoal});
   const ids=(habits.data??[]).map(x=>x.id);
   const[schedules,entries]=ids.length?await Promise.all([
     supabase.from('habit_schedules').select('id,habit_id,frequency_type,days_of_week,effective_from,effective_to').in('habit_id',ids).lte('effective_from',day).or(`effective_to.is.null,effective_to.gte.${yesterday}`),
@@ -58,7 +69,7 @@ export async function loadHome():Promise<HomeData>{
   fail('Home tracker schedules',trackerSchedules.error);fail('Home tracker records',trackerRecords.error);
   const expectedTrackers=(trackers.data??[]).flatMap(tracker=>{const schedule=(trackerSchedules.data??[]).find(x=>x.tracker_id===tracker.id);if(!schedule||!(schedule.frequency_type==='daily'||(schedule.frequency_type==='specific_days'&&schedule.days_of_week.includes(dateWeekday(day)))))return[];return[{...tracker,daypart:schedule.daypart??null,specific_time:schedule.specific_time??null,recorded:(trackerRecords.data??[]).some(x=>x.tracker_id===tracker.id)} as HomeTracker]});
   const routineData=await loadRoutines(day),routines=routineData.routines.filter(r=>r.status==='active'&&(r.schedule.frequency_type==='daily'||r.schedule.frequency_type==='times_per_week'||(r.schedule.frequency_type==='specific_days'&&r.schedule.days_of_week.includes(dateWeekday(day)))));
-  return{profile:profile.data,goals:(goals.data??[]) as HomeGoal[],recentCount:recent.count??0,configuredCount:configured.count??0,unresolvedRoundupDate:(hadYesterdayActivity||unresolvedHabits.length)&&!yesterdayRoundup.data?yesterday:null,unresolvedHabits,habits:todayHabits,trackers:expectedTrackers,routines,moneyExpected:(moneyExpected.data??[]).map(item=>({...item,amount:Number(item.amount)})) as HomeMoneyExpected[],currentClearing:currentClearing.data?{...currentClearing.data,focusedGoals}:null,clearingReviewPending:clearingReview.data};
+  return{profile:profile.data,goals:forestGoals,recentCount:recent.count??0,configuredCount:configured.count??0,unresolvedRoundupDate:(hadYesterdayActivity||unresolvedHabits.length)&&!yesterdayRoundup.data?yesterday:null,unresolvedHabits,habits:todayHabits,trackers:expectedTrackers,routines,moneyExpected:(moneyExpected.data??[]).map(item=>({...item,amount:Number(item.amount)})) as HomeMoneyExpected[],currentClearing:currentClearing.data?{...currentClearing.data,focusedGoals}:null,clearingReviewPending:clearingReview.data};
 }
 
 export async function completeOnboarding(){const user=await goalOwner();fail('Complete onboarding',(await supabase.from('profiles').update({onboarding_completed_at:new Date().toISOString()}).eq('id',user.id)).error)}

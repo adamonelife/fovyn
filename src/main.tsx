@@ -63,6 +63,7 @@ import "./shared-ui.css";
 import "./history-management.css";
 import "./recovery-programmes.css";
 import "./forest-lab-qa.css";
+import "./forest-hero.css";
 import WorkoutModule from "./WorkoutModule";
 import GoalsModule from "./GoalsModule";
 import SettingsModule from "./SettingsModule";
