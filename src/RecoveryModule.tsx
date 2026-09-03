@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { HeartPulse, Plus, X, type LucideIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, HeartPulse, Plus, ShieldAlert, X, type LucideIcon } from "lucide-react";
 import {
   addMetricRecord,
   occurrenceValue,
@@ -15,6 +15,7 @@ import {
 } from "./recoveryRepository";
 import type { Tracker } from "./trackerRepository";
 import { LogEmptyState, LogItemCard, LogSection } from "./ui";
+import {beginRecoveryProgramme,changeRecoveryStage,loadRecoveryProgramme,type RecoveryProgrammeData} from './recoveryProgrammeRepository';
 
 const localNow = () => {
   const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
@@ -252,13 +253,40 @@ export default function RecoveryModule(props: {
   initialEntryId?: string;
   manage: () => void;
 }) {
+  const [view,setView]=useState<'programme'|'items'>('programme');
   return (
-    <TrackerCategoryModule
-      {...props}
-      module="medication"
-      label="Supplements & Recovery"
-      emptyDetail="Add a supplement, medication or recovery item under + Add & Manage."
-      Icon={HeartPulse}
-    />
+    <>
+      <div className="page-wrap recovery-switch" role="tablist" aria-label="Recovery sections">
+        <button role="tab" aria-selected={view==='programme'} className={view==='programme'?'active':''} onClick={()=>setView('programme')}>Programmes</button>
+        <button role="tab" aria-selected={view==='items'} className={view==='items'?'active':''} onClick={()=>setView('items')}>Supplements & items</button>
+      </div>
+      {view==='programme'?<RecoveryProgrammePanel/>:<TrackerCategoryModule
+        {...props}
+        module="medication"
+        label="Supplements & Recovery"
+        emptyDetail="Add a supplement, medication or recovery item under + Add & Manage."
+        Icon={HeartPulse}
+      />}
+    </>
   );
+}
+
+function RecoveryProgrammePanel(){
+  const[data,setData]=useState<RecoveryProgrammeData>(),[stageId,setStageId]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const refresh=async()=>{try{const next=await loadRecoveryProgramme();setData(next);setStageId(next.enrolment?.current_stage_id??next.stages.find(stage=>stage.implemented)?.id??'');setError('')}catch(reason){setError(reason instanceof Error?reason.message:'Unable to load Recovery programmes')}};
+  useEffect(()=>{refresh()},[]);
+  if(error)return <div className="page-wrap"><p className="goal-error">{error}</p></div>;
+  if(!data)return <div className="page-wrap tracker-loading">Loading Recovery…</div>;
+  const stage=data.stages.find(item=>item.id===stageId)??data.stages[0],available=data.exercises[stage.id]??[],currentIndex=data.stages.findIndex(item=>item.id===stage.id),activeStage=data.stages.find(item=>item.id===data.enrolment?.current_stage_id);
+  const move=async(direction:-1|1)=>{if(!data.enrolment)return;const next=data.stages[currentIndex+direction];if(!next?.implemented)return;setBusy(true);try{await changeRecoveryStage(data.enrolment,next.id);await refresh()}catch(reason){setError(reason instanceof Error?reason.message:'Unable to change stage')}finally{setBusy(false)}};
+  return <div className="page-wrap recovery-programme">
+    <header className="recovery-programme-header"><div><p className="eyebrow">RECOVERY PROGRAMME</p><h2>{data.programme.name}</h2><p>{data.programme.description}</p></div><HeartPulse/></header>
+    {!data.enrolment&&<section className="recovery-start"><div><h3>Choose this programme</h3><p>Use this structured exercise library only when it is appropriate for you or recommended by a qualified professional.</p></div><button className="save-record" disabled={busy} onClick={async()=>{setBusy(true);try{await beginRecoveryProgramme(data.programme.id,data.stages[0].id);await refresh()}catch(reason){setError(reason instanceof Error?reason.message:'Unable to start programme')}finally{setBusy(false)}}}>{busy?'Starting…':'Start programme'}</button></section>}
+    {data.enrolment&&<section className="recovery-stage-progress"><div><small>CURRENT STAGE</small><strong>{activeStage?.stage_number}. {activeStage?.name}</strong><span>Started {new Date(`${data.enrolment.date_started}T12:00:00`).toLocaleDateString()}</span></div><div className="recovery-stage-dots">{data.stages.filter(item=>item.implemented).map(item=><button key={item.id} className={item.id===stage.id?'active':''} onClick={()=>setStageId(item.id)} aria-label={`View stage ${item.stage_number}`}>{item.stage_number}</button>)}</div></section>}
+    <section className="recovery-stage-card"><div className="recovery-stage-title"><button disabled={currentIndex===0} onClick={()=>setStageId(data.stages[currentIndex-1]?.id)} aria-label="Previous stage"><ChevronLeft/></button><div><p>STAGE {stage.stage_number}</p><h3>{stage.name}</h3><span>{stage.purpose}</span></div><button disabled={!data.stages[currentIndex+1]?.implemented} onClick={()=>setStageId(data.stages[currentIndex+1]?.id)} aria-label="Next stage"><ChevronRight/></button></div>
+      <div className="recovery-exercise-list">{available.map(exercise=><article key={exercise.id}><div><small>{exercise.exercise_types.join(' · ')}</small><h4>{exercise.name}</h4><p>{exercise.default_prescription??'Set your own prescription'}</p></div><div className="recovery-exercise-meta"><span>{exercise.regions.join(' · ')}</span><span>{exercise.equipment.join(' · ')}</span>{exercise.unilateral&&<b>Left + Right</b>}</div>{exercise.stop_criteria&&<p className="recovery-safety"><ShieldAlert/> {exercise.stop_criteria}</p>}</article>)}</div>
+    </section>
+    {data.enrolment&&stage.id===data.enrolment.current_stage_id&&<div className="recovery-stage-actions"><button className="soft-button" disabled={busy||currentIndex===0} onClick={()=>move(-1)}>Move back a stage</button><button className="save-record" disabled={busy||!data.stages[currentIndex+1]?.implemented} onClick={()=>move(1)}>Progress to next stage</button></div>}
+    <aside className="recovery-guidance"><ShieldAlert/><p><strong>Stop the exercise</strong> if you report new or increasing radiating pain, numbness, tingling, sudden strength loss, giving way, spreading symptoms, or a significant symptom increase. Fovyn does not diagnose the cause.</p></aside>
+  </div>;
 }

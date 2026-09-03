@@ -197,6 +197,9 @@ export type WorkoutSave = {
   sleep?: number;
   notes?: string;
   sessionType?:'normal'|'light'|'rehab';
+  recoveryEnrolmentId?:string;
+  recoveryStageId?:string;
+  recoveryResponse?:{symptomResponse?:'better'|'no_change'|'slightly_worse'|'significantly_worse';painBefore?:number;painAfter?:number;stiffnessBefore?:number;stiffnessAfter?:number;notes?:string};
   templateId?:string;
   items: Array<{
     exerciseId: string;
@@ -237,12 +240,18 @@ export async function saveWorkout(payload: WorkoutSave) {
       notes: payload.notes ?? "",
       session_type:payload.sessionType??'normal',
       template_id:payload.templateId??null,
+      recovery_enrolment_id:payload.recoveryEnrolmentId??null,
+      recovery_stage_id:payload.recoveryStageId??null,
       source_payload: { source: "unified_forbair_v1" },
     })
     .select("id")
     .single();
   fail("Save session", session.error);
   try{
+    if(payload.recoveryResponse){
+      const response=await supabase!.from('recovery_session_responses').insert({session_id:session.data.id,owner_id:owner,symptom_response:payload.recoveryResponse.symptomResponse??null,pain_before:payload.recoveryResponse.painBefore??null,pain_after:payload.recoveryResponse.painAfter??null,stiffness_before:payload.recoveryResponse.stiffnessBefore??null,stiffness_after:payload.recoveryResponse.stiffnessAfter??null,notes:payload.recoveryResponse.notes??''});
+      fail('Save Recovery response',response.error);
+    }
     for (let i = 0; i < payload.items.length; i++) {
       const item = payload.items[i];
       const row = await supabase!

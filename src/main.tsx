@@ -61,6 +61,7 @@ import "./universal-log.css";
 import "./ui.css";
 import "./shared-ui.css";
 import "./history-management.css";
+import "./recovery-programmes.css";
 import WorkoutModule from "./WorkoutModule";
 import GoalsModule from "./GoalsModule";
 import SettingsModule from "./SettingsModule";

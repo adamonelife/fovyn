@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Check, MoreHorizontal, Plus, Timer, X } from "lucide-react";
+import { Check, HeartPulse, MoreHorizontal, Plus, Timer, X } from "lucide-react";
 import ExerciseLibrary from './ExerciseLibrary';
 import TrainingTemplates from './TrainingTemplates';
 import { formatDisplayLabel } from './displayLabels';
 import { supabase } from "./supabase";
+import {prepareRecoveryWorkout,type RecoveryProgrammeData} from './recoveryProgrammeRepository';
 import {
   listTemplates,
   loadWorkout,
@@ -149,6 +150,7 @@ function Start(p: {
         >
           <Plus /> Manual workout
         </button>
+        <button className="manual-workout" onClick={()=>setChoice({type:'Recovery',variant:'Programme',manual:true})}><HeartPulse/> Recovery workout</button>
         <button className="exercise-library-link" onClick={()=>setLibraryOpen(true)}>Exercise Library</button>
         <button className="exercise-library-link" onClick={()=>setTemplatesOpen(true)}>Manage Templates</button>
         <p className="choice-label">SAVED TEMPLATES</p>
@@ -200,7 +202,11 @@ function Editor({
     [sleep, setSleep] = useState(""),
     [calories, setCalories] = useState(""),
     [notes, setNotes] = useState(""),
-    [sessionType,setSessionType]=useState<'normal'|'light'|'rehab'>('normal'),
+    [sessionType,setSessionType]=useState<'normal'|'light'|'rehab'>(type==='Recovery'?'rehab':'normal'),
+    [recovery,setRecovery]=useState<RecoveryProgrammeData>(),
+    [recoveryStageId,setRecoveryStageId]=useState(''),
+    [symptomResponse,setSymptomResponse]=useState<'better'|'no_change'|'slightly_worse'|'significantly_worse'>('no_change'),
+    [painBefore,setPainBefore]=useState(''),[painAfter,setPainAfter]=useState(''),[stiffnessBefore,setStiffnessBefore]=useState(''),[stiffnessAfter,setStiffnessAfter]=useState(''),
     [rest, setRest] = useState(0),
     [restSeconds, setRestSeconds] = useState("90"),
     [summary, setSummary] = useState<{
@@ -222,7 +228,8 @@ function Editor({
       // Invalid legacy preferences should not prevent a workout opening.
     }
     const cacheKey=`forbair-workout-cache:${type}:${variant}:${manual}`;
-    loadWorkout(type, variant, manual,templateId)
+    const prepared=type==='Recovery'?prepareRecoveryWorkout().then(value=>{setRecovery(value);setRecoveryStageId(value.enrolment?.current_stage_id??value.stages[0].id)}):Promise.resolve(undefined);
+    prepared.then(()=>loadWorkout(type, variant, manual,templateId))
       .then((d) => {
         localStorage.setItem(cacheKey,JSON.stringify(d));
         setLibrary(d.exercises);
@@ -297,6 +304,16 @@ function Editor({
     setAdd(false);
     setReplace(null);
   };
+  const addRecoveryStage=()=>{
+    const selected=recovery?.exercises[recoveryStageId]??[],existing=new Set(items.map(item=>item.exercise.exerciseId));
+    const additions=selected.flatMap(candidate=>{
+      const exercise=library.find(item=>item.exerciseId===`recovery_${candidate.exercise_key}`);
+      if(!exercise||existing.has(exercise.exerciseId))return[];
+      const last=latestForExercise(logs,exercise.exerciseId),rule=rules.find(item=>item.exerciseId===exercise.exerciseId)??null,target=calculateTarget(exercise,last,rule);
+      return[{order:items.length+1,slotName:'Recovery',group:exercise.group,exercise,rule,last,target,sets:target,rpe:'',notes:''} as Item];
+    });
+    setItems([...items,...additions].map((item,index)=>({...item,order:index+1})));
+  };
   const move = (i: number, d: number) => {
     const n = i + d;
     if (n < 0 || n >= items.length) return;
@@ -316,6 +333,9 @@ function Editor({
     notes,
     sessionType,
     templateId,
+    recoveryEnrolmentId:recovery?.enrolment?.id,
+    recoveryStageId:recoveryStageId||undefined,
+    recoveryResponse:type==='Recovery'?{symptomResponse,painBefore:painBefore===''?undefined:Number(painBefore),painAfter:painAfter===''?undefined:Number(painAfter),stiffnessBefore:stiffnessBefore===''?undefined:Number(stiffnessBefore),stiffnessAfter:stiffnessAfter===''?undefined:Number(stiffnessAfter),notes}:undefined,
     items: items.map((x) => ({
       exerciseId: x.exercise.exerciseId,
       exerciseName: x.exercise.exerciseName,
@@ -341,7 +361,7 @@ function Editor({
           ),
         0,
       ),
-      pbs = items
+      pbs = type==='Recovery'?[]:items
         .filter(
           (x) =>
             x.last &&
@@ -435,12 +455,14 @@ function Editor({
           </label>
         ))}
       </section>
+      {type==='Recovery'&&recovery&&<section className="recovery-workout-controls"><label>Recovery programme<input value={recovery.programme.name} readOnly/></label><label>Stage<select value={recoveryStageId} onChange={event=>setRecoveryStageId(event.target.value)}>{recovery.stages.filter(stage=>stage.implemented).map(stage=><option value={stage.id} key={stage.id}>{stage.stage_number}. {stage.name}</option>)}</select></label><button type="button" className="soft-button" onClick={addRecoveryStage}>Add stage exercises</button></section>}
       {rest > 0 && (
         <button className="rest-floating" onClick={() => setRest(0)}>
           <Timer /> {Math.floor(rest / 60)}:{String(rest % 60).padStart(2, "0")}
         </button>
       )}
       {error && <p className="workout-error">{error}</p>}
+      {type==='Recovery'&&<section className="recovery-response"><h2>Symptom response</h2><div className="workout-session-type">{(['better','no_change','slightly_worse','significantly_worse'] as const).map(value=><button type="button" className={symptomResponse===value?'active':''} onClick={()=>setSymptomResponse(value)} key={value}>{formatDisplayLabel(value)}</button>)}</div><div className="recovery-response-grid">{[['Pain before',painBefore,setPainBefore],['Pain after',painAfter,setPainAfter],['Stiffness before',stiffnessBefore,setStiffnessBefore],['Stiffness after',stiffnessAfter,setStiffnessAfter]].map(([label,value,setter])=><label key={label as string}>{label as string}<input type="number" min="0" max="10" step="1" value={value as string} onChange={event=>(setter as (value:string)=>void)(event.target.value)}/></label>)}</div></section>}
       <section className="live-exercises">
         {items.map((x, i) => (
           <article key={x.exercise.exerciseId + i}>
