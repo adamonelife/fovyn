@@ -2,6 +2,7 @@ import {supabase} from './supabase';
 import type {Aggregation, GoalPeriod, MeasurementType, TargetOperator} from './goalsDomain';
 import type {ModuleKey} from './modules';
 import {fovynDateInstant} from './fovynDate';
+import {forestSpecies} from './forestGoalState';
 
 const fail = (label:string,error:{message:string}|null) => { if(error) throw new Error(`${label}: ${error.message}`); };
 export async function goalOwner(){
@@ -14,12 +15,12 @@ export async function goalOwner(){
 export type AreaRow={key:string;name:string;position:number};
 export type UnitRow={key:string;measurement_type:MeasurementType;symbol:string;name:string;system:string;position:number};
 export type SubcategoryRow={id:string;area_key:string;name:string;archived_at:string|null};
-export type GoalRow={id:string;title:string;description:string|null;area_key:string;subcategory_id:string|null;status:'active'|'dormant'|'completed'|'ended'|'archived';presentation_priority:'primary'|'secondary';goal_kind:'permanent'|'finite'|'maintenance';negotiability:'negotiable'|'non_negotiable';starts_on:string;ends_on:string|null;created_at:string};
+export type GoalRow={id:string;title:string;description:string|null;area_key:string;subcategory_id:string|null;status:'active'|'dormant'|'completed'|'ended'|'archived';presentation_priority:'primary'|'secondary';goal_kind:'permanent'|'finite'|'maintenance';negotiability:'negotiable'|'non_negotiable';starts_on:string;ends_on:string|null;created_at:string;forest_stage:number};
 export type RuleRow={id:string;goal_id:string;measurement_type:MeasurementType;unit_key:string|null;custom_unit:string|null;target_operator:TargetOperator;target_min:number;target_max:number|null;period:GoalPeriod;aggregation:Aggregation;effective_from:string;effective_to:string|null};
 export type RecordRow={id:string;value:number;occurred_at:string;note:string|null;corrected_at:string|null;deleted_at:string|null;unit_key:string|null;custom_unit:string|null};
 export type GoalEvent={id:string;event_type:'planted'|'pruned'|'dormant'|'awakened'|'completed'|'ended'|'tree_grew';occurred_at:string;details:Record<string,unknown>};
 export type GoalTracker={id:string;name:string;module:ModuleKey;area_key:string;subcategory_id:string|null;measurement_type:MeasurementType;unit_key:string|null;custom_unit:string|null};
-export type GoalBundle=GoalRow&{rule:RuleRow|null;ruleHistory:RuleRow[];records:RecordRow[];events:GoalEvent[];tracker_id:string|null;tracker:GoalTracker|null};
+export type GoalBundle=GoalRow&{rule:RuleRow|null;ruleHistory:RuleRow[];records:RecordRow[];events:GoalEvent[];tracker_id:string|null;tracker:GoalTracker|null;tree_stage:number;tree_species:string;tree_asset_key:string;tree_health:string};
 
 export type GoalInput={
   title:string;description?:string;areaKey:string;subcategoryId?:string;
@@ -48,17 +49,18 @@ export async function listGoals():Promise<GoalBundle[]>{
   fail('Goals',goals.error);
   const ids=(goals.data??[]).map(x=>x.id);
   if(!ids.length)return[];
-  const [rules,links,contributions,moneyContributions,events,trackers]=await Promise.all([
+  const [rules,links,contributions,moneyContributions,events,trackers,forestOverrides]=await Promise.all([
     supabase!.from('goal_rules').select('*').in('goal_id',ids).order('effective_from',{ascending:false}),
     supabase!.from('goal_trackers').select('goal_id,tracker_id').in('goal_id',ids),
     supabase!.from('goal_contributions').select('goal_id,tracking_records(id,value,occurred_at,note,corrected_at,deleted_at,unit_key,custom_unit)').in('goal_id',ids),
     supabase!.from('money_transaction_goals').select('goal_id,money_transactions(id,transaction_type,amount,currency,destination_amount,destination_currency,occurred_at,note,corrected_at,deleted_at)').in('goal_id',ids),
     supabase!.from('goal_events').select('id,goal_id,event_type,occurred_at,details').in('goal_id',ids).order('occurred_at',{ascending:false}),
-    supabase!.from('trackers').select('id,name,module,area_key,subcategory_id,measurement_type,unit_key,custom_unit').eq('owner_id',owner.id)
+    supabase!.from('trackers').select('id,name,module,area_key,subcategory_id,measurement_type,unit_key,custom_unit').eq('owner_id',owner.id),
+    supabase!.from('forest_test_overrides').select('goal_id,tree_stage,health_state').in('goal_id',ids)
   ]);
-  fail('Goal rules',rules.error);fail('Goal trackers',links.error);fail('Goal records',contributions.error);fail('Money Goal records',moneyContributions.error);fail('Goal Growth Rings',events.error);fail('Goal Log items',trackers.error);
-  return (goals.data??[]).map(goal=>({
-    ...(goal as GoalRow),
+  fail('Goal rules',rules.error);fail('Goal trackers',links.error);fail('Goal records',contributions.error);fail('Money Goal records',moneyContributions.error);fail('Goal Growth Rings',events.error);fail('Goal Log items',trackers.error);fail('Goal Tree QA state',forestOverrides.error);
+  return (goals.data??[]).map(goal=>{const override=(forestOverrides.data??[]).find(row=>row.goal_id===goal.id),stage=Math.max(1,Math.min(27,Number(override?.tree_stage??goal.forest_stage??1)));return({
+    ...(goal as GoalRow),tree_stage:stage,tree_species:forestSpecies(stage),tree_asset_key:`forest.tree.stage${String(stage).padStart(2,'0')}`,tree_health:(override?.health_state??'healthy').replaceAll('_',' '),
     rule:((rules.data??[]).find(x=>x.goal_id===goal.id&&x.effective_to===null)??null) as RuleRow|null,
     ruleHistory:(rules.data??[]).filter(x=>x.goal_id===goal.id) as RuleRow[],
     tracker_id:(links.data??[]).find(x=>x.goal_id===goal.id)?.tracker_id??null,
@@ -68,7 +70,7 @@ export async function listGoals():Promise<GoalBundle[]>{
       ...(moneyContributions.data??[]).filter(x=>x.goal_id===goal.id).flatMap(x=>{const transaction=x.money_transactions as unknown as {id:string;transaction_type:string;amount:number;currency:string;destination_amount:number|null;destination_currency:string|null;occurred_at:string;note:string|null;corrected_at:string|null;deleted_at:string|null}|null;if(!transaction)return[];const transfer=transaction.transaction_type==='transfer'&&transaction.destination_amount!=null;return[{id:transaction.id,value:Number(transfer?transaction.destination_amount:transaction.amount),occurred_at:transaction.occurred_at,note:transaction.note,corrected_at:transaction.corrected_at,deleted_at:transaction.deleted_at,unit_key:null,custom_unit:transfer?transaction.destination_currency:transaction.currency} satisfies RecordRow]}),
     ].filter(record=>!record.deleted_at),
     events:(events.data??[]).filter(x=>x.goal_id===goal.id) as GoalEvent[]
-  }));
+  })});
 }
 
 export type GoalMetadataInput={title:string;description:string;areaKey:string;subcategoryId?:string;priority:GoalRow['presentation_priority']};

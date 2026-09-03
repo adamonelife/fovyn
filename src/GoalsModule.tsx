@@ -7,6 +7,8 @@ import GrovesPanel from './GrovesPanel';
 import {formatDisplayLabel} from './displayLabels';
 import {fovynDateKey,shiftDateKey} from './fovynDate';
 import {LogDatePicker} from './ui';
+import TreeThumbnail from './TreeThumbnail';
+import {goalTreeIdentity} from './forestGoalState';
 
 type Options={areas:AreaRow[];units:UnitRow[];subcategories:SubcategoryRow[];trackers:GoalTracker[];timezone:string};
 const today=()=>new Date().toISOString().slice(0,10);
@@ -207,7 +209,7 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
 <X/>
 </button>
 <p className="eyebrow">{formatDisplayLabel(goal.area_key)} · {formatDisplayLabel(goal.status)} Goal</p>
-<h1>{goal.title}</h1>{goal.description&&<p>{goal.description}</p>}{goal.tracker&&<section className="goal-tracked-by"><span>Tracked by</span><b>{goal.tracker.name}</b>{openLog&&<button onClick={()=>openLog(goal.tracker!.module,goal.tracker!.name)}>Log {goal.tracker.name}</button>}</section>}<div className="goal-live-progress">
+<div className="goal-tree-identity"><TreeThumbnail stage={goal.tree_stage} assetKey={goal.tree_asset_key} species={goal.tree_species}/><div><span>CURRENT TREE</span><h1>{goal.title}</h1><b>Stage {String(goal.tree_stage).padStart(2,'0')} · {goal.tree_species}</b><small>{formatDisplayLabel(goal.tree_health)} · {formatDisplayLabel(goal.area_key)}</small></div></div>{goal.description&&<p>{goal.description}</p>}{goal.tracker&&<section className="goal-tracked-by"><span>Tracked by</span><b>{goal.tracker.name}</b>{openLog&&<button onClick={()=>openLog(goal.tracker!.module,goal.tracker!.name)}>Log {goal.tracker.name}</button>}</section>}<div className="goal-live-progress">
 <div>
 <b>{Math.round(progress.percent)}%</b>
 <span>Current progress</span>
@@ -257,6 +259,7 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
 </div>)}</section>}{goal.events.length>0&&<section className="goal-record-list growth-rings">
 <h3>Growth Rings</h3>{goal.events.map(event=>
 <div key={event.id}>
+{event.event_type==='tree_grew'?<TreeThumbnail className="growth-ring-tree" stage={Number(event.details.tree_stage??goal.tree_stage)} species={goalTreeIdentity(Number(event.details.tree_stage??goal.tree_stage)).species}/>:null}
 <span>
 <b>{formatDisplayLabel(event.event_type)}</b>
 </span>
@@ -295,11 +298,8 @@ export default function GoalsModule({onFirstSetupComplete,initialTrackerId='',on
 <button className={filter===x?'active':''} onClick={()=>setFilter(x)} key={x}>{formatDisplayLabel(x)}</button>)}</div>
 <div className="goal-tabs goal-tabs-secondary">{(['dormant','completed','ended'] as const).map(x=>
 <button className={filter===x?'active':''} onClick={()=>setFilter(x)} key={x}>{formatDisplayLabel(x,{dormant:'Dormant Woods'})}</button>)}</div>
-<div className="goals-list">{visible.map((goal,i)=>{const unit=options.units.find(x=>x.key===goal.rule?.unit_key)?.symbol??goal.rule?.custom_unit??'';const progress=goal.rule?goalProgress(goal.rule,goal.records,new Date(),1,goal.starts_on,goal.ends_on):{actual:0,percent:0};return <article className="goal-card" key={goal.id} onClick={()=>setSelected(goal)}>
-<div className={`tree-token tree-${i%3}`}>
-<i/>
-<b/>
-</div>
+<div className="goals-list">{visible.map(goal=>{const unit=options.units.find(x=>x.key===goal.rule?.unit_key)?.symbol??goal.rule?.custom_unit??'';const progress=goal.rule?goalProgress(goal.rule,goal.records,new Date(),1,goal.starts_on,goal.ends_on):{actual:0,percent:0};return <article className="goal-card" key={goal.id} onClick={()=>setSelected(goal)}>
+<TreeThumbnail stage={goal.tree_stage} assetKey={goal.tree_asset_key} species={goal.tree_species}/>
 <div className="goal-info">
 <span>{options.areas.find(x=>x.key===goal.area_key)?.name??formatDisplayLabel(goal.area_key)} · {formatDisplayLabel(goal.negotiability)}</span>
 <h2>{goal.title}</h2>
