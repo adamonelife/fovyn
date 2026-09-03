@@ -16,6 +16,14 @@ export function alignForestSlotsAcrossMiddle(slots:readonly ForestSlot[]){
   return slots.map((slot,index)=>({...slot,x:(index+1)/(slots.length+1),y:.5}));
 }
 
+export function resetForestSlotsAcrossMiddle(slots:readonly ForestSlot[],minimum=5,environment='environment'){
+  const next=slots.map(slot=>({...slot}));
+  const template=next.at(-1)??{id:`${environment}_slot_01`,x:.5,y:.5,depth:'mid' as const,scale:1,zIndex:50,labelAnchor:'centre' as const};
+  const prefix=template.id.match(/^(.*?)(\d+)$/)?.[1]??`${environment.replaceAll('-','_')}_slot_`;
+  while(next.length<minimum){const number=String(next.length+1).padStart(2,'0');next.push({...template,id:`${prefix}${number}`,labelAnchor:'centre'})}
+  return alignForestSlotsAcrossMiddle(next);
+}
+
 export async function loadForestSlots(environment:string,state:'draft'|'published'='published'){
   const{data,error}=await supabase.from('forest_environment_slots').select('environment_key,slot_id,calibration_state,source_x,source_y,depth,tree_scale,z_index,label_anchor,label_offset_x,label_offset_y,card_direction,enabled').eq('environment_key',environment).eq('calibration_state',state).order('slot_id');
   if(error){console.warn('Forest calibration unavailable',{environment,state});return[]}
