@@ -30,6 +30,7 @@ import {
 } from "./trainingOffline";
 type Item = BuiltExercise & {
   sets: SetPerformance[];
+  sideSets?:{left:SetPerformance[];right:SetPerformance[]};
   rpe: string;
   notes: string;
 };
@@ -207,6 +208,7 @@ function Editor({
     [recoveryStageId,setRecoveryStageId]=useState(''),
     [symptomResponse,setSymptomResponse]=useState<'better'|'no_change'|'slightly_worse'|'significantly_worse'>('no_change'),
     [painBefore,setPainBefore]=useState(''),[painAfter,setPainAfter]=useState(''),[stiffnessBefore,setStiffnessBefore]=useState(''),[stiffnessAfter,setStiffnessAfter]=useState(''),
+    [delayedResponse,setDelayedResponse]=useState<'fine_later'|'mild_delayed'|'significant_delayed'>('fine_later'),[delayedPain,setDelayedPain]=useState(''),[delayedStiffness,setDelayedStiffness]=useState(''),
     [rest, setRest] = useState(0),
     [restSeconds, setRestSeconds] = useState("90"),
     [summary, setSummary] = useState<{
@@ -239,6 +241,7 @@ function Editor({
           d.items.map((x) => ({
             ...x,
             sets: x.target.map((s) => ({ ...s })),
+            sideSets:x.exercise.unilateral?{left:x.target.map(s=>({...s})),right:x.target.map(s=>({...s}))}:undefined,
             rpe: "",
             notes: "",
           })),
@@ -251,7 +254,7 @@ function Editor({
           setLibrary(d.exercises);
           setRules(d.rules);
           setLogs(d.logs);
-          setItems(d.items.map((x:BuiltExercise)=>({...x,sets:x.target.map((s:SetPerformance)=>({...s})),rpe:"",notes:""})));
+          setItems(d.items.map((x:BuiltExercise)=>({...x,sets:x.target.map((s:SetPerformance)=>({...s})),sideSets:x.exercise.unilateral?{left:x.target.map((s:SetPerformance)=>({...s})),right:x.target.map((s:SetPerformance)=>({...s}))}:undefined,rpe:"",notes:""})));
           setError("Offline copy loaded. This workout will sync when reconnected.");
         }catch{setError(e.message)}
       })
@@ -280,6 +283,7 @@ function Editor({
             },
       ),
     );
+  const updateSide=(i:number,side:'left'|'right',n:number,k:'kg'|'value',v:string)=>setItems(items.map((item,index)=>index!==i||!item.sideSets?item:{...item,sideSets:{...item.sideSets,[side]:item.sideSets[side].map((set,setIndex)=>setIndex!==n?set:{...set,[k]:k==='value'?(v===''?null:Number(v)):v})}}));
   const choose = (e: Exercise) => {
     const last = latestForExercise(logs, e.exerciseId);
     const rule = rules.find((r) => r.exerciseId === e.exerciseId) ?? null;
@@ -293,6 +297,7 @@ function Editor({
       last,
       target,
       sets: target,
+      sideSets:e.unilateral?{left:target.map(s=>({...s})),right:target.map(s=>({...s}))}:undefined,
       rpe: "",
       notes: "",
     };
@@ -310,7 +315,7 @@ function Editor({
       const exercise=library.find(item=>item.exerciseId===`recovery_${candidate.exercise_key}`);
       if(!exercise||existing.has(exercise.exerciseId))return[];
       const last=latestForExercise(logs,exercise.exerciseId),rule=rules.find(item=>item.exerciseId===exercise.exerciseId)??null,target=calculateTarget(exercise,last,rule);
-      return[{order:items.length+1,slotName:'Recovery',group:exercise.group,exercise,rule,last,target,sets:target,rpe:'',notes:''} as Item];
+      return[{order:items.length+1,slotName:'Recovery',group:exercise.group,exercise,rule,last,target,sets:target,sideSets:exercise.unilateral?{left:target.map(set=>({...set})),right:target.map(set=>({...set}))}:undefined,rpe:'',notes:''} as Item];
     });
     setItems([...items,...additions].map((item,index)=>({...item,order:index+1})));
   };
@@ -335,14 +340,15 @@ function Editor({
     templateId,
     recoveryEnrolmentId:recovery?.enrolment?.id,
     recoveryStageId:recoveryStageId||undefined,
-    recoveryResponse:type==='Recovery'?{symptomResponse,painBefore:painBefore===''?undefined:Number(painBefore),painAfter:painAfter===''?undefined:Number(painAfter),stiffnessBefore:stiffnessBefore===''?undefined:Number(stiffnessBefore),stiffnessAfter:stiffnessAfter===''?undefined:Number(stiffnessAfter),notes}:undefined,
+    recoveryResponse:type==='Recovery'?{symptomResponse,painBefore:painBefore===''?undefined:Number(painBefore),painAfter:painAfter===''?undefined:Number(painAfter),stiffnessBefore:stiffnessBefore===''?undefined:Number(stiffnessBefore),stiffnessAfter:stiffnessAfter===''?undefined:Number(stiffnessAfter),delayedResponse,delayedPain:delayedPain===''?undefined:Number(delayedPain),delayedStiffness:delayedStiffness===''?undefined:Number(delayedStiffness),notes}:undefined,
     items: items.map((x) => ({
       exerciseId: x.exercise.exerciseId,
       exerciseName: x.exercise.exerciseName,
       slotName: x.slotName,
-      sets: x.sets,
+      sets: x.sideSets?[]:x.sets,
       rpe: Number(x.rpe) || undefined,
       notes: x.notes,
+      sides:x.sideSets?(['left','right'] as const).flatMap(side=>x.sideSets![side].map((set,index)=>({side,setNumber:index+1,load:set.kg===''?undefined:Number(set.kg),reps:x.exercise.trackingType==='Reps'?(set.value??undefined):undefined,durationSeconds:x.exercise.trackingType==='Seconds'?(set.value??undefined):x.exercise.trackingType==='Minutes'&&set.value!=null?set.value*60:undefined,rpe:Number(x.rpe)||undefined}))):undefined,
     })),
   });
   async function finish() {
@@ -462,7 +468,7 @@ function Editor({
         </button>
       )}
       {error && <p className="workout-error">{error}</p>}
-      {type==='Recovery'&&<section className="recovery-response"><h2>Symptom response</h2><div className="workout-session-type">{(['better','no_change','slightly_worse','significantly_worse'] as const).map(value=><button type="button" className={symptomResponse===value?'active':''} onClick={()=>setSymptomResponse(value)} key={value}>{formatDisplayLabel(value)}</button>)}</div><div className="recovery-response-grid">{[['Pain before',painBefore,setPainBefore],['Pain after',painAfter,setPainAfter],['Stiffness before',stiffnessBefore,setStiffnessBefore],['Stiffness after',stiffnessAfter,setStiffnessAfter]].map(([label,value,setter])=><label key={label as string}>{label as string}<input type="number" min="0" max="10" step="1" value={value as string} onChange={event=>(setter as (value:string)=>void)(event.target.value)}/></label>)}</div></section>}
+      {type==='Recovery'&&<section className="recovery-response"><h2>Symptom response</h2><div className="workout-session-type">{(['better','no_change','slightly_worse','significantly_worse'] as const).map(value=><button type="button" className={symptomResponse===value?'active':''} onClick={()=>setSymptomResponse(value)} key={value}>{formatDisplayLabel(value)}</button>)}</div><div className="recovery-response-grid">{[['Pain before',painBefore,setPainBefore],['Pain after',painAfter,setPainAfter],['Stiffness before',stiffnessBefore,setStiffnessBefore],['Stiffness after',stiffnessAfter,setStiffnessAfter]].map(([label,value,setter])=><label key={label as string}>{label as string}<input type="number" min="0" max="10" step="1" value={value as string} onChange={event=>(setter as (value:string)=>void)(event.target.value)}/></label>)}</div><h3>Later response</h3><div className="workout-session-type">{(['fine_later','mild_delayed','significant_delayed'] as const).map(value=><button type="button" className={delayedResponse===value?'active':''} onClick={()=>setDelayedResponse(value)} key={value}>{formatDisplayLabel(value)}</button>)}</div>{delayedResponse!=='fine_later'&&<div className="recovery-response-grid"><label>Delayed pain<input type="number" min="0" max="10" step="1" value={delayedPain} onChange={event=>setDelayedPain(event.target.value)}/></label><label>Delayed stiffness<input type="number" min="0" max="10" step="1" value={delayedStiffness} onChange={event=>setDelayedStiffness(event.target.value)}/></label></div>}</section>}
       <section className="live-exercises">
         {items.map((x, i) => (
           <article key={x.exercise.exerciseId + i}>
@@ -487,14 +493,14 @@ function Editor({
               <span>Load</span>
               <span>{x.exercise.trackingType}</span>
             </div>
-            {x.sets.map((set,index)=><TrainingSetRow exercise={x.exercise} set={set} index={index} key={index} onChange={(key,value)=>update(i,index,key,value)}/>)}
+            {x.sideSets?<div className="recovery-side-sets">{(['left','right'] as const).map(side=><section key={side}><h3>{formatDisplayLabel(side)}</h3>{x.sideSets![side].map((set,index)=><TrainingSetRow exercise={x.exercise} set={set} index={index} key={index} onChange={(key,value)=>updateSide(i,side,index,key,value)}/>)}</section>)}</div>:x.sets.map((set,index)=><TrainingSetRow exercise={x.exercise} set={set} index={index} key={index} onChange={(key,value)=>update(i,index,key,value)}/>)}
             <div className="set-actions">
               <button
                 disabled={x.sets.length <= 1}
                 onClick={() =>
                   setItems(
                     items.map((a, n) =>
-                      n === i ? { ...a, sets: a.sets.slice(0, -1) } : a,
+                      n === i ? { ...a, sets: a.sets.slice(0, -1),sideSets:a.sideSets?{left:a.sideSets.left.slice(0,-1),right:a.sideSets.right.slice(0,-1)}:undefined } : a,
                     ),
                   )
                 }
@@ -513,6 +519,7 @@ function Editor({
                               ...a.sets,
                               { kg: a.sets.at(-1)?.kg || "", value: null },
                             ],
+                            sideSets:a.sideSets?{left:[...a.sideSets.left,{kg:a.sideSets.left.at(-1)?.kg||'',value:null}],right:[...a.sideSets.right,{kg:a.sideSets.right.at(-1)?.kg||'',value:null}]}:undefined,
                           }
                         : a,
                     ),

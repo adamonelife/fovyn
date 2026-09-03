@@ -102,6 +102,7 @@ export async function loadWorkout(
     availableWeights:(r.available_weights??[]).map(Number),
     weightConvention:r.weight_convention,
     resistanceType:r.resistance_type,
+    unilateral:Boolean(r.source_payload?.unilateral),
   }));
   const idToKey = new Map((ex.data ?? []).map((r) => [r.id, r.exercise_key]));
   const rules: ExerciseRule[] = (ru.data ?? []).map((r) => ({
@@ -199,7 +200,7 @@ export type WorkoutSave = {
   sessionType?:'normal'|'light'|'rehab';
   recoveryEnrolmentId?:string;
   recoveryStageId?:string;
-  recoveryResponse?:{symptomResponse?:'better'|'no_change'|'slightly_worse'|'significantly_worse';painBefore?:number;painAfter?:number;stiffnessBefore?:number;stiffnessAfter?:number;notes?:string};
+  recoveryResponse?:{symptomResponse?:'better'|'no_change'|'slightly_worse'|'significantly_worse';painBefore?:number;painAfter?:number;stiffnessBefore?:number;stiffnessAfter?:number;delayedResponse?:'fine_later'|'mild_delayed'|'significant_delayed';delayedPain?:number;delayedStiffness?:number;notes?:string};
   templateId?:string;
   items: Array<{
     exerciseId: string;
@@ -208,6 +209,7 @@ export type WorkoutSave = {
     sets: SetPerformance[];
     rpe?: number;
     notes?: string;
+    sides?:Array<{side:'left'|'right';setNumber:number;load?:number;reps?:number;durationSeconds?:number;rpe?:number}>;
   }>;
 };
 export function missingWorkoutExerciseKeys(payload:WorkoutSave,available:string[]){const known=new Set(available);return[...new Set(payload.items.map(item=>item.exerciseId).filter(key=>!known.has(key)))]}
@@ -249,7 +251,7 @@ export async function saveWorkout(payload: WorkoutSave) {
   fail("Save session", session.error);
   try{
     if(payload.recoveryResponse){
-      const response=await supabase!.from('recovery_session_responses').insert({session_id:session.data.id,owner_id:owner,symptom_response:payload.recoveryResponse.symptomResponse??null,pain_before:payload.recoveryResponse.painBefore??null,pain_after:payload.recoveryResponse.painAfter??null,stiffness_before:payload.recoveryResponse.stiffnessBefore??null,stiffness_after:payload.recoveryResponse.stiffnessAfter??null,notes:payload.recoveryResponse.notes??''});
+      const response=await supabase!.from('recovery_session_responses').insert({session_id:session.data.id,owner_id:owner,symptom_response:payload.recoveryResponse.symptomResponse??null,pain_before:payload.recoveryResponse.painBefore??null,pain_after:payload.recoveryResponse.painAfter??null,stiffness_before:payload.recoveryResponse.stiffnessBefore??null,stiffness_after:payload.recoveryResponse.stiffnessAfter??null,delayed_response:payload.recoveryResponse.delayedResponse??null,delayed_pain:payload.recoveryResponse.delayedPain??null,delayed_stiffness:payload.recoveryResponse.delayedStiffness??null,notes:payload.recoveryResponse.notes??''});
       fail('Save Recovery response',response.error);
     }
     for (let i = 0; i < payload.items.length; i++) {
@@ -269,6 +271,7 @@ export async function saveWorkout(payload: WorkoutSave) {
         .select("id")
         .single();
       fail(`Save ${item.exerciseName}`, row.error);
+      if(item.sides?.length){const sides=await supabase!.from('recovery_side_performance').insert(item.sides.map(side=>({owner_id:owner,session_exercise_id:row.data.id,side:side.side,set_number:side.setNumber,load_kg:side.load??null,reps:side.reps??null,duration_seconds:side.durationSeconds??null,rpe:side.rpe??null})));fail(`Save ${item.exerciseName} sides`,sides.error)}
       const sets = item.sets.map((s, n) => ({
         session_exercise_id: row.data.id,
         set_number: n + 1,
