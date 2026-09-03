@@ -1,0 +1,9 @@
+import{supabase}from'./supabase';
+import type{ForestVisualFootprintClass,ForestVisualHeightClass}from'./forestManifest';
+export type TreeScaleCalibration={stage:number;canonical_visual_scale:number;visual_height_class:ForestVisualHeightClass;visual_footprint_class:ForestVisualFootprintClass};
+const columns='stage,canonical_visual_scale,visual_height_class,visual_footprint_class';
+export async function loadTreeScale(stage:number,state:'draft'|'published'='published'){const{data}=await supabase.from('forest_tree_calibrations').select(columns).eq('stage',stage).eq('calibration_state',state).maybeSingle();return data as TreeScaleCalibration|null}
+export async function loadTreeScales(state:'draft'|'published'='published'){const{data}=await supabase.from('forest_tree_calibrations').select(columns).eq('calibration_state',state).order('stage');return(data??[])as TreeScaleCalibration[]}
+async function write(stage:number,scale:number,height:ForestVisualHeightClass,footprint:ForestVisualFootprintClass,state:'draft'|'published'){const{data:{user}}=await supabase.auth.getUser();if(!user)throw new Error('Sign in to save Tree calibration.');const{error}=await supabase.from('forest_tree_calibrations').upsert({stage,calibration_state:state,canonical_visual_scale:scale,visual_height_class:height,visual_footprint_class:footprint,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'stage,calibration_state'});if(error)throw new Error(`Tree scale ${state} could not be saved.`)}
+export const saveTreeScaleDraft=(item:TreeScaleCalibration)=>write(item.stage,item.canonical_visual_scale,item.visual_height_class,item.visual_footprint_class,'draft');
+export const publishTreeScale=(item:TreeScaleCalibration)=>write(item.stage,item.canonical_visual_scale,item.visual_height_class,item.visual_footprint_class,'published');

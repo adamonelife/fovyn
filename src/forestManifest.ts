@@ -4,6 +4,8 @@ export const FOREST_ASSET_VERSION = 1 as const;
 export const FOREST_STORAGE_ROOT = `forest/v${FOREST_ASSET_VERSION}` as const;
 
 export type ForestDepthPreference = "far" | "mid" | "near";
+export type ForestVisualHeightClass="seed"|"sprout"|"young_plant"|"small_tree"|"medium_tree"|"large_tree"|"giant_tree";
+export type ForestVisualFootprintClass="tiny"|"narrow"|"balanced"|"broad"|"monumental";
 export type ForestTreeManifestEntry = {
   assetKey: string;
   stage: number;
@@ -13,6 +15,8 @@ export type ForestTreeManifestEntry = {
   height: number;
   groundAnchorY: number;
   defaultScale: number;
+  visualHeightClass:ForestVisualHeightClass;
+  visualFootprintClass:ForestVisualFootprintClass;
   mobileScaleModifier: number;
   desktopScaleModifier: number;
   zBias: number;
@@ -34,10 +38,14 @@ const groundAnchors = [
   .68, .94, .94, .94, .94, .94, .94, .94, .95, .95, .95, .94, .95,
 ] as const;
 
-const defaultScales = [
-  .42, .46, .50, .55, .58, .66, .68, .67, .70, .72, .74, .76, .78, .78,
-  .80, .80, .82, .84, .85, .88, .89, .90, .92, .92, .93, .94, .96,
+export const canonicalTreeScales = [
+  .08,.16,.27,.42,.48,.52,.56,.50,.54,.58,.61,.64,.66,.60,.67,.64,.72,.78,.76,.72,.76,.79,.98,.82,.86,.90,1.08,
 ] as const;
+
+const heightClass=(stage:number):ForestVisualHeightClass=>stage===1?'seed':stage===2?'sprout':stage===3?'young_plant':stage<=7?'small_tree':stage<=15?'medium_tree':stage<=22?'large_tree':'giant_tree';
+const broadStages=new Set([5,6,7,8,9,11,13,14,15,17,18,19,26]);
+const narrowStages=new Set([4,10,12,16,20,21,22,24,25]);
+const footprintClass=(stage:number):ForestVisualFootprintClass=>stage<=3?'tiny':stage===23||stage===27?'monumental':broadStages.has(stage)?'broad':narrowStages.has(stage)?'narrow':'balanced';
 
 export const forestTreeManifest: readonly ForestTreeManifestEntry[] = growthRegistry.map((canonicalName, index) => {
   const stage = index + 1;
@@ -50,7 +58,8 @@ export const forestTreeManifest: readonly ForestTreeManifestEntry[] = growthRegi
     width,
     height,
     groundAnchorY: groundAnchors[index],
-    defaultScale: defaultScales[index],
+    defaultScale: canonicalTreeScales[index],
+    visualHeightClass:heightClass(stage),visualFootprintClass:footprintClass(stage),
     mobileScaleModifier: stage < 4 ? 1.08 : .9,
     desktopScaleModifier: stage < 4 ? .95 : 1,
     zBias: stage < 4 ? 2 : 0,
@@ -86,4 +95,3 @@ export function environmentStoragePath(name: (typeof forestEnvironmentManifest)[
 export function iconStoragePath(name: (typeof forestIconNames)[number]) {
   return `${FOREST_STORAGE_ROOT}/icons/${name}.svg`;
 }
-

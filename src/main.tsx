@@ -69,6 +69,7 @@ import "./forest-clearing.css";
 import "./forest-nursery.css";
 import "./forest-health.css";
 import "./forest-grounding.css";
+import "./tree-scale-lab.css";
 import "./forest-resilience.css";
 import "./forest-responsive.css";
 import "./forest-renderer-fixes.css";

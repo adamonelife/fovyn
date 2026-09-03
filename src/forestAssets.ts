@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import { growthRegistry } from "./domain";
 import { FOREST_ASSET_VERSION, FOREST_STORAGE_ROOT, forestEnvironmentManifest, forestIconNames, forestTreeManifest } from "./forestManifest";
+import {loadTreeScale} from './treeScaleRepository';
 
 export const FOREST_ASSET_BUCKET = "fovyn-assets";
 export const forestTreeAssetKeys = growthRegistry.map((_, index) =>
@@ -56,13 +57,14 @@ export function forestAssetFallback(assetKey:string):ForestAsset|null{
 }
 
 export async function getForestAsset(assetKey: string, variant: ForestAssetVariant = "default"): Promise<ForestAsset | null> {
-  const { data, error } = await supabase
+  const stageMatch=assetKey.match(/^forest\.tree\.stage(\d{2})$/),stage=stageMatch?Number(stageMatch[1]):null;
+  const [{ data, error },calibration] = await Promise.all([supabase
     .from("forest_asset_manifest")
     .select(columns)
     .eq("asset_key", assetKey)
     .eq("status", "ready")
     .in("variant", variant === "default" ? ["default"] : [variant, "default"])
-    .order("asset_version", { ascending: false });
+    .order("asset_version", { ascending: false }),stage?loadTreeScale(stage):Promise.resolve(null)]);
   if (error) {
     console.warn("Forest asset lookup failed", { assetKey, variant });
     return forestAssetFallback(assetKey);
@@ -71,7 +73,7 @@ export async function getForestAsset(assetKey: string, variant: ForestAssetVaria
   const row = rows.find((item) => item.variant === variant) ?? rows.find((item) => item.variant === "default");
   if (!row?.storage_path) return forestAssetFallback(assetKey);
   const { data: publicAsset } = supabase.storage.from(FOREST_ASSET_BUCKET).getPublicUrl(row.storage_path);
-  return { ...row, url: publicAsset.publicUrl };
+  return { ...row,default_scale:calibration?.canonical_visual_scale??row.default_scale, url: publicAsset.publicUrl };
 }
 
 export const localForestManifest = {
