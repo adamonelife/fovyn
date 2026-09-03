@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState,type CSSProperties} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {TreePine} from 'lucide-react';
 import {forestAssetFallback,getForestAsset,retryForestImage,type ForestAsset} from './forestAssets';
 import {goalTreeIdentity} from './forestGoalState';
@@ -8,5 +8,5 @@ export default function TreeThumbnail({stage,assetKey,species,className=''}:{sta
   const retryAttempt=useRef(0);
   useEffect(()=>{let current=true;retryAttempt.current=0;setFailed(false);setAsset(forestAssetFallback(key));getForestAsset(key).then(value=>{if(current&&value)setAsset(value)}).catch(()=>{if(current)setFailed(true)});return()=>{current=false}},[key]);
   const label=`${species??identity.species}, Tree stage ${identity.stage}`;
-  return <span className={`goal-tree-thumbnail ${className}`} role="img" aria-label={label}>{asset&&!failed?<img src={asset.url} alt="" loading="lazy" decoding="async" onError={event=>{if(retryForestImage(event.currentTarget,asset,retryAttempt.current)){retryAttempt.current+=1;return}console.warn('Goal Tree thumbnail failed to load',{assetKey:key,stage:identity.stage});setFailed(true)}} style={{'--thumbnail-ground':String(asset.ground_anchor_y),'--thumbnail-crop':`${Math.max(0,(1-asset.ground_anchor_y)*100)}%`} as CSSProperties}/>:<TreePine aria-hidden="true"/>}</span>;
+  return <span className={`goal-tree-thumbnail ${className}`} role="img" aria-label={label}>{asset&&!failed?<img src={asset.url} alt="" loading="lazy" decoding="async" onError={event=>{if(retryForestImage(event.currentTarget,asset,retryAttempt.current)){retryAttempt.current+=1;return}console.warn('Goal Tree thumbnail failed to load',{assetKey:key,stage:identity.stage});setFailed(true)}}/>:<TreePine aria-hidden="true"/>}</span>;
 }
