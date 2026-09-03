@@ -12,6 +12,10 @@ export function mergeForestSlotLayers(defaults:readonly ForestSlot[],published:r
   return[...merged.values()];
 }
 
+export function alignForestSlotsAcrossMiddle(slots:readonly ForestSlot[]){
+  return slots.map((slot,index)=>({...slot,x:(index+1)/(slots.length+1),y:.5}));
+}
+
 export async function loadForestSlots(environment:string,state:'draft'|'published'='published'){
   const{data,error}=await supabase.from('forest_environment_slots').select('environment_key,slot_id,calibration_state,source_x,source_y,depth,tree_scale,z_index,label_anchor,label_offset_x,label_offset_y,card_direction,enabled').eq('environment_key',environment).eq('calibration_state',state).order('slot_id');
   if(error){console.warn('Forest calibration unavailable',{environment,state});return[]}
