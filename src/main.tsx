@@ -75,6 +75,7 @@ import "./forest-renderer-fixes.css";
 import WorkoutModule from "./WorkoutModule";
 import GoalsModule from "./GoalsModule";
 import SettingsModule from "./SettingsModule";
+import SuperAdminSettings from "./SuperAdminSettings";
 import TrackHub, { type LogEditTarget } from "./TrackHub";
 import type { LogView } from "./LogShell";
 import type { HistoryItem } from "./historyRepository";
@@ -83,6 +84,7 @@ import HistoryHub from "./HistoryHub";
 import SearchOverlayLive from "./SearchOverlay";
 import AuthHome from "./AuthHome";
 import { supabase } from "./supabase";
+import { dataContextEvent, getDataContext, isSuperAdmin, resetDataContext, type DataContext } from "./testMode";
 import { completeOnboarding } from "./homeRepository";
 import {
   Goal,
@@ -1737,13 +1739,19 @@ function App() {
   const [search, setSearch] = useState(false);
   const [onboarding, setOnboarding] = useState(false);
   const [session, setSession] = useState<any>();
+  const [superAdmin, setSuperAdmin] = useState(false);
+  const [dataContext, setDataContextState] = useState<DataContext>(getDataContext());
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, next) =>
-      setSession(next),
-    );
-    return () => data.subscription.unsubscribe();
+    const contextChanged=(event:Event)=>setDataContextState((event as CustomEvent<DataContext>).detail);
+    window.addEventListener(dataContextEvent,contextChanged);
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      if(event==='SIGNED_OUT'){resetDataContext();setDataContextState('real');setSuperAdmin(false)}
+      setSession(next);
+    });
+    return () => {data.subscription.unsubscribe();window.removeEventListener(dataContextEvent,contextChanged)};
   }, []);
+  useEffect(()=>{if(session)isSuperAdmin().then(setSuperAdmin).catch(()=>setSuperAdmin(false))},[session]);
   if (session === undefined)
     return <div className="auth-loading">Loading Fovyn…</div>;
   if (!session) return <AuthHome />;
@@ -1834,12 +1842,13 @@ function App() {
     ) : page === "History" ? (
       <HistoryHub openLog={openHistoryRecord} />
     ) : page === "Account" ? (
-      <SettingsModule />
+      <><SettingsModule /><SuperAdminSettings allowed={superAdmin} /></>
     ) : (
       <Placeholder page={page} />
     );
   return (
     <div className="app">
+      {superAdmin&&dataContext==='test'&&<button className="test-mode-banner" onClick={()=>setPage('Account')}>TEST MODE · TEST DATA</button>}
       <aside className="rail">
         <Mark />
         <nav>
@@ -1866,10 +1875,10 @@ function App() {
           <Search />
           <span>Search</span>
         </button>
-        <button className="lab-link" onClick={() => setLab(true)}>
+        {superAdmin&&<button className="lab-link" onClick={() => setLab(true)}>
           <FlaskConical />
           <span>Forest Lab</span>
-        </button>
+        </button>}
       </aside>
       <main>{content}</main>
       <button
