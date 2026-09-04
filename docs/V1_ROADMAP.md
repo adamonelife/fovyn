@@ -4,16 +4,17 @@
 2. Forest Asset Preparation / Production Forest V1
 3. Training Exercise Name Standardisation
 4. Canopy Beta V1
-5. Private Cycle Tracking Foundation
-6. UX Friction / Global Polish
-7. Analytics Foundation / Population Insights Skeleton
-8. Full QA
-9. Minimum Beta Security Gate
-10. Friends Beta
+5. Money Interest Transaction Type
+6. Private Cycle Tracking Foundation
+7. UX Friction / Global Polish
+8. Analytics Foundation / Population Insights Skeleton
+9. Full QA
+10. Minimum Beta Security Gate
+11. Friends Beta
 
 ## After Friends Beta, before V1.5
 
-11. Full Safety/Admin + Population Insights Platform
+12. Full Safety/Admin + Population Insights Platform
 
 ## Guidance & Discovery V1 scope
 
@@ -52,6 +53,23 @@ interaction events, but must not collect user-created content unnecessarily.
 This optional, private-by-default V1 module establishes canonical reproductive-health data, fast logging and a calm Cycle timeline without becoming a full fertility product. It includes enable/disable controls; period start/end, daily flow and spotting; optional symptoms, mood, libido and simple protected/unprotected sex logging; pregnancy-test records and a basic pregnancy-state foundation; cycle and period history; clearly labelled estimated next-period and PMS windows; restrained late-period handling; discreet notification preferences; record deletion/export readiness; Super Admin test fixtures; and analytics-ready links to existing canonical facts.
 
 Cycle data must never be shared automatically or duplicated across modules. Future sharing must be explicit, revocable and granular, with sexual activity separately permissioned. Predictions are estimates, must never describe a day as safe contraception, and must not automatically alter training or nutrition targets. Advanced personalised predictions, correlations, richer fertility and pregnancy features, health integrations and partner-sharing UX remain V1.5 work.
+
+## Money Interest Transaction Type scope
+
+This contained post-Canopy V1 amendment adds Interest as a first-class Money
+transaction type with an explicit Earned or Charged direction. Users enter a
+positive amount, the selected Account supplies the canonical native currency,
+and the existing Money engine increases or decreases that Account balance
+without creating a generic Income, Expense, Transfer or Adjustment record.
+
+Money History and filters must preserve the Interest identity and direction.
+Headline Income and Spending remain ordinary transactions; Net includes
+Interest Earned positively and Interest Charged negatively, while Transfers
+remain neutral. Interest must reuse the shared multi-currency reporting,
+Guidance, mobile controls and canonical record architecture so future bank
+imports can map interest credits and charges without a parallel accounting
+system. Existing Alpha records must not be guessed or reclassified unless
+their meaning is unambiguous.
 
 ## Training exercise-name standardisation scope
 
