@@ -11,7 +11,7 @@ const environmentKey=(name:string)=>'forest.environment.'+(['health','mind','sel
 export default function ForestHero({goals,currentClearing,onViewGoal,onLog}:{goals:HomeGoal[];currentClearing:HomeClearing|null;onViewGoal:()=>void;onLog:()=>void}){
   const clearing=useMemo(()=>{const active=goals.filter(goal=>goal.status==='active'&&goal.tree_stage>=4),focused=currentClearing?active.filter(goal=>currentClearing.focusedGoalIds.includes(goal.id)):[];return(focused.length?focused:active.filter(goal=>goal.presentation_priority==='primary')).slice(0,4)},[goals,currentClearing]);
   const environment=clearing.length?'clearing':'nursery';
-  const profile=useForestViewportProfile(),slots=usePublishedForestSlots(environment,forestEnvironmentSlots[environment],profile),pageSlots=useMemo(()=>forestSlotsForViewport(slots,profile),[slots,profile]),view=usePublishedForestView(environment,profile);
+  const profile=useForestViewportProfile(),defaultSlots=useMemo(()=>forestSlotsForViewport(forestEnvironmentSlots[environment],profile,environment),[environment,profile]),slots=usePublishedForestSlots(environment,defaultSlots,profile),pageSlots=useMemo(()=>forestSlotsForViewport(slots,profile,environment),[slots,profile,environment]),view=usePublishedForestView(environment,profile);
   const nursery=useMemo(()=>nurseryAssignments(goals,environment==='nursery'?pageSlots:undefined),[goals,environment,pageSlots]);
   const assignments=environment==='nursery'?nursery.filter(item=>item.page===0):forestAssignments('clearing',clearing,pageSlots).filter(item=>item.page===0);
   const{background,trees}=useForestSceneAssets(environmentKey(environment),assignments);

@@ -17,7 +17,7 @@ export default function ForestOverview({goals,currentClearing,close,onViewGoals,
   const [nurseryPage,setNurseryPage]=useState(0);
   const [error,setError]=useState('');
   const focusedGoalIds=currentClearing?.focusedGoalIds??[],clearingName=currentClearing?.name??'';
-  const profile=useForestViewportProfile(),slots=usePublishedForestSlots(environment,forestEnvironmentSlots[environment]??[],profile),pageSlots=useMemo(()=>forestSlotsForViewport(slots,profile),[slots,profile]),view=usePublishedForestView(environment,profile);
+  const profile=useForestViewportProfile(),defaultSlots=useMemo(()=>forestSlotsForViewport(forestEnvironmentSlots[environment]??[],profile,environment),[environment,profile]),slots=usePublishedForestSlots(environment,defaultSlots,profile),pageSlots=useMemo(()=>forestSlotsForViewport(slots,profile,environment),[slots,profile,environment]),view=usePublishedForestView(environment,profile);
   const visible=useMemo(()=>{
     if(environment==='clearing'){
       const eligible=goals.filter(goal=>goal.status==='active'&&goal.tree_stage>=4);
@@ -48,7 +48,7 @@ export default function ForestOverview({goals,currentClearing,close,onViewGoals,
         <div className="forest-overview-status"><b>{visible.length}</b><span>{visible.length===1?'Goal Tree':'Goal Trees'}</span></div>
         {error&&<div className="forest-overview-empty"><h2>{error}</h2></div>}
         {!error&&visible.length===0&&<div className="forest-overview-empty"><h2>{environment==='nursery'?'No new Goal Trees':'This part of your Forest is quiet.'}</h2><button onClick={onViewGoals}>{environment==='nursery'?'Plant a Goal':'View Goals'}</button></div>}
-        {allAssignments.length>pageSlots.length&&<div className="nursery-pages"><button disabled={nurseryPage===0} onClick={()=>setNurseryPage(page=>page-1)}>Previous</button><span>{nurseryPage+1} / {Math.ceil(allAssignments.length/pageSlots.length)}</span><button disabled={nurseryPage>=Math.max(...allAssignments.map(item=>item.page))} onClick={()=>setNurseryPage(page=>page+1)}>Next</button></div>}
+        {Math.max(0,...allAssignments.map(item=>item.page))>0&&<div className="nursery-pages"><button disabled={nurseryPage===0} onClick={()=>setNurseryPage(page=>page-1)}>Previous</button><span>{nurseryPage+1} / {Math.max(...allAssignments.map(item=>item.page))+1}</span><button disabled={nurseryPage>=Math.max(...allAssignments.map(item=>item.page))} onClick={()=>setNurseryPage(page=>page+1)}>Next</button></div>}
       </div>
     </section>{guideOpen&&<TreeGuide close={()=>setGuideOpen(false)}/>}
   </div>;

@@ -42,3 +42,17 @@ Reference-only materials remain separate:
 - Forest-first UI concepts, environment-kit boards and other visual-direction boards in the supplied folder.
 
 The boards contain text, palettes, thumbnails or UI and must not be rendered as production environments. Runtime derivatives remain optional and must preserve the approved masters. Forest Lab now performs manifest-backed Tree, ground-anchor and environment QA using the same assets as the live renderer.
+
+## Mobile Area composition
+
+The six canonical Areas use one shared portrait grammar rather than squeezed
+desktop coordinates. One Tree uses a central Hero position, two use a balanced
+depth diagonal, three use a triangle, and four use the calibrated semantic
+slots `mobile_back`, `mobile_mid_left`, `mobile_mid_right`, and `mobile_front`.
+Canonical visual size determines placement order so dominant Trees remain at
+the back and smaller Trees can sit forward.
+
+Portrait Area pages show at most four Trees. If a fifth Tree exists, the next
+page recomposes it with contextual Trees so every page remains a deliberate
+Forest composition. This pagination never duplicates canonical Goal state.
+Nursery and the special environments retain their own mobile templates.

@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {canonicalNurseryGoals,forestAssignmentDebug,forestAssignments,forestEnvironmentSlots,forestLabelPlacements,forestSlotsForViewport,nurseryAssignments,nurserySlots,resolvedCardDirection} from './forestLayout';
+import {canonicalNurseryGoals,forestAssignmentDebug,forestAssignments,forestEnvironmentSlots,forestLabelPlacements,forestSlotsForViewport,mobileAreaAssignments,mobileDiamondSlots,nurseryAssignments,nurserySlots,resolvedCardDirection} from './forestLayout';
 
 const goal=(id:string,stage:number,status='active')=>({id,tree_stage:stage,status} as never);
 
@@ -34,13 +34,39 @@ describe('canonical Nursery layout',()=>{
     }
   });
 
-  it('caps mobile environment pages at three Trees without reducing desktop capacity',()=>{
-    const mobile=forestSlotsForViewport(nurserySlots,'mobile'),desktop=forestSlotsForViewport(nurserySlots,'desktop');
+  it('keeps Nursery mobile-aware without applying the Area diamond',()=>{
+    const mobile=forestSlotsForViewport(nurserySlots,'mobile','nursery'),desktop=forestSlotsForViewport(nurserySlots,'desktop','nursery');
     expect(mobile).toHaveLength(3);expect(desktop).toHaveLength(7);
     const assignments=nurseryAssignments(Array.from({length:7},(_,index)=>goal(String(index),1)),mobile);
     expect(assignments.filter(item=>item.page===0)).toHaveLength(3);
     expect(assignments.filter(item=>item.page===1)).toHaveLength(3);
     expect(assignments.filter(item=>item.page===2)).toHaveLength(1);
+  });
+
+  it('uses the four semantic diamond slots for mobile Areas',()=>{
+    const mobile=forestSlotsForViewport(forestEnvironmentSlots.health,'mobile','health');
+    expect(mobile.map(slot=>slot.id)).toEqual(['mobile_back','mobile_mid_left','mobile_mid_right','mobile_front']);
+    expect(forestSlotsForViewport(forestEnvironmentSlots.health,'desktop','health')).toHaveLength(5);
+  });
+
+  it.each([[1,['mobile_front']],[2,['mobile_mid_left','mobile_front']],[3,['mobile_back','mobile_mid_left','mobile_mid_right']],[4,['mobile_back','mobile_mid_left','mobile_mid_right','mobile_front']]] as const)('composes %i mobile Area Trees intentionally',(count,slotIds)=>{
+    const assignments=mobileAreaAssignments(Array.from({length:count},(_,index)=>goal(String(index),index+4)),mobileDiamondSlots);
+    expect(assignments.map(item=>item.slot.id)).toEqual(slotIds);
+    expect(assignments.every(item=>item.page===0)).toBe(true);
+  });
+
+  it('places the largest Tree at the back and the smallest at the front',()=>{
+    const assignments=mobileAreaAssignments([goal('juniper',4),goal('cherry',14),goal('oak',18),goal('redwood',27)],mobileDiamondSlots);
+    expect(assignments.find(item=>item.slot.id==='mobile_back')?.goal.id).toBe('redwood');
+    expect(assignments.find(item=>item.slot.id==='mobile_front')?.goal.id).toBe('juniper');
+  });
+
+  it('recomposes a five-Tree second page with context instead of isolating one Tree',()=>{
+    const assignments=mobileAreaAssignments(Array.from({length:5},(_,index)=>goal(String(index),index+4)),mobileDiamondSlots);
+    expect(assignments.filter(item=>item.page===0)).toHaveLength(4);
+    expect(assignments.filter(item=>item.page===1)).toHaveLength(4);
+    expect(new Set(assignments.filter(item=>item.page===1).map(item=>item.slot.id)).size).toBe(4);
+    expect(new Set(assignments.map(item=>item.goal.id)).size).toBe(5);
   });
 
   it('uses the shared collision-free engine in every production environment',()=>{
