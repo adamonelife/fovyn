@@ -1859,6 +1859,7 @@ function App() {
     );
   return (
     <div className="app">
+      {import.meta.env.VITE_FOVYN_ENVIRONMENT==='development'&&<div className="development-environment-banner">DEVELOPMENT · DEV DATA</div>}
       {superAdmin&&dataContext==='test'&&<button className="test-mode-banner" onClick={()=>setPage('Account')}>TEST MODE · TEST DATA</button>}
       <aside className="rail">
         <Mark />
