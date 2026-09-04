@@ -73,6 +73,7 @@ import "./tree-scale-lab.css";
 import "./forest-resilience.css";
 import "./forest-responsive.css";
 import "./forest-renderer-fixes.css";
+import "./guidance.css";
 import WorkoutModule from "./WorkoutModule";
 import GoalsModule from "./GoalsModule";
 import SettingsModule from "./SettingsModule";
@@ -84,6 +85,7 @@ import HomeModule from "./HomeModule";
 import HistoryHub from "./HistoryHub";
 import SearchOverlayLive from "./SearchOverlay";
 import AuthHome from "./AuthHome";
+import Guidance from "./Guidance";
 import { supabase } from "./supabase";
 import { dataContextEvent, getDataContext, isSuperAdmin, resetDataContext, type DataContext } from "./testMode";
 import { completeOnboarding, type HomeData } from "./homeRepository";
@@ -1882,7 +1884,7 @@ function App() {
           <span>Forest Lab</span>
         </button>}
       </aside>
-      <main>{content}</main>
+      <main><Guidance feature={page.toLowerCase() as "home"|"log"|"goals"|"history"|"account"}>{content}</Guidance></main>
       <button
         className="add"
         onClick={() => {
