@@ -1,58 +1,1374 @@
-import {useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
-import {ArrowDownLeft,ArrowRightLeft,ArrowUpRight,Archive,ChevronRight,CircleDollarSign,PiggyBank,Plus,Trash2} from 'lucide-react';
-import {advanceRecurring,loadMoney,removeMoney,saveAccount,saveCategory,saveMoney,saveRecurring,setAccountArchived,setCategoryArchived,setRecurringArchived,type MoneyAccount,type MoneyCategory,type MoneyData,type MoneyRecurringItem,type MoneyTransaction} from './moneyRepository';
-import {formatDisplayLabel} from './displayLabels';
-import {FunctionalIcon,FunctionalIconPicker,type FunctionalIconKey} from './functionalIcons';
-import {Button,Card,Field,IconButton,LogDatePicker,LogEmptyState,LogItemCard,LogSection,Modal,PageContainer,PageHeader,PageTabs,SectionHeader} from './ui';
-import {shiftDateKey} from './fovynDate';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  ArrowDownLeft,
+  ArrowRightLeft,
+  ArrowUpRight,
+  Archive,
+  ChevronRight,
+  CircleDollarSign,
+  PiggyBank,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import {
+  advanceRecurring,
+  convertMoney,
+  loadMoney,
+  removeMoney,
+  saveAccount,
+  saveCategory,
+  saveMoney,
+  saveRecurring,
+  saveReportingCurrency,
+  setAccountArchived,
+  setCategoryArchived,
+  setRecurringArchived,
+  type MoneyAccount,
+  type MoneyCategory,
+  type MoneyData,
+  type MoneyRecurringItem,
+  type MoneyTransaction,
+} from "./moneyRepository";
+import { formatDisplayLabel } from "./displayLabels";
+import {
+  FunctionalIcon,
+  FunctionalIconPicker,
+  type FunctionalIconKey,
+} from "./functionalIcons";
+import {
+  Button,
+  Card,
+  Field,
+  IconButton,
+  LogDatePicker,
+  LogEmptyState,
+  LogItemCard,
+  LogSection,
+  Modal,
+  PageContainer,
+  PageHeader,
+  PageTabs,
+  SectionHeader,
+} from "./ui";
+import { shiftDateKey } from "./fovynDate";
+import CurrencySelector from "./CurrencySelector";
+import Guidance from "./Guidance";
 
-const empty:MoneyData={accounts:[],transactions:[],categories:[],recurring:[],goals:[],currency:'USD',fx:{}};
-const dateKey=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
-const localTime=(value?:string)=>{const date=value?new Date(value):new Date();return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)};
-const money=(value:number,currency:string)=>new Intl.NumberFormat(undefined,{style:'currency',currency,maximumFractionDigits:currency==='IDR'?0:2}).format(value);
+const empty: MoneyData = {
+  accounts: [],
+  transactions: [],
+  categories: [],
+  recurring: [],
+  goals: [],
+  currency: "USD",
+  fx: {},
+  fxError: null,
+};
+const dateKey = () =>
+  new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10);
+const localTime = (value?: string) => {
+  const date = value ? new Date(value) : new Date();
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+};
+const money = (value: number, currency: string) =>
+  new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+    maximumFractionDigits: currency === "IDR" ? 0 : 2,
+  }).format(value);
 
-function AccountEditor({account,reporting,close,saved}:{account?:MoneyAccount;reporting:string;close:()=>void;saved:()=>void}){
-  const[name,setName]=useState(account?.name??''),[type,setType]=useState<MoneyAccount['account_type']>(account?.account_type??'current_account'),[currency,setCurrency]=useState(account?.currency??reporting),[opening,setOpening]=useState(String(account?.opening_balance??'')),[included,setIncluded]=useState(account?.include_in_total??true),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const submit=async(event:FormEvent)=>{event.preventDefault();setBusy(true);setError('');try{await saveAccount({name,account_type:type,currency,opening_balance:Number(opening||0),include_in_total:included,icon_key:'money'},account?.id);saved()}catch(reason){setError(reason instanceof Error?reason.message:"We couldn't save that account.")}finally{setBusy(false)}};
-  return <Modal eyebrow={account?'EDIT ACCOUNT':'ADD ACCOUNT'} title={account?'Account details':'Set up your account'} close={close} footer={<><Button type="button" variant="text" onClick={close}>Cancel</Button><Button type="submit" variant="primary" form="money-account-form" disabled={busy||!name.trim()}>{busy?'Saving…':'Save Account'}</Button></>}><form id="money-account-form" className="money-form" onSubmit={submit}><Field>Account Name<input autoFocus value={name} onChange={event=>setName(event.target.value)}/></Field><div className="money-form-grid"><Field>Account Type<select value={type} onChange={event=>setType(event.target.value as MoneyAccount['account_type'])}>{['current_account','savings','cash','e_wallet','other'].map(value=><option value={value} key={value}>{formatDisplayLabel(value)}</option>)}</select></Field><Field>Currency<input maxLength={3} value={currency} onChange={event=>setCurrency(event.target.value.toUpperCase())}/></Field><Field>Opening Balance<input type="number" inputMode="decimal" step="any" value={opening} onChange={event=>setOpening(event.target.value)}/></Field></div><label className="money-check"><input type="checkbox" checked={included} onChange={event=>setIncluded(event.target.checked)}/> Include in Total Across Accounts</label>{error&&<p className="goal-error">{error}</p>}</form></Modal>;
+function AccountEditor({
+  account,
+  reporting,
+  currencyLocked = false,
+  close,
+  saved,
+}: {
+  account?: MoneyAccount;
+  reporting: string;
+  currencyLocked?: boolean;
+  close: () => void;
+  saved: () => void;
+}) {
+  const [name, setName] = useState(account?.name ?? ""),
+    [type, setType] = useState<MoneyAccount["account_type"]>(
+      account?.account_type ?? "current_account",
+    ),
+    [currency, setCurrency] = useState(account?.currency ?? reporting),
+    [opening, setOpening] = useState(String(account?.opening_balance ?? "")),
+    [included, setIncluded] = useState(account?.include_in_total ?? true),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await saveAccount(
+        {
+          name,
+          account_type: type,
+          currency,
+          opening_balance: Number(opening || 0),
+          include_in_total: included,
+          icon_key: "money",
+        },
+        account?.id,
+      );
+      saved();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "We couldn't save that account.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      eyebrow={account ? "EDIT ACCOUNT" : "ADD ACCOUNT"}
+      title={account ? "Account details" : "Set up your account"}
+      close={close}
+      footer={
+        <>
+          <Button type="button" variant="text" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            form="money-account-form"
+            disabled={busy || !name.trim()}
+          >
+            {busy ? "Saving…" : "Save Account"}
+          </Button>
+        </>
+      }
+    >
+      <form id="money-account-form" className="money-form" onSubmit={submit}>
+        <Field>
+          Account Name
+          <input
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Field>
+        <div className="money-form-grid">
+          <Field>
+            Account Type
+            <select
+              value={type}
+              onChange={(event) =>
+                setType(event.target.value as MoneyAccount["account_type"])
+              }
+            >
+              {["current_account", "savings", "cash", "e_wallet", "other"].map(
+                (value) => (
+                  <option value={value} key={value}>
+                    {formatDisplayLabel(value)}
+                  </option>
+                ),
+              )}
+            </select>
+          </Field>
+          <CurrencySelector
+            value={currency}
+            onChange={setCurrency}
+            disabled={currencyLocked}
+          />
+          <Field>
+            Opening Balance
+            <input
+              type="number"
+              inputMode="decimal"
+              step="any"
+              value={opening}
+              onChange={(event) => setOpening(event.target.value)}
+            />
+          </Field>
+        </div>
+        <label className="money-check">
+          <input
+            type="checkbox"
+            checked={included}
+            onChange={(event) => setIncluded(event.target.checked)}
+          />{" "}
+          Include in Total Across Accounts
+        </label>
+        {error && <p className="goal-error">{error}</p>}
+      </form>
+    </Modal>
+  );
 }
 
-function CategoryEditor({category,close,saved}:{category?:MoneyCategory;close:()=>void;saved:()=>void}){
-  const[name,setName]=useState(category?.name??''),[type,setType]=useState<'expense'|'income'>(category?.category_type??'expense'),[icon,setIcon]=useState<FunctionalIconKey>((category?.icon_key as FunctionalIconKey)??'money'),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const submit=async(event:FormEvent)=>{event.preventDefault();setBusy(true);setError('');try{await saveCategory({name,category_type:type,icon_key:icon},category?.id);saved()}catch(reason){setError(reason instanceof Error?reason.message:"We couldn't save that category.")}finally{setBusy(false)}};
-  return <Modal eyebrow={category?'EDIT CATEGORY':'ADD CATEGORY'} title="Money Category" close={close} footer={<><Button type="button" variant="text" onClick={close}>Cancel</Button><Button type="submit" variant="primary" form="money-category-form" disabled={busy||!name.trim()}>{busy?'Saving…':'Save Category'}</Button></>}><form id="money-category-form" className="money-form" onSubmit={submit}><Field>Category Name<input autoFocus value={name} onChange={event=>setName(event.target.value)}/></Field><Field>Type<select value={type} onChange={event=>setType(event.target.value as 'expense'|'income')}><option value="expense">Expense</option><option value="income">Income</option></select></Field><FunctionalIconPicker value={icon} onChange={setIcon}/>{error&&<p className="goal-error">{error}</p>}</form></Modal>;
+function CategoryEditor({
+  category,
+  close,
+  saved,
+}: {
+  category?: MoneyCategory;
+  close: () => void;
+  saved: () => void;
+}) {
+  const [name, setName] = useState(category?.name ?? ""),
+    [type, setType] = useState<"expense" | "income">(
+      category?.category_type ?? "expense",
+    ),
+    [icon, setIcon] = useState<FunctionalIconKey>(
+      (category?.icon_key as FunctionalIconKey) ?? "money",
+    ),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await saveCategory(
+        { name, category_type: type, icon_key: icon },
+        category?.id,
+      );
+      saved();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "We couldn't save that category.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      eyebrow={category ? "EDIT CATEGORY" : "ADD CATEGORY"}
+      title="Money Category"
+      close={close}
+      footer={
+        <>
+          <Button type="button" variant="text" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            form="money-category-form"
+            disabled={busy || !name.trim()}
+          >
+            {busy ? "Saving…" : "Save Category"}
+          </Button>
+        </>
+      }
+    >
+      <form id="money-category-form" className="money-form" onSubmit={submit}>
+        <Field>
+          Category Name
+          <input
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Field>
+        <Field>
+          Type
+          <select
+            value={type}
+            onChange={(event) =>
+              setType(event.target.value as "expense" | "income")
+            }
+          >
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
+        </Field>
+        <FunctionalIconPicker value={icon} onChange={setIcon} />
+        {error && <p className="goal-error">{error}</p>}
+      </form>
+    </Modal>
+  );
 }
 
-function RecurringEditor({data,item,close,saved}:{data:MoneyData;item?:MoneyRecurringItem;close:()=>void;saved:()=>void}){
-  const active=data.accounts.filter(account=>account.status==='active');
-  const[name,setName]=useState(item?.name??''),[type,setType]=useState<'expense'|'income'>(item?.transaction_type??'expense'),[amount,setAmount]=useState(String(item?.amount??'')),[account,setAccount]=useState(item?.account_id??active[0]?.id??''),[category,setCategory]=useState(item?.category_id??''),[recurrence,setRecurrence]=useState<'weekly'|'monthly'|'yearly'>(item?.recurrence??'monthly'),[next,setNext]=useState(item?.next_expected_date??dateKey()),[note,setNote]=useState(item?.note??''),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const accountRow=active.find(candidate=>candidate.id===account);
-  const submit=async(event:FormEvent)=>{event.preventDefault();setBusy(true);setError('');try{await saveRecurring({name,transaction_type:type,amount:Number(amount),currency:accountRow?.currency??data.currency,account_id:account,category_id:category,recurrence,next_expected_date:next,note:note.trim()||null},item?.id);saved()}catch(reason){setError(reason instanceof Error?reason.message:"We couldn't save that recurring item.")}finally{setBusy(false)}};
-  return <Modal eyebrow={item?'EDIT RECURRING':'ADD RECURRING'} title="Expected Money Item" close={close} footer={<><Button type="button" variant="text" onClick={close}>Cancel</Button><Button type="submit" variant="primary" form="money-recurring-form" disabled={busy||!name.trim()||!amount||!account||!category}>{busy?'Saving…':'Save Recurring Item'}</Button></>}><form id="money-recurring-form" className="money-form" onSubmit={submit}><Field>Name<input autoFocus value={name} onChange={event=>setName(event.target.value)}/></Field><div className="money-form-grid"><Field>Type<select value={type} onChange={event=>{setType(event.target.value as 'expense'|'income');setCategory('')}}><option value="expense">Expense</option><option value="income">Income</option></select></Field><Field>Amount<input type="number" inputMode="decimal" step="any" value={amount} onChange={event=>setAmount(event.target.value)}/></Field><Field>Account<select value={account} onChange={event=>setAccount(event.target.value)}>{active.map(candidate=><option value={candidate.id} key={candidate.id}>{candidate.name}</option>)}</select></Field><Field>Category<select value={category} onChange={event=>setCategory(event.target.value)}><option value="">Choose category</option>{data.categories.filter(candidate=>!candidate.archived_at&&candidate.category_type===type).map(candidate=><option value={candidate.id} key={candidate.id}>{candidate.name}</option>)}</select></Field><Field>Recurrence<select value={recurrence} onChange={event=>setRecurrence(event.target.value as typeof recurrence)}>{['weekly','monthly','yearly'].map(value=><option value={value} key={value}>{formatDisplayLabel(value)}</option>)}</select></Field><Field>Next Expected Date<input type="date" value={next} onChange={event=>setNext(event.target.value)}/></Field></div><Field>Note (optional)<textarea value={note} onChange={event=>setNote(event.target.value)}/></Field>{error&&<p className="goal-error">{error}</p>}</form></Modal>;
+function RecurringEditor({
+  data,
+  item,
+  close,
+  saved,
+}: {
+  data: MoneyData;
+  item?: MoneyRecurringItem;
+  close: () => void;
+  saved: () => void;
+}) {
+  const active = data.accounts.filter((account) => account.status === "active");
+  const [name, setName] = useState(item?.name ?? ""),
+    [type, setType] = useState<"expense" | "income">(
+      item?.transaction_type ?? "expense",
+    ),
+    [amount, setAmount] = useState(String(item?.amount ?? "")),
+    [account, setAccount] = useState(item?.account_id ?? active[0]?.id ?? ""),
+    [category, setCategory] = useState(item?.category_id ?? ""),
+    [recurrence, setRecurrence] = useState<"weekly" | "monthly" | "yearly">(
+      item?.recurrence ?? "monthly",
+    ),
+    [next, setNext] = useState(item?.next_expected_date ?? dateKey()),
+    [note, setNote] = useState(item?.note ?? ""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const accountRow = active.find((candidate) => candidate.id === account);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await saveRecurring(
+        {
+          name,
+          transaction_type: type,
+          amount: Number(amount),
+          currency: accountRow?.currency ?? data.currency,
+          account_id: account,
+          category_id: category,
+          recurrence,
+          next_expected_date: next,
+          note: note.trim() || null,
+        },
+        item?.id,
+      );
+      saved();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "We couldn't save that recurring item.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      eyebrow={item ? "EDIT RECURRING" : "ADD RECURRING"}
+      title="Expected Money Item"
+      close={close}
+      footer={
+        <>
+          <Button type="button" variant="text" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            form="money-recurring-form"
+            disabled={busy || !name.trim() || !amount || !account || !category}
+          >
+            {busy ? "Saving…" : "Save Recurring Item"}
+          </Button>
+        </>
+      }
+    >
+      <form id="money-recurring-form" className="money-form" onSubmit={submit}>
+        <Field>
+          Name
+          <input
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Field>
+        <div className="money-form-grid">
+          <Field>
+            Type
+            <select
+              value={type}
+              onChange={(event) => {
+                setType(event.target.value as "expense" | "income");
+                setCategory("");
+              }}
+            >
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </Field>
+          <Field>
+            Amount
+            <input
+              type="number"
+              inputMode="decimal"
+              step="any"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+          </Field>
+          <Field>
+            Account
+            <select
+              value={account}
+              onChange={(event) => setAccount(event.target.value)}
+            >
+              {active.map((candidate) => (
+                <option value={candidate.id} key={candidate.id}>
+                  {candidate.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field>
+            Category
+            <select
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+            >
+              <option value="">Choose category</option>
+              {data.categories
+                .filter(
+                  (candidate) =>
+                    !candidate.archived_at && candidate.category_type === type,
+                )
+                .map((candidate) => (
+                  <option value={candidate.id} key={candidate.id}>
+                    {candidate.name}
+                  </option>
+                ))}
+            </select>
+          </Field>
+          <Field>
+            Recurrence
+            <select
+              value={recurrence}
+              onChange={(event) =>
+                setRecurrence(event.target.value as typeof recurrence)
+              }
+            >
+              {["weekly", "monthly", "yearly"].map((value) => (
+                <option value={value} key={value}>
+                  {formatDisplayLabel(value)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field>
+            Next Expected Date
+            <input
+              type="date"
+              value={next}
+              onChange={(event) => setNext(event.target.value)}
+            />
+          </Field>
+        </div>
+        <Field>
+          Note (optional)
+          <textarea
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
+        </Field>
+        {error && <p className="goal-error">{error}</p>}
+      </form>
+    </Modal>
+  );
 }
 
-function TransactionEditor({data,entry,recurring,initialType,close,saved}:{data:MoneyData;entry?:MoneyTransaction;recurring?:MoneyRecurringItem;initialType?:MoneyTransaction['transaction_type'];close:()=>void;saved:()=>void}){
-  const active=data.accounts.filter(account=>account.status==='active');
-  const[type,setType]=useState(entry?.transaction_type??recurring?.transaction_type??initialType??'expense'),[accountId,setAccountId]=useState(entry?.account_id??recurring?.account_id??active[0]?.id??''),[destination,setDestination]=useState(entry?.destination_account_id??''),[amount,setAmount]=useState(String(entry?.amount??recurring?.amount??'')),[destinationAmount,setDestinationAmount]=useState(String(entry?.destination_amount??'')),[category,setCategory]=useState(entry?.category_id??recurring?.category_id??''),[title,setTitle]=useState(entry?.title??recurring?.name??''),[occurred,setOccurred]=useState(localTime(entry?.occurred_at)),[note,setNote]=useState(entry?.note??recurring?.note??''),[goalIds,setGoalIds]=useState(entry?.goalIds??[]),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const requestId=useRef(crypto.randomUUID()),account=active.find(candidate=>candidate.id===accountId),destinationAccount=active.find(candidate=>candidate.id===destination),today=dateKey(),selected=occurred.slice(0,10),categories=useMemo(()=>data.categories.filter(candidate=>!candidate.archived_at&&candidate.category_type===(type==='income'?'income':'expense')),[data.categories,type]);
-  useEffect(()=>{if(category&&!categories.some(candidate=>candidate.id===category))setCategory('')},[category,categories]);
-  const submit=async(event:FormEvent)=>{event.preventDefault();if(busy)return;setBusy(true);setError('');try{await saveMoney({transaction_type:type,amount:Number(amount),currency:account?.currency??data.currency,account_id:accountId,destination_account_id:type==='transfer'?destination:null,destination_amount:type==='transfer'?Number(destinationAmount||amount):null,destination_currency:type==='transfer'?destinationAccount?.currency??null:null,category_id:type==='income'||type==='expense'?category:null,title,occurred_at:occurred,note,goalIds,clientRequestId:requestId.current},entry?.id);if(recurring)await advanceRecurring(recurring);saved()}catch(reason){setError(reason instanceof Error?reason.message:"We couldn't save that transaction.")}finally{setBusy(false)}};
-  return <Modal eyebrow={entry?'EDIT TRANSACTION':'NEW TRANSACTION'} title="What happened?" close={close} className="money-transaction-modal" footer={<><Button type="button" variant="text" onClick={close}>Cancel</Button><Button type="submit" variant="primary" form="money-transaction-form" disabled={busy||!accountId||!amount||(type==='transfer'&&!destination)||((type==='expense'||type==='income')&&!category)}>{busy?'Saving…':'Save Transaction'}</Button></>}><form id="money-transaction-form" className="money-form" onSubmit={submit}><PageTabs className="money-type-tabs">{(['expense','income','transfer','balance_adjustment'] as const).map(value=><button type="button" className={type===value?'active':''} onClick={()=>setType(value)} key={value}>{formatDisplayLabel(value,{balance_adjustment:'Adjustment'})}</button>)}</PageTabs><LogDatePicker selectedDate={selected} today={today} minDate={shiftDateKey(today,-7)} maxDate={today} existingDates={[]} onSelect={date=>setOccurred(`${date}T${occurred.slice(11)||'12:00'}`)}/><div className="money-form-grid"><Field>{type==='balance_adjustment'?'Adjustment Amount':'Amount'}<input autoFocus type="number" inputMode="decimal" step="any" value={amount} onChange={event=>setAmount(event.target.value)}/><small>{account?.currency}</small></Field><Field>{type==='transfer'?'From Account':'Account'}<select value={accountId} onChange={event=>setAccountId(event.target.value)}>{active.map(candidate=><option value={candidate.id} key={candidate.id}>{candidate.name}</option>)}</select></Field>{type==='transfer'&&<><Field>To Account<select value={destination} onChange={event=>setDestination(event.target.value)}><option value="">Choose account</option>{active.filter(candidate=>candidate.id!==accountId).map(candidate=><option value={candidate.id} key={candidate.id}>{candidate.name}</option>)}</select></Field>{destinationAccount&&destinationAccount.currency!==account?.currency&&<Field>Amount Received<input type="number" inputMode="decimal" step="any" value={destinationAmount} onChange={event=>setDestinationAmount(event.target.value)}/><small>{destinationAccount.currency}</small></Field>}</>}{(type==='expense'||type==='income')&&<Field>Category<select value={category} onChange={event=>setCategory(event.target.value)}><option value="">Choose category</option>{categories.map(candidate=><option value={candidate.id} key={candidate.id}>{candidate.name}</option>)}</select></Field>}<Field>{type==='expense'?'Merchant / Title':'Source / Title'} (optional)<input value={title} onChange={event=>setTitle(event.target.value)}/></Field><Field>Date and Time<input type="datetime-local" value={occurred} onChange={event=>setOccurred(event.target.value)}/></Field></div><Field>Note (optional)<textarea value={note} onChange={event=>setNote(event.target.value)}/></Field>{data.goals.length>0&&<fieldset className="money-goals"><legend>Related Goals</legend>{data.goals.map(goal=><label key={goal.id}><input type="checkbox" checked={goalIds.includes(goal.id)} onChange={()=>setGoalIds(goalIds.includes(goal.id)?goalIds.filter(id=>id!==goal.id):[...goalIds,goal.id])}/> {goal.title}</label>)}</fieldset>}{error&&<p className="goal-error">{error}</p>}</form></Modal>;
+function TransactionEditor({
+  data,
+  entry,
+  recurring,
+  initialType,
+  close,
+  saved,
+}: {
+  data: MoneyData;
+  entry?: MoneyTransaction;
+  recurring?: MoneyRecurringItem;
+  initialType?: MoneyTransaction["transaction_type"];
+  close: () => void;
+  saved: () => void;
+}) {
+  const active = data.accounts.filter((account) => account.status === "active");
+  const [type, setType] = useState(
+      entry?.transaction_type ??
+        recurring?.transaction_type ??
+        initialType ??
+        "expense",
+    ),
+    [accountId, setAccountId] = useState(
+      entry?.account_id ?? recurring?.account_id ?? active[0]?.id ?? "",
+    ),
+    [destination, setDestination] = useState(
+      entry?.destination_account_id ?? "",
+    ),
+    [amount, setAmount] = useState(
+      String(entry?.amount ?? recurring?.amount ?? ""),
+    ),
+    [destinationAmount, setDestinationAmount] = useState(
+      String(entry?.destination_amount ?? ""),
+    ),
+    [category, setCategory] = useState(
+      entry?.category_id ?? recurring?.category_id ?? "",
+    ),
+    [title, setTitle] = useState(entry?.title ?? recurring?.name ?? ""),
+    [occurred, setOccurred] = useState(localTime(entry?.occurred_at)),
+    [note, setNote] = useState(entry?.note ?? recurring?.note ?? ""),
+    [goalIds, setGoalIds] = useState(entry?.goalIds ?? []),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const requestId = useRef(crypto.randomUUID()),
+    account = active.find((candidate) => candidate.id === accountId),
+    destinationAccount = active.find(
+      (candidate) => candidate.id === destination,
+    ),
+    today = dateKey(),
+    selected = occurred.slice(0, 10),
+    categories = useMemo(
+      () =>
+        data.categories.filter(
+          (candidate) =>
+            !candidate.archived_at &&
+            candidate.category_type ===
+              (type === "income" ? "income" : "expense"),
+        ),
+      [data.categories, type],
+    );
+  useEffect(() => {
+    if (category && !categories.some((candidate) => candidate.id === category))
+      setCategory("");
+  }, [category, categories]);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await saveMoney(
+        {
+          transaction_type: type,
+          amount: Number(amount),
+          currency: account?.currency ?? data.currency,
+          account_id: accountId,
+          destination_account_id: type === "transfer" ? destination : null,
+          destination_amount:
+            type === "transfer" ? Number(destinationAmount || amount) : null,
+          destination_currency:
+            type === "transfer" ? (destinationAccount?.currency ?? null) : null,
+          category_id:
+            type === "income" || type === "expense" ? category : null,
+          title,
+          occurred_at: occurred,
+          note,
+          goalIds,
+          clientRequestId: requestId.current,
+        },
+        entry?.id,
+      );
+      if (recurring) await advanceRecurring(recurring);
+      saved();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "We couldn't save that transaction.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      eyebrow={entry ? "EDIT TRANSACTION" : "NEW TRANSACTION"}
+      title="What happened?"
+      close={close}
+      className="money-transaction-modal"
+      footer={
+        <>
+          <Button type="button" variant="text" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            form="money-transaction-form"
+            disabled={
+              busy ||
+              !accountId ||
+              !amount ||
+              (type === "transfer" && !destination) ||
+              ((type === "expense" || type === "income") && !category)
+            }
+          >
+            {busy ? "Saving…" : "Save Transaction"}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id="money-transaction-form"
+        className="money-form"
+        onSubmit={submit}
+      >
+        <PageTabs className="money-type-tabs">
+          {(
+            ["expense", "income", "transfer", "balance_adjustment"] as const
+          ).map((value) => (
+            <button
+              type="button"
+              className={type === value ? "active" : ""}
+              onClick={() => setType(value)}
+              key={value}
+            >
+              {formatDisplayLabel(value, { balance_adjustment: "Adjustment" })}
+            </button>
+          ))}
+        </PageTabs>
+        <LogDatePicker
+          selectedDate={selected}
+          today={today}
+          minDate={shiftDateKey(today, -7)}
+          maxDate={today}
+          existingDates={[]}
+          onSelect={(date) =>
+            setOccurred(`${date}T${occurred.slice(11) || "12:00"}`)
+          }
+        />
+        <div className="money-form-grid">
+          <Field>
+            {type === "balance_adjustment" ? "Adjustment Amount" : "Amount"}
+            <input
+              autoFocus
+              type="number"
+              inputMode="decimal"
+              step="any"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+            <small>{account?.currency}</small>
+          </Field>
+          <Field>
+            {type === "transfer" ? "From Account" : "Account"}
+            <select
+              value={accountId}
+              onChange={(event) => setAccountId(event.target.value)}
+            >
+              {active.map((candidate) => (
+                <option value={candidate.id} key={candidate.id}>
+                  {candidate.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {type === "transfer" && (
+            <>
+              <Field>
+                To Account
+                <select
+                  value={destination}
+                  onChange={(event) => setDestination(event.target.value)}
+                >
+                  <option value="">Choose account</option>
+                  {active
+                    .filter((candidate) => candidate.id !== accountId)
+                    .map((candidate) => (
+                      <option value={candidate.id} key={candidate.id}>
+                        {candidate.name}
+                      </option>
+                    ))}
+                </select>
+              </Field>
+              {destinationAccount &&
+                destinationAccount.currency !== account?.currency && (
+                  <Field>
+                    Amount Received
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      value={destinationAmount}
+                      onChange={(event) =>
+                        setDestinationAmount(event.target.value)
+                      }
+                    />
+                    <small>{destinationAccount.currency}</small>
+                  </Field>
+                )}
+            </>
+          )}
+          {(type === "expense" || type === "income") && (
+            <Field>
+              Category
+              <select
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+              >
+                <option value="">Choose category</option>
+                {categories.map((candidate) => (
+                  <option value={candidate.id} key={candidate.id}>
+                    {candidate.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <Field>
+            {type === "expense" ? "Merchant / Title" : "Source / Title"}{" "}
+            (optional)
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </Field>
+          <Field>
+            Date and Time
+            <input
+              type="datetime-local"
+              value={occurred}
+              onChange={(event) => setOccurred(event.target.value)}
+            />
+          </Field>
+        </div>
+        <Field>
+          Note (optional)
+          <textarea
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
+        </Field>
+        {data.goals.length > 0 && (
+          <fieldset className="money-goals">
+            <legend>Related Goals</legend>
+            {data.goals.map((goal) => (
+              <label key={goal.id}>
+                <input
+                  type="checkbox"
+                  checked={goalIds.includes(goal.id)}
+                  onChange={() =>
+                    setGoalIds(
+                      goalIds.includes(goal.id)
+                        ? goalIds.filter((id) => id !== goal.id)
+                        : [...goalIds, goal.id],
+                    )
+                  }
+                />{" "}
+                {goal.title}
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {error && <p className="goal-error">{error}</p>}
+      </form>
+    </Modal>
+  );
 }
 
-function Manage({data,reload}:{data:MoneyData;reload:()=>void}){
-  const[section,setSection]=useState<'accounts'|'categories'|'recurring'>('accounts'),[account,setAccount]=useState<MoneyAccount|null>(),[category,setCategory]=useState<MoneyCategory|null>(),[recurring,setRecurring]=useState<MoneyRecurringItem|null>();
-  const activeAccounts=data.accounts.filter(candidate=>candidate.status==='active');
-  return <div className="money-manage"><PageTabs className="money-manage-tabs">{(['accounts','categories','recurring'] as const).map(value=><button className={section===value?'active':''} onClick={()=>setSection(value)} key={value}>{formatDisplayLabel(value)}</button>)}</PageTabs>{section==='accounts'&&<Card><SectionHeader title="Accounts" action={<Button disabled={activeAccounts.length>=3} onClick={()=>setAccount(null)}><Plus/> Add Account</Button>}/><div className="money-manage-list">{data.accounts.map(item=><article key={item.id}><FunctionalIcon iconKey={item.icon_key}/><button className="money-manage-main" onClick={()=>setAccount(item)}><b>{item.name}</b><small>{formatDisplayLabel(item.account_type)} · {formatDisplayLabel(item.status)}</small></button><Button variant="text" onClick={()=>setAccount(item)}>Edit</Button><IconButton label={`${item.status==='active'?'Archive':'Reactivate'} ${item.name}`} onClick={()=>setAccountArchived(item.id,item.status==='active').then(reload)}><Archive/></IconButton></article>)}</div>{!data.accounts.length&&<LogEmptyState icon={<CircleDollarSign/>} title="No accounts yet"/>}</Card>}{section==='categories'&&<Card><SectionHeader title="Custom Categories" action={<Button onClick={()=>setCategory(null)}><Plus/> Add Category</Button>}/><div className="money-manage-list">{data.categories.filter(item=>!item.is_system).map(item=><article key={item.id}><FunctionalIcon iconKey={item.icon_key}/><button className="money-manage-main" onClick={()=>setCategory(item)}><b>{item.name}</b><small>{formatDisplayLabel(item.category_type)}{item.archived_at?' · Archived':''}</small></button><Button variant="text" onClick={()=>setCategory(item)}>Edit</Button><IconButton label={`${item.archived_at?'Restore':'Archive'} ${item.name}`} onClick={()=>setCategoryArchived(item.id,!item.archived_at).then(reload)}><Archive/></IconButton></article>)}</div>{!data.categories.some(item=>!item.is_system)&&<LogEmptyState icon={<CircleDollarSign/>} title="No custom categories" detail="Fovyn's standard categories are ready to use."/>}</Card>}{section==='recurring'&&<Card><SectionHeader title="Recurring" action={<Button onClick={()=>setRecurring(null)}><Plus/> Add Recurring</Button>}/><div className="money-manage-list">{data.recurring.map(item=><article key={item.id}><FunctionalIcon iconKey="routine"/><button className="money-manage-main" onClick={()=>setRecurring(item)}><b>{item.name}</b><small>{formatDisplayLabel(item.transaction_type)} · next {new Date(`${item.next_expected_date}T12:00:00`).toLocaleDateString()}</small></button><Button variant="text" onClick={()=>setRecurring(item)}>Edit</Button><IconButton label={`${item.status==='active'?'Archive':'Restore'} ${item.name}`} onClick={()=>setRecurringArchived(item.id,item.status==='active').then(reload)}><Archive/></IconButton></article>)}</div>{!data.recurring.length&&<LogEmptyState icon={<CircleDollarSign/>} title="No recurring items"/>}</Card>}{account!==undefined&&<AccountEditor account={account??undefined} reporting={data.currency} close={()=>setAccount(undefined)} saved={()=>{setAccount(undefined);reload()}}/>}{category!==undefined&&<CategoryEditor category={category??undefined} close={()=>setCategory(undefined)} saved={()=>{setCategory(undefined);reload()}}/>}{recurring!==undefined&&<RecurringEditor data={data} item={recurring??undefined} close={()=>setRecurring(undefined)} saved={()=>{setRecurring(undefined);reload()}}/>}</div>;
+function Manage({ data, reload }: { data: MoneyData; reload: () => void }) {
+  const [section, setSection] = useState<
+      "accounts" | "categories" | "recurring"
+    >("accounts"),
+    [account, setAccount] = useState<MoneyAccount | null>(),
+    [category, setCategory] = useState<MoneyCategory | null>(),
+    [recurring, setRecurring] = useState<MoneyRecurringItem | null>(),
+    [reporting, setReporting] = useState(data.currency),
+    [reportingBusy, setReportingBusy] = useState(false),
+    [reportingError, setReportingError] = useState("");
+  const activeAccounts = data.accounts.filter(
+    (candidate) => candidate.status === "active",
+  );
+  const changeReporting = async (value: string) => {
+    setReporting(value);
+    setReportingBusy(true);
+    setReportingError("");
+    try {
+      await saveReportingCurrency(value);
+      await reload();
+    } catch (reason) {
+      setReporting(data.currency);
+      setReportingError(
+        reason instanceof Error
+          ? reason.message
+          : "We couldn't update your reporting currency.",
+      );
+    } finally {
+      setReportingBusy(false);
+    }
+  };
+  return (
+    <div className="money-manage">
+      <Card className="money-reporting-setting">
+        <SectionHeader title="Reporting Currency" />
+        <CurrencySelector
+          value={reporting}
+          onChange={changeReporting}
+          disabled={reportingBusy}
+        />
+        <p className="ui-supporting">
+          Used to combine accounts in Money summaries. Original account balances
+          remain unchanged.
+        </p>
+        {reportingError && <p className="goal-error">{reportingError}</p>}
+      </Card>
+      <PageTabs className="money-manage-tabs">
+        {(["accounts", "categories", "recurring"] as const).map((value) => (
+          <button
+            className={section === value ? "active" : ""}
+            onClick={() => setSection(value)}
+            key={value}
+          >
+            {formatDisplayLabel(value)}
+          </button>
+        ))}
+      </PageTabs>
+      {section === "accounts" && (
+        <Card>
+          <SectionHeader
+            title="Accounts"
+            action={
+              <Button
+                disabled={activeAccounts.length >= 3}
+                onClick={() => setAccount(null)}
+              >
+                <Plus /> Add Account
+              </Button>
+            }
+          />
+          <div className="money-manage-list">
+            {data.accounts.map((item) => (
+              <article key={item.id}>
+                <FunctionalIcon iconKey={item.icon_key} />
+                <button
+                  className="money-manage-main"
+                  onClick={() => setAccount(item)}
+                >
+                  <b>{item.name}</b>
+                  <small>
+                    {formatDisplayLabel(item.account_type)} ·{" "}
+                    {formatDisplayLabel(item.status)}
+                  </small>
+                </button>
+                <Button variant="text" onClick={() => setAccount(item)}>
+                  Edit
+                </Button>
+                <IconButton
+                  label={`${item.status === "active" ? "Archive" : "Reactivate"} ${item.name}`}
+                  onClick={() =>
+                    setAccountArchived(item.id, item.status === "active").then(
+                      reload,
+                    )
+                  }
+                >
+                  <Archive />
+                </IconButton>
+              </article>
+            ))}
+          </div>
+          {!data.accounts.length && (
+            <LogEmptyState
+              icon={<CircleDollarSign />}
+              title="No accounts yet"
+            />
+          )}
+        </Card>
+      )}
+      {section === "categories" && (
+        <Card>
+          <SectionHeader
+            title="Custom Categories"
+            action={
+              <Button onClick={() => setCategory(null)}>
+                <Plus /> Add Category
+              </Button>
+            }
+          />
+          <div className="money-manage-list">
+            {data.categories
+              .filter((item) => !item.is_system)
+              .map((item) => (
+                <article key={item.id}>
+                  <FunctionalIcon iconKey={item.icon_key} />
+                  <button
+                    className="money-manage-main"
+                    onClick={() => setCategory(item)}
+                  >
+                    <b>{item.name}</b>
+                    <small>
+                      {formatDisplayLabel(item.category_type)}
+                      {item.archived_at ? " · Archived" : ""}
+                    </small>
+                  </button>
+                  <Button variant="text" onClick={() => setCategory(item)}>
+                    Edit
+                  </Button>
+                  <IconButton
+                    label={`${item.archived_at ? "Restore" : "Archive"} ${item.name}`}
+                    onClick={() =>
+                      setCategoryArchived(item.id, !item.archived_at).then(
+                        reload,
+                      )
+                    }
+                  >
+                    <Archive />
+                  </IconButton>
+                </article>
+              ))}
+          </div>
+          {!data.categories.some((item) => !item.is_system) && (
+            <LogEmptyState
+              icon={<CircleDollarSign />}
+              title="No custom categories"
+              detail="Fovyn's standard categories are ready to use."
+            />
+          )}
+        </Card>
+      )}
+      {section === "recurring" && (
+        <Card>
+          <SectionHeader
+            title="Recurring"
+            action={
+              <Button onClick={() => setRecurring(null)}>
+                <Plus /> Add Recurring
+              </Button>
+            }
+          />
+          <div className="money-manage-list">
+            {data.recurring.map((item) => (
+              <article key={item.id}>
+                <FunctionalIcon iconKey="routine" />
+                <button
+                  className="money-manage-main"
+                  onClick={() => setRecurring(item)}
+                >
+                  <b>{item.name}</b>
+                  <small>
+                    {formatDisplayLabel(item.transaction_type)} · next{" "}
+                    {new Date(
+                      `${item.next_expected_date}T12:00:00`,
+                    ).toLocaleDateString()}
+                  </small>
+                </button>
+                <Button variant="text" onClick={() => setRecurring(item)}>
+                  Edit
+                </Button>
+                <IconButton
+                  label={`${item.status === "active" ? "Archive" : "Restore"} ${item.name}`}
+                  onClick={() =>
+                    setRecurringArchived(
+                      item.id,
+                      item.status === "active",
+                    ).then(reload)
+                  }
+                >
+                  <Archive />
+                </IconButton>
+              </article>
+            ))}
+          </div>
+          {!data.recurring.length && (
+            <LogEmptyState
+              icon={<CircleDollarSign />}
+              title="No recurring items"
+            />
+          )}
+        </Card>
+      )}
+      {account !== undefined && (
+        <AccountEditor
+          account={account ?? undefined}
+          reporting={data.currency}
+          currencyLocked={
+            !!account &&
+            data.transactions.some(
+              (item) =>
+                item.account_id === account.id ||
+                item.destination_account_id === account.id,
+            )
+          }
+          close={() => setAccount(undefined)}
+          saved={() => {
+            setAccount(undefined);
+            reload();
+          }}
+        />
+      )}
+      {category !== undefined && (
+        <CategoryEditor
+          category={category ?? undefined}
+          close={() => setCategory(undefined)}
+          saved={() => {
+            setCategory(undefined);
+            reload();
+          }}
+        />
+      )}
+      {recurring !== undefined && (
+        <RecurringEditor
+          data={data}
+          item={recurring ?? undefined}
+          close={() => setRecurring(undefined)}
+          saved={() => {
+            setRecurring(undefined);
+            reload();
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
-export default function MoneyModule({query='',initialEntryId}:{query?:string;initialEntryId?:string}){
-  const[data,setData]=useState<MoneyData>(empty),[view,setView]=useState<'overview'|'history'|'manage'>('overview'),[editing,setEditing]=useState<MoneyTransaction|null>(),[newType,setNewType]=useState<MoneyTransaction['transaction_type']>(),[dueRecurring,setDueRecurring]=useState<MoneyRecurringItem>(),[addingFirstAccount,setAddingFirstAccount]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState('');
-  const load=async()=>{setLoading(true);setError('');try{const next=await loadMoney();setData(next);if(initialEntryId)setEditing(next.transactions.find(item=>item.id===initialEntryId));else if(query){const expected=next.recurring.find(item=>item.status==='active'&&item.name.toLowerCase()===query.trim().toLowerCase());if(expected)setDueRecurring(expected)}}catch(reason){setError(reason instanceof Error?reason.message:"We couldn't load Money.")}finally{setLoading(false)}};
-  useEffect(()=>{load()},[]);
-  const active=data.accounts.filter(account=>account.status==='active'),currentMonth=new Date().toISOString().slice(0,7),current=data.transactions.filter(item=>item.occurred_at.startsWith(currentMonth)),income=current.filter(item=>item.transaction_type==='income').reduce((sum,item)=>sum+item.amount,0),spending=current.filter(item=>item.transaction_type==='expense').reduce((sum,item)=>sum+item.amount,0),saved=current.filter(item=>item.transaction_type==='transfer'&&data.accounts.find(account=>account.id===item.destination_account_id)?.account_type==='savings').reduce((sum,item)=>sum+(item.destination_amount??0),0),total=active.filter(account=>account.include_in_total).reduce((sum,account)=>account.currency===data.currency?sum+account.balance:data.fx[account.currency]?sum+account.balance*data.fx[account.currency].rate:sum,0),missingFx=active.some(account=>account.include_in_total&&account.currency!==data.currency&&!data.fx[account.currency]),term=query.trim().toLowerCase(),shown=useMemo(()=>data.transactions.filter(item=>`${item.title??''} ${item.transaction_type} ${data.categories.find(category=>category.id===item.category_id)?.name??''}`.toLowerCase().includes(term)),[data,term]);
-  const closeEditor=()=>{setEditing(undefined);setNewType(undefined);setDueRecurring(undefined)};
-  if(loading)return <PageContainer className="money-v1"><p className="tracker-loading">Loading Money…</p></PageContainer>;
-  if(!data.accounts.length)return <PageContainer className="money-v1 money-empty-page"><PageHeader eyebrow="MONEY" title="Set up your first account."/>{error&&<p className="goal-error">{error}</p>}<Card className="money-empty-card"><LogEmptyState icon={<CircleDollarSign/>} title="Money starts with an account" detail="Add the account you use most. You can have up to three active accounts in V1."/><Button variant="primary" onClick={()=>setAddingFirstAccount(true)}><Plus/> Add Account</Button></Card>{addingFirstAccount&&<AccountEditor reporting={data.currency} close={()=>setAddingFirstAccount(false)} saved={()=>{setAddingFirstAccount(false);load()}}/>}</PageContainer>;
-  return <PageContainer className="money-v1"><PageHeader eyebrow="MONEY" title="Money" action={view!=='manage'?<Button variant="primary" onClick={()=>setNewType('expense')}><Plus/> Transaction</Button>:undefined}/><PageTabs><button className={view==='overview'?'active':''} onClick={()=>setView('overview')}>Overview</button><button className={view==='history'?'active':''} onClick={()=>setView('history')}>History</button><button className={view==='manage'?'active':''} onClick={()=>setView('manage')}>Manage</button></PageTabs>{error&&<p className="goal-error">{error}</p>}{view==='manage'?<Manage data={data} reload={load}/>:<>{view==='overview'&&<><Card className="money-total"><span>TOTAL ACROSS ACCOUNTS*</span><b>{missingFx?'Unavailable':money(total,data.currency)}</b><small>*Converted using current exchange rates. Your native balances remain authoritative.</small></Card><section className="money-account-grid">{active.map(account=><Card className="money-account-card" key={account.id}><FunctionalIcon iconKey={account.icon_key}/><span><b>{account.name}</b><strong>{money(account.balance,account.currency)}</strong><small>{formatDisplayLabel(account.account_type)}</small></span></Card>)}</section><section className="money-summary-grid">{[['Income',income],['Spending',spending],['Saved',saved],['Net',income-spending]].map(([label,value])=><Card className="money-summary-card" key={String(label)}><small>This month</small><b>{label}</b><strong>{money(Number(value),data.currency)}</strong></Card>)}</section><Card className="money-breakdown"><SectionHeader title="Spending by Category"/>{data.categories.map(category=>({category,value:current.filter(item=>item.transaction_type==='expense'&&item.category_id===category.id).reduce((sum,item)=>sum+item.amount,0)})).filter(item=>item.value>0).map(({category,value})=><div key={category.id}><span>{category.name}</span><b>{money(value,data.currency)}</b></div>)}{!current.some(item=>item.transaction_type==='expense')&&<p className="ui-supporting">No spending recorded this month.</p>}</Card></>}<LogSection title={view==='history'?'Transactions':'Recent Transactions'}>{shown.slice(0,view==='history'?100:8).map(transaction=><LogItemCard key={transaction.id} icon={transaction.transaction_type==='income'?<ArrowDownLeft/>:transaction.transaction_type==='transfer'?<ArrowRightLeft/>:transaction.transaction_type==='balance_adjustment'?<PiggyBank/>:<ArrowUpRight/>} meta={`${formatDisplayLabel(transaction.transaction_type)} · ${data.categories.find(category=>category.id===transaction.category_id)?.name??data.accounts.find(account=>account.id===transaction.destination_account_id)?.name??'Account adjustment'} · ${new Date(transaction.occurred_at).toLocaleDateString()}`} title={transaction.title||formatDisplayLabel(transaction.transaction_type)} detail={`${money(transaction.amount,transaction.currency)}${transaction.transaction_type==='transfer'&&transaction.destination_currency?` → ${money(transaction.destination_amount??0,transaction.destination_currency)}`:''}`} action={<ChevronRight/>} onClick={()=>setEditing(transaction)}><IconButton label={`Delete ${transaction.title||formatDisplayLabel(transaction.transaction_type)}`} onClick={()=>confirm('Delete this transaction?')&&removeMoney(transaction.id).then(load)}><Trash2/></IconButton></LogItemCard>)}{!shown.length&&<LogEmptyState icon={<CircleDollarSign/>} title="No transactions yet"/>}</LogSection></>}{(editing!==undefined||newType||dueRecurring)&&<TransactionEditor data={data} entry={editing??undefined} recurring={dueRecurring} initialType={newType} close={closeEditor} saved={()=>{closeEditor();load()}}/>}</PageContainer>;
+function MoneyContent({
+  query = "",
+  initialEntryId,
+}: {
+  query?: string;
+  initialEntryId?: string;
+}) {
+  const [data, setData] = useState<MoneyData>(empty),
+    [view, setView] = useState<"overview" | "history" | "manage">("overview"),
+    [editing, setEditing] = useState<MoneyTransaction | null>(),
+    [newType, setNewType] = useState<MoneyTransaction["transaction_type"]>(),
+    [dueRecurring, setDueRecurring] = useState<MoneyRecurringItem>(),
+    [addingFirstAccount, setAddingFirstAccount] = useState(false),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState("");
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const next = await loadMoney();
+      setData(next);
+      if (initialEntryId)
+        setEditing(
+          next.transactions.find((item) => item.id === initialEntryId),
+        );
+      else if (query) {
+        const expected = next.recurring.find(
+          (item) =>
+            item.status === "active" &&
+            item.name.toLowerCase() === query.trim().toLowerCase(),
+        );
+        if (expected) setDueRecurring(expected);
+      }
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : "We couldn't load Money.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    load();
+  }, []);
+  const convertedTotal = (
+    entries: { amount: number; currency: string }[],
+  ): number | null => {
+    const values = entries.map((entry) =>
+      convertMoney(entry.amount, entry.currency, data.currency, data.fx),
+    );
+    return values.some((value) => value === null)
+      ? null
+      : values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+  };
+  const active = data.accounts.filter((account) => account.status === "active"),
+    currentMonth = new Date().toISOString().slice(0, 7),
+    current = data.transactions.filter((item) =>
+      item.occurred_at.startsWith(currentMonth),
+    ),
+    income = convertedTotal(
+      current
+        .filter((item) => item.transaction_type === "income")
+        .map((item) => ({ amount: item.amount, currency: item.currency })),
+    ),
+    spending = convertedTotal(
+      current
+        .filter((item) => item.transaction_type === "expense")
+        .map((item) => ({ amount: item.amount, currency: item.currency })),
+    ),
+    savedEntries = current
+      .filter(
+        (item) =>
+          item.transaction_type === "transfer" &&
+          data.accounts.find(
+            (account) => account.id === item.destination_account_id,
+          )?.account_type === "savings",
+      )
+      .map((item) => ({
+        amount: item.destination_amount ?? item.amount,
+        currency: item.destination_currency ?? item.currency,
+      })),
+    saved = convertedTotal(savedEntries),
+    total = convertedTotal(
+      active
+        .filter((account) => account.include_in_total)
+        .map((account) => ({
+          amount: account.balance,
+          currency: account.currency,
+        })),
+    ),
+    categoryTotals = data.categories.map((category) => ({
+      category,
+      value: convertedTotal(
+        current
+          .filter(
+            (item) =>
+              item.transaction_type === "expense" &&
+              item.category_id === category.id,
+          )
+          .map((item) => ({ amount: item.amount, currency: item.currency })),
+      ),
+    })),
+    fxQuotes = Object.values(data.fx),
+    fxUpdatedAt = fxQuotes.length
+      ? new Date(
+          Math.min(...fxQuotes.map((quote) => Date.parse(quote.fetchedAt))),
+        )
+      : null,
+    fxIsStale = fxQuotes.some((quote) => quote.cacheState === "stale"),
+    summaryUnavailable = [income, spending, saved].some(
+      (value) => value === null,
+    ),
+    term = query.trim().toLowerCase(),
+    shown = useMemo(
+      () =>
+        data.transactions.filter((item) =>
+          `${item.title ?? ""} ${item.transaction_type} ${data.categories.find((category) => category.id === item.category_id)?.name ?? ""}`
+            .toLowerCase()
+            .includes(term),
+        ),
+      [data, term],
+    );
+  const closeEditor = () => {
+    setEditing(undefined);
+    setNewType(undefined);
+    setDueRecurring(undefined);
+  };
+  if (loading)
+    return (
+      <PageContainer className="money-v1">
+        <p className="tracker-loading">Loading Money…</p>
+      </PageContainer>
+    );
+  if (!data.accounts.length)
+    return (
+      <PageContainer className="money-v1 money-empty-page">
+        <PageHeader eyebrow="MONEY" title="Set up your first account." />
+        {error && <p className="goal-error">{error}</p>}
+        <Card className="money-empty-card">
+          <LogEmptyState
+            icon={<CircleDollarSign />}
+            title="Money starts with an account"
+            detail="Add the account you use most. You can have up to three active accounts in V1."
+          />
+          <Button variant="primary" onClick={() => setAddingFirstAccount(true)}>
+            <Plus /> Add Account
+          </Button>
+        </Card>
+        {addingFirstAccount && (
+          <AccountEditor
+            reporting={data.currency}
+            close={() => setAddingFirstAccount(false)}
+            saved={() => {
+              setAddingFirstAccount(false);
+              load();
+            }}
+          />
+        )}
+      </PageContainer>
+    );
+  return (
+    <PageContainer className="money-v1">
+      <PageHeader
+        eyebrow="MONEY"
+        title="Money"
+        action={
+          view !== "manage" ? (
+            <Button variant="primary" onClick={() => setNewType("expense")}>
+              <Plus /> Transaction
+            </Button>
+          ) : undefined
+        }
+      />
+      <PageTabs>
+        <button
+          className={view === "overview" ? "active" : ""}
+          onClick={() => setView("overview")}
+        >
+          Overview
+        </button>
+        <button
+          className={view === "history" ? "active" : ""}
+          onClick={() => setView("history")}
+        >
+          History
+        </button>
+        <button
+          className={view === "manage" ? "active" : ""}
+          onClick={() => setView("manage")}
+        >
+          Manage
+        </button>
+      </PageTabs>
+      {error && <p className="goal-error">{error}</p>}
+      {view === "manage" ? (
+        <Manage data={data} reload={load} />
+      ) : (
+        <>
+          {view === "overview" && (
+            <>
+              <Card className="money-total">
+                <span>TOTAL ACROSS ACCOUNTS*</span>
+                <b>
+                  {total === null ? "Unavailable" : money(total, data.currency)}
+                </b>
+                <small>
+                  {fxQuotes.length
+                    ? `${fxIsStale ? "Last known" : "Exchange"} rates from ${fxQuotes[0].provider}, updated ${fxUpdatedAt?.toLocaleString()}. `
+                    : ""}
+                  Your native balances remain authoritative.
+                </small>
+                {(data.fxError || total === null) && (
+                  <p className="money-fx-warning">
+                    {data.fxError ??
+                      "One or more account currencies could not be converted."}
+                  </p>
+                )}
+              </Card>
+              <section className="money-account-grid">
+                {active.map((account) => (
+                  <Card className="money-account-card" key={account.id}>
+                    <FunctionalIcon iconKey={account.icon_key} />
+                    <span>
+                      <b>{account.name}</b>
+                      <strong>
+                        {money(account.balance, account.currency)}
+                      </strong>
+                      <small>{formatDisplayLabel(account.account_type)}</small>
+                    </span>
+                  </Card>
+                ))}
+              </section>
+              <section className="money-summary-grid">
+                {[
+                  ["Income", income],
+                  ["Spending", spending],
+                  ["Saved", saved],
+                  [
+                    "Net",
+                    income === null || spending === null
+                      ? null
+                      : income - spending,
+                  ],
+                ].map(([label, value]) => (
+                  <Card className="money-summary-card" key={String(label)}>
+                    <small>This month</small>
+                    <b>{label}</b>
+                    <strong>
+                      {value === null
+                        ? "Unavailable"
+                        : money(Number(value), data.currency)}
+                    </strong>
+                  </Card>
+                ))}
+              </section>
+              <Card className="money-breakdown">
+                <SectionHeader title="Spending by Category" />
+                {categoryTotals
+                  .filter((item) => item.value !== null && item.value > 0)
+                  .map(({ category, value }) => (
+                    <div key={category.id}>
+                      <span>{category.name}</span>
+                      <b>{money(value ?? 0, data.currency)}</b>
+                    </div>
+                  ))}
+                {summaryUnavailable && (
+                  <p className="money-fx-warning">
+                    This summary is unavailable until all currencies can be
+                    converted.
+                  </p>
+                )}
+                {!current.some(
+                  (item) => item.transaction_type === "expense",
+                ) && (
+                  <p className="ui-supporting">
+                    No spending recorded this month.
+                  </p>
+                )}
+              </Card>
+            </>
+          )}
+          <LogSection
+            title={view === "history" ? "Transactions" : "Recent Transactions"}
+          >
+            {shown.slice(0, view === "history" ? 100 : 8).map((transaction) => (
+              <LogItemCard
+                key={transaction.id}
+                icon={
+                  transaction.transaction_type === "income" ? (
+                    <ArrowDownLeft />
+                  ) : transaction.transaction_type === "transfer" ? (
+                    <ArrowRightLeft />
+                  ) : transaction.transaction_type === "balance_adjustment" ? (
+                    <PiggyBank />
+                  ) : (
+                    <ArrowUpRight />
+                  )
+                }
+                meta={`${formatDisplayLabel(transaction.transaction_type)} · ${data.categories.find((category) => category.id === transaction.category_id)?.name ?? data.accounts.find((account) => account.id === transaction.destination_account_id)?.name ?? "Account adjustment"} · ${new Date(transaction.occurred_at).toLocaleDateString()}`}
+                title={
+                  transaction.title ||
+                  formatDisplayLabel(transaction.transaction_type)
+                }
+                detail={`${money(transaction.amount, transaction.currency)}${transaction.transaction_type === "transfer" && transaction.destination_currency ? ` → ${money(transaction.destination_amount ?? 0, transaction.destination_currency)}` : ""}`}
+                action={<ChevronRight />}
+                onClick={() => setEditing(transaction)}
+              >
+                <IconButton
+                  label={`Delete ${transaction.title || formatDisplayLabel(transaction.transaction_type)}`}
+                  onClick={() =>
+                    confirm("Delete this transaction?") &&
+                    removeMoney(transaction.id).then(load)
+                  }
+                >
+                  <Trash2 />
+                </IconButton>
+              </LogItemCard>
+            ))}
+            {!shown.length && (
+              <LogEmptyState
+                icon={<CircleDollarSign />}
+                title="No transactions yet"
+              />
+            )}
+          </LogSection>
+        </>
+      )}
+      {(editing !== undefined || newType || dueRecurring) && (
+        <TransactionEditor
+          data={data}
+          entry={editing ?? undefined}
+          recurring={dueRecurring}
+          initialType={newType}
+          close={closeEditor}
+          saved={() => {
+            closeEditor();
+            load();
+          }}
+        />
+      )}
+    </PageContainer>
+  );
+}
+
+export default function MoneyModule(props: {
+  query?: string;
+  initialEntryId?: string;
+}) {
+  return (
+    <Guidance feature="money">
+      <MoneyContent {...props} />
+    </Guidance>
+  );
 }
