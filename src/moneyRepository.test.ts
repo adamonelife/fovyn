@@ -149,4 +149,23 @@ describe("Money currency conversion", () => {
   it("returns unavailable when a required quote is missing", () => {
     expect(convertMoney(100, "EUR", "IDR", fx)).toBeNull();
   });
+
+  it("aggregates native and converted balances deterministically", () => {
+    const deterministicFx = {
+      GBP: {
+        rate: 20_000,
+        fetchedAt: "2026-09-04T00:00:00.000Z",
+        provider: "test",
+        cacheState: "fresh" as const,
+      },
+    };
+    const balances = [
+      convertMoney(1_000_000, "IDR", "IDR", deterministicFx),
+      convertMoney(100, "GBP", "IDR", deterministicFx),
+    ];
+    expect(balances.every((value) => Number.isFinite(value))).toBe(true);
+    expect(balances.reduce<number>((sum, value) => sum + (value ?? 0), 0)).toBe(
+      3_000_000,
+    );
+  });
 });

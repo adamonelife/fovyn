@@ -6,7 +6,10 @@ export default {
       const symbols = (url.searchParams.get("symbols") || "").toUpperCase();
       if (!/^[A-Z]{3}$/.test(base) || !/^[A-Z]{3}(,[A-Z]{3})*$/.test(symbols))
         return Response.json(
-          { error: "Invalid currency request" },
+          {
+            error: "Invalid currency request",
+            errorCode: "INVALID_ACCOUNT_CURRENCY",
+          },
           { status: 400 },
         );
       const requested = symbols.split(","),
@@ -21,7 +24,8 @@ export default {
               "Content-Type": "application/json",
             }
           : null;
-      let cached = [];
+      let cached = [],
+        cacheError = null;
       if (supabaseHeaders) {
         try {
           const cacheResponse = await fetch(
@@ -29,7 +33,9 @@ export default {
             { headers: supabaseHeaders },
           );
           if (cacheResponse.ok) cached = await cacheResponse.json();
-        } catch {
+          else cacheError = `Cache read returned ${cacheResponse.status}`;
+        } catch (error) {
+          cacheError = error instanceof Error ? error.message : String(error);
           cached = [];
         }
       }
@@ -53,6 +59,7 @@ export default {
             fetchedAt: newest.fetched_at,
             provider: newest.provider,
             cacheState: "cached",
+            cacheError,
           },
           { headers: { "Cache-Control": "private, max-age=3600" } },
         );
@@ -62,7 +69,8 @@ export default {
           `https://api.frankfurter.dev/v2/rates?base=${base}&quotes=${symbols}`,
           { cf: { cacheTtl: 3600, cacheEverything: true } },
         );
-        if (!upstream.ok) throw new Error("FX provider unavailable");
+        if (!upstream.ok)
+          throw new Error(`Provider returned HTTP ${upstream.status}`);
         const data = await upstream.json(),
           rates = Object.fromEntries(
             data.map((row) => [row.quote, Number(row.rate)]),
@@ -70,18 +78,29 @@ export default {
           missing = requested.filter(
             (code) => !Number.isFinite(rates[code]) || rates[code] <= 0,
           );
-        if (missing.length) throw new Error("FX pair unavailable");
+        if (missing.length)
+          throw new Error(`Provider omitted: ${missing.join(",")}`);
         const fetchedAt = new Date().toISOString();
+        let cacheStored = false;
         if (supabaseHeaders) {
-          const rows = requested.map((code) => ({
-            base_currency: base,
-            quote_currency: code,
-            rate: rates[code],
-            provider: "Frankfurter v2",
-            fetched_at: fetchedAt,
-          }));
+          const rows = requested.flatMap((code) => [
+            {
+              base_currency: base,
+              quote_currency: code,
+              rate: rates[code],
+              provider: "Frankfurter v2",
+              fetched_at: fetchedAt,
+            },
+            {
+              base_currency: code,
+              quote_currency: base,
+              rate: 1 / rates[code],
+              provider: "Frankfurter v2",
+              fetched_at: fetchedAt,
+            },
+          ]);
           try {
-            await fetch(
+            const cacheWrite = await fetch(
               `${env.SUPABASE_URL}/rest/v1/money_fx_rates?on_conflict=base_currency,quote_currency`,
               {
                 method: "POST",
@@ -92,9 +111,14 @@ export default {
                 body: JSON.stringify(rows),
               },
             );
-          } catch {
-            // The live quote is still usable; the next request can retry caching.
+            cacheStored = cacheWrite.ok;
+            if (!cacheWrite.ok)
+              cacheError = `Cache write returned ${cacheWrite.status}`;
+          } catch (error) {
+            cacheError = error instanceof Error ? error.message : String(error);
           }
+        } else {
+          cacheError = "Supabase cache environment is not configured";
         }
         return Response.json(
           {
@@ -103,10 +127,14 @@ export default {
             rateDate: data[0]?.date,
             provider: "Frankfurter v2",
             cacheState: "fresh",
+            cacheStored,
+            cacheError,
           },
           { headers: { "Cache-Control": "private, max-age=3600" } },
         );
-      } catch {
+      } catch (error) {
+        const providerError =
+          error instanceof Error ? error.message : String(error);
         const usable = requested.every(
           (code) =>
             cacheByQuote[code] &&
@@ -129,6 +157,8 @@ export default {
               fetchedAt: newest.fetched_at,
               provider: newest.provider,
               cacheState: "stale",
+              cacheError,
+              providerError,
             },
             { headers: { "Cache-Control": "private, max-age=900" } },
           );
@@ -137,6 +167,11 @@ export default {
           {
             error:
               "Exchange rates are temporarily unavailable and no recent cached rate exists.",
+            errorCode: "PROVIDER_FAILURE",
+            provider: "Frankfurter v2",
+            cacheState: "failed",
+            cacheError,
+            providerError,
           },
           { status: 503 },
         );
