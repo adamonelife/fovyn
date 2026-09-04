@@ -320,7 +320,7 @@ function EntryEditor({
         </label>
         {data.goals.length > 0 && (
           <fieldset>
-            <legend>Related Goals</legend>
+            <legend>Count this toward</legend>
             {data.goals.map((goal) => (
               <label key={goal.id}>
                 <input

@@ -49,16 +49,17 @@ export async function listGoals():Promise<GoalBundle[]>{
   fail('Goals',goals.error);
   const ids=(goals.data??[]).map(x=>x.id);
   if(!ids.length)return[];
-  const [rules,links,contributions,moneyContributions,events,trackers,forestOverrides]=await Promise.all([
+  const [rules,links,contributions,sourceContributions,moneyContributions,events,trackers,forestOverrides]=await Promise.all([
     supabase!.from('goal_rules').select('*').in('goal_id',ids).order('effective_from',{ascending:false}),
     supabase!.from('goal_trackers').select('goal_id,tracker_id').in('goal_id',ids),
     supabase!.from('goal_contributions').select('goal_id,tracking_records(id,value,occurred_at,note,corrected_at,deleted_at,unit_key,custom_unit)').in('goal_id',ids),
+    supabase!.from('goal_source_contributions').select('id,goal_id,source_record_type,value,unit_key,occurred_at,updated_at').in('goal_id',ids),
     supabase!.from('money_transaction_goals').select('goal_id,money_transactions(id,transaction_type,amount,currency,destination_amount,destination_currency,occurred_at,note,corrected_at,deleted_at)').in('goal_id',ids),
     supabase!.from('goal_events').select('id,goal_id,event_type,occurred_at,details').in('goal_id',ids).order('occurred_at',{ascending:false}),
     supabase!.from('trackers').select('id,name,module,area_key,subcategory_id,measurement_type,unit_key,custom_unit').eq('owner_id',owner.id),
     supabase!.from('forest_test_overrides').select('goal_id,tree_stage,health_state').in('goal_id',ids)
   ]);
-  fail('Goal rules',rules.error);fail('Goal trackers',links.error);fail('Goal records',contributions.error);fail('Money Goal records',moneyContributions.error);fail('Goal Growth Rings',events.error);fail('Goal Log items',trackers.error);fail('Goal Tree QA state',forestOverrides.error);
+  fail('Goal rules',rules.error);fail('Goal trackers',links.error);fail('Goal records',contributions.error);fail('Source Goal records',sourceContributions.error);fail('Money Goal records',moneyContributions.error);fail('Goal Growth Rings',events.error);fail('Goal Log items',trackers.error);fail('Goal Tree QA state',forestOverrides.error);
   return (goals.data??[]).map(goal=>{const override=(forestOverrides.data??[]).find(row=>row.goal_id===goal.id),stage=Math.max(1,Math.min(27,Number(override?.tree_stage??goal.forest_stage??1)));return({
     ...(goal as GoalRow),tree_stage:stage,tree_species:forestSpecies(stage),tree_asset_key:`forest.tree.stage${String(stage).padStart(2,'0')}`,tree_health:(override?.health_state??'healthy').replaceAll('_',' '),
     rule:((rules.data??[]).find(x=>x.goal_id===goal.id&&x.effective_to===null)??null) as RuleRow|null,
@@ -67,6 +68,7 @@ export async function listGoals():Promise<GoalBundle[]>{
     tracker:((trackers.data??[]).find(x=>x.id===(links.data??[]).find(link=>link.goal_id===goal.id)?.tracker_id)??null) as GoalTracker|null,
     records:[
       ...(contributions.data??[]).filter(x=>x.goal_id===goal.id).flatMap(x=>x.tracking_records?[x.tracking_records as unknown as RecordRow]:[]),
+      ...(sourceContributions.data??[]).filter(x=>x.goal_id===goal.id).map(source=>({id:source.id,value:Number(source.value),occurred_at:source.occurred_at,note:null,corrected_at:source.updated_at,deleted_at:null,unit_key:source.unit_key,custom_unit:null} satisfies RecordRow)),
       ...(moneyContributions.data??[]).filter(x=>x.goal_id===goal.id).flatMap(x=>{const transaction=x.money_transactions as unknown as {id:string;transaction_type:string;amount:number;currency:string;destination_amount:number|null;destination_currency:string|null;occurred_at:string;note:string|null;corrected_at:string|null;deleted_at:string|null}|null;if(!transaction)return[];const transfer=transaction.transaction_type==='transfer'&&transaction.destination_amount!=null;return[{id:transaction.id,value:Number(transfer?transaction.destination_amount:transaction.amount),occurred_at:transaction.occurred_at,note:transaction.note,corrected_at:transaction.corrected_at,deleted_at:transaction.deleted_at,unit_key:null,custom_unit:transfer?transaction.destination_currency:transaction.currency} satisfies RecordRow]}),
     ].filter(record=>!record.deleted_at),
     events:(events.data??[]).filter(x=>x.goal_id===goal.id) as GoalEvent[]
