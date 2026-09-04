@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useEffect, useState } from "react";
+import './i18n';
 import { createRoot } from "react-dom/client";
 import {
   Home,
@@ -85,6 +86,7 @@ import HomeModule from "./HomeModule";
 import HistoryHub from "./HistoryHub";
 import SearchOverlayLive from "./SearchOverlay";
 import AuthHome from "./AuthHome";
+import AuthVerification from "./AuthVerification";
 import Guidance from "./Guidance";
 import ForestOverview from "./ForestOverview";
 import { supabase } from "./supabase";
@@ -1763,6 +1765,9 @@ function App() {
     return () => {data.subscription.unsubscribe();window.removeEventListener(dataContextEvent,contextChanged)};
   }, []);
   useEffect(()=>{if(session)isSuperAdmin().then(setSuperAdmin).catch(()=>setSuperAdmin(false))},[session]);
+  const authResultRoute=location.pathname==='/auth/callback'||location.pathname==='/auth/success';
+  const authPreviewSuccess=import.meta.env.DEV&&new URLSearchParams(location.search).get('auth-preview')==='success';
+  if(authResultRoute)return <AuthVerification session={authPreviewSuccess?{preview:true}:session} continueToFovyn={()=>{history.replaceState({},'', '/');if(!session)location.reload();else setPage('Home')}}/>;
   if (session === undefined)
     return <div className="auth-loading">Loading Fovyn…</div>;
   if (!session) return <AuthHome />;
