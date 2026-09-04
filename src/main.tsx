@@ -86,6 +86,7 @@ import HistoryHub from "./HistoryHub";
 import SearchOverlayLive from "./SearchOverlay";
 import AuthHome from "./AuthHome";
 import Guidance from "./Guidance";
+import ForestOverview from "./ForestOverview";
 import { supabase } from "./supabase";
 import { dataContextEvent, getDataContext, isSuperAdmin, resetDataContext, type DataContext } from "./testMode";
 import { completeOnboarding, type HomeData } from "./homeRepository";
@@ -105,7 +106,13 @@ import {
 import { exportPayload, goalSets, reviews } from "./planning";
 
 const ForestLabQA=React.lazy(()=>import("./ForestLabQA"));
-const ForestOverview=React.lazy(()=>import("./ForestOverview"));
+
+class ForestErrorBoundary extends React.Component<{children:React.ReactNode;close:()=>void},{error:Error|null}>{
+  state={error:null};
+  static getDerivedStateFromError(error:Error){return{error}}
+  componentDidCatch(error:Error,info:React.ErrorInfo){console.error('Forest renderer failed',{message:error.message,stack:error.stack,componentStack:info.componentStack})}
+  render(){if(!this.state.error)return this.props.children;return <div className="forest-overview-shade" role="alert"><section className="forest-overview forest-safe-failure"><div><span>MY FOREST</span><h1>Your Forest could not open.</h1><p>Your data is safe. Close this view and try again.</p><button onClick={this.props.close}>Return Home</button><button onClick={()=>location.reload()}>Reload Fovyn</button></div></section></div>;}
+}
 
 type Page = "Home" | "Log" | "Goals" | "History" | "Account";
 const nav: { name: Page; icon: typeof Home }[] = [
@@ -1920,7 +1927,7 @@ function App() {
       {search && (
         <SearchOverlayLive close={() => setSearch(false)} navigate={setPage} />
       )}{" "}
-      {forest&&forestSnapshot && <React.Suspense fallback={<div className="forest-lazy-loading">Loading your Forest…</div>}><ForestOverview goals={forestSnapshot.goals} currentClearing={forestSnapshot.currentClearing} close={() => setForest(false)} onViewGoals={() => {setForest(false);setPage("Goals")}} onLog={() => {setForest(false);setPage("Log")}} /></React.Suspense>}{" "}
+      {forest&&forestSnapshot && <ForestErrorBoundary close={() => setForest(false)}><ForestOverview goals={forestSnapshot.goals} currentClearing={forestSnapshot.currentClearing} close={() => setForest(false)} onViewGoals={() => {setForest(false);setPage("Goals")}} onLog={() => {setForest(false);setPage("Log")}} /></ForestErrorBoundary>}{" "}
       {lab && <React.Suspense fallback={<div className="forest-lazy-loading">Loading Forest Lab…</div>}><ForestLabQA close={() => setLab(false)} /></React.Suspense>}
     </div>
   );

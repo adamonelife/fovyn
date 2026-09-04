@@ -11,7 +11,7 @@ import TreeGuide from './TreeGuide';
 const assetKey=(key:string)=>'forest.environment.'+(key.startsWith('area-')?'area.'+key.slice(5):key.replaceAll('-','_'));
 
 export default function ForestOverview({goals,currentClearing,close,onViewGoals,onLog}:{goals:HomeGoal[];currentClearing:HomeClearing|null;close:()=>void;onViewGoals:()=>void;onLog:()=>void}){
-  const [environment,setEnvironment]=useState('clearing');
+  const [environment,setEnvironment]=useState(()=>goals.some(goal=>goal.status==='active'&&goal.tree_stage>=4)?'clearing':'nursery');
   const [guideOpen,setGuideOpen]=useState(false);
   const interaction=useForestInteraction();
   const [nurseryPage,setNurseryPage]=useState(0);

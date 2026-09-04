@@ -43,6 +43,15 @@ describe('canonical Nursery layout',()=>{
     expect(assignments.filter(item=>item.page===2)).toHaveLength(1);
   });
 
+  it.each([0,1,2,3])('renders a safe mobile Nursery with %i early-growth Trees',(count)=>{
+    const mobile=forestSlotsForViewport(nurserySlots,'mobile','nursery');
+    const assignments=nurseryAssignments(Array.from({length:count},(_,index)=>goal(`new-user-${index}`,index%3+1)),mobile);
+    expect(assignments).toHaveLength(count);
+    expect(new Set(assignments.map(item=>item.goal.id)).size).toBe(count);
+    expect(new Set(assignments.map(item=>item.slot.id)).size).toBe(count);
+    expect(assignments.every(item=>item.page===0&&item.slot.id.startsWith('nursery_slot_'))).toBe(true);
+  });
+
   it('uses the four semantic diamond slots for mobile Areas',()=>{
     const mobile=forestSlotsForViewport(forestEnvironmentSlots.health,'mobile','health');
     expect(mobile.map(slot=>slot.id)).toEqual(['mobile_back','mobile_mid_left','mobile_mid_right','mobile_front']);
