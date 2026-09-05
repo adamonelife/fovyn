@@ -2,7 +2,7 @@ import i18n from 'i18next';
 import {initReactI18next} from 'react-i18next';
 
 const en={
-  common:{continue:'Continue',reload:'Reload Fovyn',returnHome:'Return Home'},
+  common:{continue:'Continue',reload:'Reload Fovyn',returnHome:'Return Home',refresh:'Refresh',loading:'Loading…'},
   navigation:{home:'Home',log:'Log',goals:'Goals',history:'History',account:'Account'},
   brand:{name:'Fovyn',tagline:'Grow More Good Days.',successTagline:'Grow a brighter you'},
   auth:{
@@ -13,7 +13,8 @@ const en={
     accountCreated:{eyebrow:'Account creation successful',title:'Account creation successful',growthMessage:"Fovyn can't wait to watch you grow.",supporting:"You're now part of a calmer, more intentional way to track what matters and grow a brighter you.",continue:'Continue to Fovyn',footerTop:'Small steps',footerBottom:'A brighter tomorrow',loading:'Finishing your account…'},
     verificationError:{title:'This verification link could not be completed.',message:'The link may have expired or already been used. Return to Fovyn to sign in or request a new confirmation email.'},
     errors:{invalidCredentials:'The email or password is incorrect.',emailNotConfirmed:'Please confirm your email before signing in.',rateLimit:'Please wait a moment before trying again.',generic:'We could not complete that request. Please try again.'}
-  }
+  },
+  analytics:{overview:'Overview',users:'Users',verifiedUsers:'Verified Users',treesPlanted:'Trees Planted',activeGoals:'Active Goals',dormantTrees:'Dormant Trees',heartwoodTrees:'Heartwood Trees',lastSevenDays:'Last 7 Days',newUsers:'New Users',excludedTestTrees:'Excluded Test Trees',help:'Aggregate operational metrics. Test Mode records are excluded.',unavailable:'Analytics counters are unavailable.'}
 } as const;
 
 i18n.use(initReactI18next).init({resources:{en:{translation:en}},lng:'en',fallbackLng:'en',supportedLngs:['en'],interpolation:{escapeValue:false},react:{useSuspense:false},saveMissing:import.meta.env.DEV,missingKeyHandler:(_languages:readonly string[],_namespace:string,key:string)=>{if(import.meta.env.DEV)console.warn('Missing localisation key',{key})}});

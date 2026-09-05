@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { FlaskConical, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
+import { BarChart3, FlaskConical, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   clearTestData,
   getDataContext,
@@ -7,6 +8,7 @@ import {
   type DataContext,
 } from "./testMode";
 import { resetGuidance } from "./guidanceRepository";
+import {loadSuperAdminOverview,type SuperAdminOverview} from './analyticsRepository';
 
 type FxStatus = {
   rate: number | null;
@@ -17,11 +19,16 @@ type FxStatus = {
 };
 
 export default function SuperAdminSettings({ allowed }: { allowed: boolean }) {
+  const {t}=useTranslation();
   const [context, setContextState] = useState<DataContext>(getDataContext()),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(""),
     [fx, setFx] = useState<FxStatus | null>(null),
-    [fxBusy, setFxBusy] = useState(false);
+    [fxBusy, setFxBusy] = useState(false),
+    [overview,setOverview]=useState<SuperAdminOverview|null>(null),
+    [overviewError,setOverviewError]=useState(''),
+    [overviewBusy,setOverviewBusy]=useState(false);
+  const refreshOverview=async()=>{setOverviewBusy(true);setOverviewError('');try{setOverview(await loadSuperAdminOverview())}catch(error){setOverviewError(error instanceof Error?error.message:t('analytics.unavailable'))}finally{setOverviewBusy(false)}};
   const checkFx = async () => {
     setFxBusy(true);
     try {
@@ -68,7 +75,8 @@ export default function SuperAdminSettings({ allowed }: { allowed: boolean }) {
   };
   useEffect(() => {
     checkFx();
-  }, []);
+    if(allowed)refreshOverview();
+  }, [allowed]);
   if (!allowed) return null;
   const toggle = () => {
     const next = context === "test" ? "real" : "test";
@@ -144,6 +152,28 @@ export default function SuperAdminSettings({ allowed }: { allowed: boolean }) {
         <p className="test-context-readout">
           Current data: <b>{context.toUpperCase()}</b>
         </p>
+        <section className="admin-overview" aria-labelledby="admin-overview-title">
+          <div className="settings-title">
+            <div><p className="eyebrow">{overview?.release_label??(import.meta.env.VITE_FOVYN_ENVIRONMENT==='development'?'DEVELOPMENT':'FOVYN ALPHA')}</p><h3 id="admin-overview-title">{t('analytics.overview')}</h3></div>
+            <button className="soft-button" disabled={overviewBusy} onClick={refreshOverview}><RefreshCw/> {overviewBusy?t('common.loading'):t('common.refresh')}</button>
+          </div>
+          <p className="panel-copy">{t('analytics.help')}</p>
+          {overviewError&&<p className="settings-notice admin-overview-error">{overviewError}</p>}
+          {overview&&<>
+            <div className="admin-primary-metrics">
+              <article><BarChart3/><span>{t('analytics.users')}</span><strong>{overview.users}</strong></article>
+              <article><BarChart3/><span>{t('analytics.treesPlanted')}</span><strong>{overview.trees_planted}</strong></article>
+            </div>
+            <div className="admin-supporting-metrics">
+              <article><span>{t('analytics.verifiedUsers')}</span><strong>{overview.verified_users}</strong></article>
+              <article><span>{t('analytics.activeGoals')}</span><strong>{overview.active_goals}</strong></article>
+              <article><span>{t('analytics.dormantTrees')}</span><strong>{overview.dormant_trees}</strong></article>
+              <article><span>{t('analytics.heartwoodTrees')}</span><strong>{overview.heartwood_trees}</strong></article>
+            </div>
+            <div className="admin-recent-metrics"><p className="eyebrow">{t('analytics.lastSevenDays')}</p><dl><div><dt>{t('analytics.newUsers')}</dt><dd>{overview.new_users_last_7_days}</dd></div><div><dt>{t('analytics.treesPlanted')}</dt><dd>{overview.trees_planted_last_7_days}</dd></div></dl></div>
+            <details className="admin-counter-diagnostics"><summary>QA diagnostics</summary><p>{t('analytics.excludedTestTrees')}: <b>{overview.excluded_test_trees}</b></p></details>
+          </>}
+        </section>
         <section className="fx-diagnostics" aria-label="FX status">
           <div className="settings-title">
             <div>
