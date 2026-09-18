@@ -23,6 +23,11 @@ Production uploads use these prefixes:
 - `forest/v1/brand/`
 - `forest/v1/reference/`
 
+Development experiments use `development/forest/vN/...`. Alpha rejects that
+prefix at runtime. Published immutable `forest/vN/...` assets may be shared by
+both applications. Promotion creates a new published path and manifest version;
+it never overwrites an existing Alpha object.
+
 Use immutable filenames that include the asset version, for example `tree-stage-04.v1.webp`. Set long-lived cache control on uploaded production files. Replacements use a new manifest version and new filename; never overwrite a cached production path in place.
 
 ## Current asset audit — 3 September 2026

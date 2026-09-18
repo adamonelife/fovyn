@@ -1,5 +1,11 @@
 export default {
   async fetch(request, env) {
+    if (env.FOVYN_ENVIRONMENT !== "alpha" && env.FOVYN_ENVIRONMENT !== "development") {
+      return Response.json(
+        { error: "Server environment is not configured.", errorCode: "ENVIRONMENT_NOT_CONFIGURED" },
+        { status: 503 },
+      );
+    }
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/api/fx") {
       const base = (url.searchParams.get("base") || "").toUpperCase();

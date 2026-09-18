@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { growthRegistry } from "./domain";
-import { forestAssetFallback, forestEnvironmentAssetKeys, forestIconAssetKeys, forestTreeAssetKeys, versionedForestAssetUrl } from "./forestAssets";
+import { assetPathAllowed, forestAssetFallback, forestEnvironmentAssetKeys, forestIconAssetKeys, forestTreeAssetKeys, versionedForestAssetUrl } from "./forestAssets";
 import { forestEnvironmentManifest, forestIconNames, forestTreeManifest } from "./forestManifest";
 
 describe("Forest asset canon", () => {
@@ -50,5 +50,11 @@ describe("Forest asset canon", () => {
     expect(versionedForestAssetUrl(url,1)).toContain('area-mind.png?v=1');
     expect(versionedForestAssetUrl(url,2)).toContain('area-mind.png?v=2');
     expect(versionedForestAssetUrl(url,1)).not.toBe(versionedForestAssetUrl(url,2));
+  });
+
+  it('prevents Alpha from resolving Development asset experiments',()=>{
+    expect(assetPathAllowed('alpha','development/forest/v2/environments/area-health.png')).toBe(false);
+    expect(assetPathAllowed('alpha','forest/v1/environments/area-health.png')).toBe(true);
+    expect(assetPathAllowed('development','development/forest/v2/environments/area-health.png')).toBe(true);
   });
 });

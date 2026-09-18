@@ -1,10 +1,10 @@
 import {createClient} from '@supabase/supabase-js';
-// These are public browser credentials, not secrets. Environment overrides keep
-// preview environments flexible; the fallback ensures the installed PWA stays
-// connected when a Vercel build is missing its VITE-prefixed variables.
-const url=import.meta.env.VITE_SUPABASE_URL||'https://ukvrfejyyhgnzljquxvt.supabase.co';
-const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY||'sb_publishable_dl9JaUQp-U1dmuaGY1qu2A_oUHsatPt';
-export const appEnvironment=import.meta.env.VITE_FOVYN_ENVIRONMENT==='development'?'development':'alpha';
+import {appConfig} from './appConfig';
+
+// Missing configuration must stop the application. Never silently route a
+// Development deployment to Alpha infrastructure.
+const {supabaseUrl:url,supabasePublishableKey:key,environment:appEnvironment}=appConfig;
+export {appEnvironment};
 const contextualFetch:typeof fetch=(input,init={})=>{const headers=new Headers(init.headers);headers.set('x-fovyn-environment',appEnvironment);if(typeof sessionStorage!=='undefined'&&sessionStorage.getItem('fovyn-data-context')==='test')headers.set('x-fovyn-data-context','test');return fetch(input,{...init,headers})};
 export const supabase=createClient(url,key,{
   global:{fetch:contextualFetch},

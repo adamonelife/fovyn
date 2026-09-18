@@ -26,6 +26,7 @@ export default async function handler(request, response) {
         headers: requestHeaders(request.headers),
       }),
       {
+        FOVYN_ENVIRONMENT: process.env.FOVYN_ENVIRONMENT,
         SUPABASE_URL:
           process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
         SUPABASE_SECRET_KEY:

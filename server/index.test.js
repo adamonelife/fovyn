@@ -3,6 +3,7 @@ import handler from "./index.js";
 
 const request = new Request("https://fovyn.test/api/fx?base=IDR&symbols=GBP");
 const env = {
+  FOVYN_ENVIRONMENT: "development",
   SUPABASE_URL: "https://database.test",
   SUPABASE_SECRET_KEY: "secret",
 };
@@ -10,6 +11,11 @@ const env = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Money FX API", () => {
+  it("fails closed when the trusted server environment is missing", async () => {
+    const response = await handler.fetch(request, {...env,FOVYN_ENVIRONMENT:undefined});
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({errorCode:"ENVIRONMENT_NOT_CONFIGURED"});
+  });
   it("uses Frankfurter v2 and stores a fresh quote", async () => {
     const fetch = vi
       .fn()

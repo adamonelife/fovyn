@@ -2,6 +2,11 @@ import { growthRegistry } from "./domain";
 
 export const FOREST_ASSET_VERSION = 1 as const;
 export const FOREST_STORAGE_ROOT = `forest/v${FOREST_ASSET_VERSION}` as const;
+export const DEVELOPMENT_FOREST_STORAGE_ROOT = `development/${FOREST_STORAGE_ROOT}` as const;
+
+export function forestStorageChannel(path:string){
+  return path.startsWith('development/')?'development':'published';
+}
 
 export type ForestDepthPreference = "far" | "mid" | "near";
 export type ForestVisualHeightClass="seed"|"sprout"|"young_plant"|"small_tree"|"medium_tree"|"large_tree"|"giant_tree";

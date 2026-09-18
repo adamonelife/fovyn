@@ -1,7 +1,8 @@
 import { supabase } from "./supabase";
 import { growthRegistry } from "./domain";
-import { FOREST_ASSET_VERSION, FOREST_STORAGE_ROOT, forestEnvironmentManifest, forestIconNames, forestTreeManifest } from "./forestManifest";
+import { FOREST_ASSET_VERSION, FOREST_STORAGE_ROOT, forestEnvironmentManifest, forestIconNames, forestStorageChannel, forestTreeManifest } from "./forestManifest";
 import {loadTreeScale} from './treeScaleRepository';
+import {appEnvironment} from './supabase';
 
 export const FOREST_ASSET_BUCKET = "fovyn-assets";
 export const forestTreeAssetKeys = growthRegistry.map((_, index) =>
@@ -48,6 +49,16 @@ export type ForestAsset = {
 
 const columns = "asset_key,asset_version,variant,asset_kind,stage,canonical_name,storage_path,mime_type,width,height,anchor_x,anchor_y,ground_anchor_y,default_scale,mobile_scale_modifier,desktop_scale_modifier,z_bias,depth_preference,environment_key,is_active";
 
+export function assetPathAllowed(environment:'alpha'|'development',storagePath:string){
+  return environment==='development'||forestStorageChannel(storagePath)==='published';
+}
+
+function preferredRows<T extends {storage_path:string}>(rows:T[]){
+  const allowed=rows.filter(row=>assetPathAllowed(appEnvironment,row.storage_path));
+  if(appEnvironment==='development')return [...allowed].sort((a,b)=>Number(forestStorageChannel(b.storage_path)==='development')-Number(forestStorageChannel(a.storage_path)==='development'));
+  return allowed;
+}
+
 export function versionedForestAssetUrl(publicUrl:string,assetVersion:number){
   const url=new URL(publicUrl);
   url.searchParams.set('v',String(assetVersion));
@@ -75,7 +86,7 @@ export async function getForestAsset(assetKey: string, variant: ForestAssetVaria
     console.warn("Forest asset lookup failed", { assetKey, variant });
     return forestAssetFallback(assetKey);
   }
-  const rows = (data ?? []) as unknown as Omit<ForestAsset, "url">[];
+  const rows = preferredRows((data ?? []) as unknown as Omit<ForestAsset, "url">[]);
   const row = rows.find((item) => item.variant === variant) ?? rows.find((item) => item.variant === "default");
   if (!row?.storage_path) return forestAssetFallback(assetKey);
   const { data: publicAsset } = supabase.storage.from(FOREST_ASSET_BUCKET).getPublicUrl(row.storage_path);
