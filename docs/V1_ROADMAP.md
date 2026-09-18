@@ -2,7 +2,7 @@
 
 1. Guidance & Discovery V1
 2. Forest Asset Preparation / Production Forest V1
-3. Training Exercise Name Standardisation
+3. Training Exercise Name Standardisation — complete (18 September 2026)
 4. Canopy Beta V1
 5. Money Interest Transaction Type
 6. Private Cycle Tracking Foundation
@@ -76,6 +76,14 @@ their meaning is unambiguous.
 This block separates canonical movement identity from each private user Exercise Profile and optional user alias. It must preserve Exercise IDs, machine-specific profiles, Templates, Workout History, PBs, progression, loads, repetitions and notes.
 
 High-confidence migrated shorthand may be mapped in batch while preserving the original name as the alias. Ambiguous names require user review and must not be guessed or auto-merged. New Exercise creation should search and suggest an expandable curated canonical dictionary, while still allowing custom Exercises. Search covers both canonical names and aliases. Canonical movement keys may support future de-identified analytics; aliases remain private personal data.
+
+Implementation checkpoint: the shared dictionary contains 42 initial canonical
+movements and synonym terms. Existing Exercise IDs and names were preserved;
+45 high-confidence legacy profiles were linked by stable migration key with the
+original shorthand retained as the private alias. The remaining profiles are
+explicitly marked for review and were not guessed or merged. Exercise creation
+now offers canonical search and a clear Custom route, while library search
+covers both canonical names and private aliases.
 
 ## Analytics scope boundary
 

@@ -37,6 +37,7 @@ import "./track.css";
 import "./habits.css";
 import "./training.css";
 import "./exercise-library.css";
+import "./exercise-name-standardisation.css";
 import "./workout.css";
 import "./workout-extra.css";
 import "./mobile-training.css";
