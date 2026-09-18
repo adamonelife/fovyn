@@ -12,6 +12,7 @@ import type { Tracker } from "./trackerRepository";
 import { LogDatePicker } from "./ui";
 import { fovynDateKey, shiftDateKey } from "./fovynDate";
 import { metricSummary, metricSummaryContext } from "./metricSummary";
+import MetricRecorder from "./MetricRecorder";
 
 const localDateTime = (date = new Date()) =>
   new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -390,11 +391,10 @@ export default function MetricsModule({
         )}
       </div>
       {selected && (
-        <Recorder
+        <MetricRecorder
           tracker={selected}
           record={editing}
           records={data.records.filter((record) => record.tracker_id === selected.id)}
-          timezone={data.timezone}
           unit={unit(selected)}
           currency={currency}
           close={() => {
