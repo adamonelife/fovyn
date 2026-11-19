@@ -21,6 +21,10 @@ class TokenStore(context:Context){
     fun clear(){prefs.edit().remove("tokens").remove("last_sync").apply()}
     fun setLastSync(value:String)=prefs.edit().putString("last_sync",value).apply()
     fun lastSync():String?=prefs.getString("last_sync",null)
+    fun setLastOutcome(value:String)=prefs.edit().putString("last_outcome",value).apply()
+    fun lastOutcome():String?=prefs.getString("last_outcome",null)
+    fun setLastError(value:String?)=prefs.edit().apply{if(value==null)remove("last_error")else putString("last_error",value)}.apply()
+    fun lastError():String?=prefs.getString("last_error",null)
     private fun key():SecretKey{val ks=KeyStore.getInstance("AndroidKeyStore").apply{load(null)};return (ks.getEntry(alias,null) as? KeyStore.SecretKeyEntry)?.secretKey?:KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore").apply{init(KeyGenParameterSpec.Builder(alias,KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())}.generateKey()}
 }
 

@@ -1,4 +1,4 @@
-name: Fovyn V1.3 checks and Android APK
+name: Fovyn V1.4 checks and Android APK
 on:
   push:
     branches: [main]
@@ -33,23 +33,26 @@ jobs:
         with:
           gradle-version: 8.11.1
       - run: gradle -p android-companion test assembleDebug --stacktrace
-      - name: Rename APK
-        run: cp android-companion/app/build/outputs/apk/debug/app-debug.apk fovyn-health-debug.apk
+      - name: Package APK and ZIP
+        run: |
+          cp android-companion/app/build/outputs/apk/debug/app-debug.apk fovyn-health-v1.1.0-test.apk
+          zip fovyn-health-v1.1.0-test.zip fovyn-health-v1.1.0-test.apk
       - uses: actions/upload-artifact@v5
         with:
-          name: fovyn-health-debug
-          path: fovyn-health-debug.apk
+          name: fovyn-health-v1.1.0-test
+          path: |
+            fovyn-health-v1.1.0-test.apk
+            fovyn-health-v1.1.0-test.zip
           if-no-files-found: error
-      - name: Publish direct test APK
+      - name: Publish direct test APK and ZIP
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mv fovyn-health-debug.apk fovyn-health-v1.0.1-test.apk
-          if gh release view fovyn-health-v1.0.1-test >/dev/null 2>&1; then
-            gh release upload fovyn-health-v1.0.1-test fovyn-health-v1.0.1-test.apk --clobber
+          if gh release view fovyn-health-v1.1.0-test >/dev/null 2>&1; then
+            gh release upload fovyn-health-v1.1.0-test fovyn-health-v1.1.0-test.apk fovyn-health-v1.1.0-test.zip --clobber
           else
-            gh release create fovyn-health-v1.0.1-test fovyn-health-v1.0.1-test.apk \
+            gh release create fovyn-health-v1.1.0-test fovyn-health-v1.1.0-test.apk fovyn-health-v1.1.0-test.zip \
               --prerelease \
-              --title "Fovyn Health v1.0.1 test" \
-              --notes "Test APK with corrected Health Connect permission registration and diagnostics."
+              --title "Fovyn Health v1.1.0 test" \
+              --notes "Test APK with measured workout calories, 14-day reconciliation and WorkManager background sync. Debug signed: uninstall an older test APK first if Android reports a signature mismatch."
           fi

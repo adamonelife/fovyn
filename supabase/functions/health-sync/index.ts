@@ -19,6 +19,13 @@ Deno.serve(async(req:Request)=>{
   if((payload.daily as unknown[]).length>32||(payload.exercises as unknown[]).length>500||(payload.sleep as unknown[]).length>100||(payload.heart_rate as unknown[]).length>32)return json({error:'Sync batch is too large'},413);
   const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data,error}=await admin.rpc('health_ingest_sync',{p_owner:user.id,p_payload:payload,p_is_test:false});
-  if(error){console.error('health_ingest_sync failed',{code:error.code,message:error.message});return json({error:'Health sync could not be saved. Retry is safe.'},500)}
-  return json(data);
+  if(error){
+    console.error('health_ingest_sync failed',{code:error.code,message:error.message});
+    await admin.from('health_connections').update({last_sync_status:'error',last_error:'Health sync could not be saved. Retry is safe.',last_attempted_sync_at:new Date().toISOString()}).eq('owner_id',user.id).eq('is_test',false).eq('device_id',payload.device_id);
+    await admin.from('health_sync_requests').update({status:'error',last_error:'Device sync failed.',updated_at:new Date().toISOString()}).eq('owner_id',user.id).eq('is_test',false);
+    return json({error:'Health sync could not be saved. Retry is safe.'},500)
+  }
+  const {data:finalized,error:finalizeError}=await admin.rpc('health_finalize_sync',{p_owner:user.id,p_payload:payload,p_is_test:false,p_ingest_result:data});
+  if(finalizeError){console.error('health_finalize_sync failed',{code:finalizeError.code,message:finalizeError.message});return json({error:'Health data saved, but sync status could not be finalized. It is safe to retry.'},500)}
+  return json(finalized);
 });

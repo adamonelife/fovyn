@@ -10,8 +10,8 @@ android {
         applicationId="com.fovyn.health"
         minSdk=28
         targetSdk=35
-        versionCode=2
-        versionName="1.0.1-test"
+        versionCode=3
+        versionName="1.1.0-test"
         testInstrumentationRunner="androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String","SUPABASE_URL","\"https://ukvrfejyyhgnzljquxvt.supabase.co\"")
         buildConfigField("String","SUPABASE_PUBLISHABLE_KEY","\"sb_publishable_dl9JaUQp-U1dmuaGY1qu2A_oUHsatPt\"")
@@ -29,6 +29,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.health.connect:connect-client:1.1.0")
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
