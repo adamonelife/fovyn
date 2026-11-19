@@ -9,7 +9,7 @@ import {fovynDateKey,shiftDateKey} from './fovynDate';
 import {LogDatePicker} from './ui';
 import TreeThumbnail from './TreeThumbnail';
 import TreeGuide from './TreeGuide';
-import {legacyPresentation as productPresentation} from './adam/presentation';
+import {activePresentation as productPresentation} from './adam/presentation';
 import {goalTreeIdentity,treeLevelLabel} from './forestGoalState';
 
 type Options={areas:AreaRow[];units:UnitRow[];subcategories:SubcategoryRow[];trackers:GoalTracker[];timezone:string};

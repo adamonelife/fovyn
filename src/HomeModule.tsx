@@ -20,7 +20,7 @@ import { fovynDateKey, watchFovynDay } from "./fovynDate";
 import { FunctionalIcon } from "./functionalIcons";
 import TodayPlanning from "./TodayPlanning";
 import ForestHero from "./ForestHero";
-import { legacyPresentation as productPresentation } from "./adam/presentation";
+import { activePresentation as productPresentation } from "./adam/presentation";
 const climateLabel = (value: string) => value[0].toUpperCase() + value.slice(1);
 function Onboarding({
   choose,

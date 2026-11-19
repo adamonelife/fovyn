@@ -28,6 +28,8 @@ import {
   Settings2,
   CalendarDays,
   BookOpen,
+  Dumbbell,
+  Utensils,
   Layers3,
   Download,
   Search,
@@ -82,7 +84,7 @@ import GoalsModule from "./GoalsModule";
 import PersonalPlanModule from "./PersonalPlanModule";
 import WeeklyModule from "./WeeklyModule";
 import ReadingModule from "./ReadingModule";
-import { legacyPresentation as productPresentation } from "./adam/presentation";
+import { activePresentation as productPresentation } from "./adam/presentation";
 import SettingsModule from "./SettingsModule";
 import SuperAdminSettings from "./SuperAdminSettings";
 import TrackHub, { type LogEditTarget } from "./TrackHub";
@@ -1749,6 +1751,7 @@ function ForestLab({ close }: { close: () => void }) {
 
 function App() {
   const [page, setPage] = useState<Page>("Home");
+  const [mobileMore,setMobileMore]=useState(false);
   const [logView, setLogView] = useState<LogView>("all");
   const [logEditTarget, setLogEditTarget] = useState<LogEditTarget>();
   const [logQuery, setLogQuery] = useState("");
@@ -1938,24 +1941,14 @@ function App() {
       >
         <Plus />
       </button>
-      <nav className="bottom">
-        {nav.map((n) => (
-          <button
-            key={n.name}
-            onClick={() => {
-              if (n.name === "Log") {
-                  setOpenTraining(0);
-                setLogEditTarget(undefined);
-                setLogView("all");
-              }
-              setPage(n.name);
-            }}
-            className={page === n.name ? "active" : ""}
-          >
-            <n.icon />
-            <span>{n.name}</span>
-          </button>
-        ))}
+      {mobileMore&&<div className="mobile-more-panel" role="dialog" aria-label="More Forvyn sections">{nav.filter(n=>!['Home','Weekly','Reading'].includes(n.name)).map(n=><button key={n.name} onClick={()=>{setMobileMore(false);if(n.name==='Log'){setOpenTraining(0);setLogEditTarget(undefined);setLogView('all');setLogQuery('')}setPage(n.name)}}><n.icon size={20}/>{n.name}</button>)}<button onClick={()=>setMobileMore(false)}><X size={18}/>Close</button></div>}
+      <nav className="bottom" aria-label="Main navigation">
+        <button className={page==='Home'?'active':''} onClick={()=>{setMobileMore(false);setPage('Home')}}><Home/><span>Home</span></button>
+        <button onClick={()=>{setMobileMore(false);setLogEditTarget(undefined);setLogQuery('');setLogHabitId('');setLogView('all');setOpenTraining(n=>n+1);setPage('Log')}}><Dumbbell/><span>Training</span></button>
+        <button className={page==='Weekly'?'active':''} onClick={()=>{setMobileMore(false);setPage('Weekly')}}><CalendarDays/><span>Weekly</span></button>
+        <button className={page==='Reading'?'active':''} onClick={()=>{setMobileMore(false);setPage('Reading')}}><BookOpen/><span>Reading</span></button>
+        <button className={page==='Log'&&logView==='nutrition'?'active':''} onClick={()=>{setMobileMore(false);setOpenTraining(0);setLogEditTarget(undefined);setLogQuery('');setLogHabitId('');setLogView('nutrition');setPage('Log')}}><Utensils/><span>Nutrition</span></button>
+        <button className={mobileMore?'active':''} aria-expanded={mobileMore} onClick={()=>setMobileMore(m=>!m)}><MoreHorizontal/><span>More</span></button>
       </nav>
       {search && (
         <SearchOverlayLive close={() => setSearch(false)} navigate={setPage} />
