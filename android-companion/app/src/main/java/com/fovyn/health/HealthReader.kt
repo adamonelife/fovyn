@@ -33,9 +33,13 @@ class HealthReader(private val context:Context){
     suspend fun granted()=client.permissionController.getGrantedPermissions()
     suspend fun snapshot(deviceId:String):HealthSnapshot{
         val granted=granted();if(!granted.containsAll(permissions))throw IllegalStateException("Grant all requested Health Connect permissions first")
-        val today=LocalDate.now(zone),first=today.minusDays(13),start=first.atStartOfDay(zone).toInstant(),end=today.plusDays(1).atStartOfDay(zone).toInstant()
+        val today=LocalDate.now(zone)
+        val first=today.minusDays(13)
+        val start=first.atStartOfDay(zone).toInstant()
+        val end=today.plusDays(1).atStartOfDay(zone).toInstant()
         val days=(0L..13L).map{first.plusDays(it)}.map{day->
-            val from=day.atStartOfDay(zone).toInstant(),to=day.plusDays(1).atStartOfDay(zone).toInstant()
+            val from=day.atStartOfDay(zone).toInstant()
+            val to=day.plusDays(1).atStartOfDay(zone).toInstant()
             val a=client.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL,ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),TimeRangeFilter.between(from,to)))
             DaySummary(day.toString(),a[StepsRecord.COUNT_TOTAL]?:0,a[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories?:0.0)
         }

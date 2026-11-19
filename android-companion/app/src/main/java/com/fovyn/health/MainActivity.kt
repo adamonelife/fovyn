@@ -41,7 +41,8 @@ class MainActivity:ComponentActivity(){
 
 @Composable private fun App(deepLinkAction:String?){
     val context=androidx.compose.ui.platform.LocalContext.current
-    val store=remember{TokenStore(context)},api=remember{FovynApi(store)}
+    val store=remember{TokenStore(context)}
+    val api=remember{FovynApi(store)}
     val sdk=remember{HealthConnectClient.getSdkStatus(context)}
     val reader=remember(sdk){if(sdk==HealthConnectClient.SDK_AVAILABLE)HealthReader(context)else null}
     var email by remember{mutableStateOf("")};var password by remember{mutableStateOf("")};var signedIn by remember{mutableStateOf(store.load()!=null)}
