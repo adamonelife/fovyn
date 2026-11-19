@@ -6,6 +6,7 @@ import {loadHealthWeek,openCompanion,requestHealthSync} from './healthRepository
 import {combinedActivityEquivalent,healthSyncFresh,healthSyncLabel,hours,targetProgress} from './healthDomain';
 import './health.css';
 import './weekly-reading.css';
+import CyclingDistancePrompt from './CyclingDistancePrompt';
 const icons:Record<string,typeof Dumbbell>={gym:Dumbbell,mobility:HeartPulse,reading:BookOpen,piano:Music,social:Users,ps5:Gamepad2,nads:Briefcase};
 type Props={ownerId:string;isTest:boolean;openTraining:()=>void;openReading:()=>void};
 export function localBaliTime(date=new Date()){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Makassar',dateStyle:'short',timeStyle:'short'}).format(date).replace(' ','T')}

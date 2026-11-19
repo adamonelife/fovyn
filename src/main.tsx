@@ -99,6 +99,7 @@ import Guidance from "./Guidance";
 import ForestOverview from "./ForestOverview";
 import { supabase } from "./supabase";
 import { loadHealthSettings, requestHealthSync } from "./healthRepository";
+import CyclingDistancePrompt from "./CyclingDistancePrompt";
 import { healthSyncFresh } from "./healthDomain";
 import { dataContextEvent, getDataContext, isSuperAdmin, resetDataContext, type DataContext } from "./testMode";
 import { completeOnboarding, type HomeData } from "./homeRepository";
@@ -1911,6 +1912,7 @@ function App() {
     <div className="app">
       {import.meta.env.VITE_FOVYN_ENVIRONMENT==='development'&&<div className="development-environment-banner">{import.meta.env.VITE_FOVYN_LOCAL_PREVIEW==='true'?<>LOCAL DISPOSABLE DATABASE · SYNTHETIC ACCOUNTS · Production unchanged <button onClick={()=>supabase.auth.signOut()}>Sign out of local preview</button></>:'DEVELOPMENT · DEV DATA'}</div>}
       {superAdmin&&dataContext==='test'&&<button className="test-mode-banner" onClick={()=>setPage('Account')}>TEST MODE · TEST DATA</button>}
+      {dataContext==='real'&&<CyclingDistancePrompt mode="prompt"/>}
       <aside className="rail">
         <Mark />
         <nav>
