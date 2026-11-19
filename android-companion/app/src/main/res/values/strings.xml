@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Fovyn Health</string>
+    <string name="health_permissions_rationale">Fovyn reads activity, sleep and heart-rate data selected by you and sends only the summaries needed by your private Fovyn account.</string>
+</resources>
+

@@ -21,6 +21,7 @@ import ClearingSettings from "./ClearingSettings";
 import { supabase } from "./supabase";
 import { Button } from "./ui";
 import CurrencySelector from "./CurrencySelector";
+import HealthConnectionPanel from "./HealthConnectionPanel";
 
 export default function SettingsModule() {
   const [data, setData] = useState<SettingsData | null>(null),
@@ -263,6 +264,7 @@ export default function SettingsModule() {
           </label>
         </div>
       </section>
+      <HealthConnectionPanel />
       <ClimateSettings />
       <ClearingSettings />
       <section className="settings-panel">
@@ -384,3 +386,4 @@ export default function SettingsModule() {
     </div>
   );
 }
+
