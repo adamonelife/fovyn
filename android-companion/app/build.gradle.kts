@@ -5,7 +5,7 @@ plugins {
 }
 android {
     namespace="com.fovyn.health"
-    compileSdk=35
+    compileSdk=36
     defaultConfig {
         applicationId="com.fovyn.health"
         minSdk=28
