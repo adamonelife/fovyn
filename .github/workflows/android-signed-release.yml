@@ -1,0 +1,123 @@
+name: Fovyn Health signed release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: Semantic version, for example 1.2.0
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fovyn-health-signed-release
+  cancel-in-progress: false
+
+jobs:
+  signed-release:
+    runs-on: ubuntu-latest
+    env:
+      FOVYN_ANDROID_KEYSTORE_BASE64: ${{ secrets.FOVYN_ANDROID_KEYSTORE_BASE64 }}
+      FOVYN_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.FOVYN_ANDROID_KEYSTORE_PASSWORD }}
+      FOVYN_ANDROID_KEY_ALIAS: ${{ secrets.FOVYN_ANDROID_KEY_ALIAS }}
+      FOVYN_ANDROID_KEY_PASSWORD: ${{ secrets.FOVYN_ANDROID_KEY_PASSWORD }}
+      FOVYN_ANDROID_CERT_SHA256: ${{ secrets.FOVYN_ANDROID_CERT_SHA256 }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: 8.11.1
+      - name: Validate release inputs and signing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.version_name }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version_name must use x.y.z"; exit 1; }
+          for name in FOVYN_ANDROID_KEYSTORE_BASE64 FOVYN_ANDROID_KEYSTORE_PASSWORD FOVYN_ANDROID_KEY_ALIAS FOVYN_ANDROID_KEY_PASSWORD FOVYN_ANDROID_CERT_SHA256; do
+            [ -n "${!name:-}" ] || { echo "Required Actions secret $name is missing"; exit 1; }
+          done
+      - name: Restore permanent signing keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="$RUNNER_TEMP/fovyn-health-release.p12"
+          printf '%s' "$FOVYN_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          echo "FOVYN_ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+      - name: Test and build permanently signed release
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          gradle -p android-companion test assembleRelease \
+            -PfovynVersionCode="$VERSION_CODE" \
+            -PfovynVersionName="${{ inputs.version_name }}" \
+            --stacktrace
+      - name: Verify certificate, identity and update compatibility
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK="android-companion/app/build/outputs/apk/release/app-release.apk"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          ACTUAL_CERT=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          EXPECTED_CERT=$(printf '%s' "$FOVYN_ANDROID_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          [ "$ACTUAL_CERT" = "$EXPECTED_CERT" ] || { echo "Signing certificate does not match the permanent certificate"; exit 1; }
+          BADGING=$("$AAPT" dump badging "$APK" | head -1)
+          printf '%s\n' "$BADGING"
+          [[ "$BADGING" == *"name='com.fovyn.health'"* ]] || { echo "Unexpected application ID"; exit 1; }
+          [[ "$BADGING" == *"versionCode='$VERSION_CODE'"* ]] || { echo "Unexpected versionCode"; exit 1; }
+
+          PREVIOUS_TAG=$(gh release list --limit 100 --json tagName --jq '[.[].tagName | select(startswith("fovyn-health-release-v"))] | first // empty')
+          if [ -n "$PREVIOUS_TAG" ]; then
+            mkdir -p "$RUNNER_TEMP/previous"
+            gh release download "$PREVIOUS_TAG" --pattern '*.apk' --dir "$RUNNER_TEMP/previous"
+            PREVIOUS_APK=$(find "$RUNNER_TEMP/previous" -name '*.apk' -type f | head -1)
+            PREVIOUS_CERT=$("$APKSIGNER" verify --print-certs "$PREVIOUS_APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+            [ "$PREVIOUS_CERT" = "$ACTUAL_CERT" ] || { echo "New APK cannot update the previous permanent release: certificate mismatch"; exit 1; }
+            PREVIOUS_BADGING=$("$AAPT" dump badging "$PREVIOUS_APK" | head -1)
+            [[ "$PREVIOUS_BADGING" == *"name='com.fovyn.health'"* ]] || { echo "Previous APK application ID differs"; exit 1; }
+            PREVIOUS_CODE=$(printf '%s' "$PREVIOUS_BADGING" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
+            [ "$VERSION_CODE" -gt "$PREVIOUS_CODE" ] || { echo "versionCode must increase"; exit 1; }
+            echo "Update compatibility verified against $PREVIOUS_TAG"
+          else
+            echo "First permanent release: no prior permanent APK exists for comparison"
+          fi
+      - name: Package release APK and ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME="fovyn-health-v${{ inputs.version_name }}"
+          cp android-companion/app/build/outputs/apk/release/app-release.apk "$NAME.apk"
+          zip "$NAME.zip" "$NAME.apk"
+          echo "RELEASE_NAME=$NAME" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ${{ env.RELEASE_NAME }}
+          path: |
+            ${{ env.RELEASE_NAME }}.apk
+            ${{ env.RELEASE_NAME }}.zip
+          if-no-files-found: error
+      - name: Publish direct downloads
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="fovyn-health-release-v${{ inputs.version_name }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; refusing to replace a signed release"
+            exit 1
+          fi
+          gh release create "$TAG" "$RELEASE_NAME.apk" "$RELEASE_NAME.zip" \
+            --title "Fovyn Health v${{ inputs.version_name }}" \
+            --notes "Permanently signed Fovyn Health release. Certificate and update compatibility verified by GitHub Actions."

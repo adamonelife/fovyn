@@ -3,6 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+val releaseStoreFile=System.getenv("FOVYN_ANDROID_KEYSTORE_PATH")
+val releaseStorePassword=System.getenv("FOVYN_ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias=System.getenv("FOVYN_ANDROID_KEY_ALIAS")
+val releaseKeyPassword=System.getenv("FOVYN_ANDROID_KEY_PASSWORD")
 android {
     namespace="com.fovyn.health"
     compileSdk=36
@@ -10,11 +14,25 @@ android {
         applicationId="com.fovyn.health"
         minSdk=28
         targetSdk=35
-        versionCode=3
-        versionName="1.1.0-test"
+        versionCode=providers.gradleProperty("fovynVersionCode").orNull?.toInt()?:4
+        versionName=providers.gradleProperty("fovynVersionName").orNull?:"1.2.0"
         testInstrumentationRunner="androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String","SUPABASE_URL","\"https://ukvrfejyyhgnzljquxvt.supabase.co\"")
         buildConfigField("String","SUPABASE_PUBLISHABLE_KEY","\"sb_publishable_dl9JaUQp-U1dmuaGY1qu2A_oUHsatPt\"")
+    }
+    signingConfigs {
+        if(!releaseStoreFile.isNullOrBlank()&&!releaseStorePassword.isNullOrBlank()&&!releaseKeyAlias.isNullOrBlank()&&!releaseKeyPassword.isNullOrBlank()){
+            create("release"){
+                storeFile=file(releaseStoreFile)
+                storePassword=releaseStorePassword
+                keyAlias=releaseKeyAlias
+                keyPassword=releaseKeyPassword
+                storeType="PKCS12"
+            }
+        }
+    }
+    buildTypes {
+        getByName("release"){signingConfig=signingConfigs.findByName("release")}
     }
     buildFeatures { compose=true; buildConfig=true }
     compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
