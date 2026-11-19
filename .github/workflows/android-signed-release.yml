@@ -69,7 +69,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
           AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
-          ACTUAL_CERT=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          ACTUAL_CERT=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^.*certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
           EXPECTED_CERT=$(printf '%s' "$FOVYN_ANDROID_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')
           [ "$ACTUAL_CERT" = "$EXPECTED_CERT" ] || { echo "Signing certificate does not match the permanent certificate"; exit 1; }
           BADGING=$("$AAPT" dump badging "$APK" | head -1)
@@ -82,7 +82,7 @@ jobs:
             mkdir -p "$RUNNER_TEMP/previous"
             gh release download "$PREVIOUS_TAG" --pattern '*.apk' --dir "$RUNNER_TEMP/previous"
             PREVIOUS_APK=$(find "$RUNNER_TEMP/previous" -name '*.apk' -type f | head -1)
-            PREVIOUS_CERT=$("$APKSIGNER" verify --print-certs "$PREVIOUS_APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+            PREVIOUS_CERT=$("$APKSIGNER" verify --print-certs "$PREVIOUS_APK" | sed -n 's/^.*certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
             [ "$PREVIOUS_CERT" = "$ACTUAL_CERT" ] || { echo "New APK cannot update the previous permanent release: certificate mismatch"; exit 1; }
             PREVIOUS_BADGING=$("$AAPT" dump badging "$PREVIOUS_APK" | head -1)
             [[ "$PREVIOUS_BADGING" == *"name='com.fovyn.health'"* ]] || { echo "Previous APK application ID differs"; exit 1; }
