@@ -18,10 +18,11 @@ import {
   type NutritionItem,
   type NutritionTarget,
 } from "./nutritionRepository";
+import MealPlan from "./MealPlan";
 import { formatDisplayLabel } from "./displayLabels";
 import { LogEmptyState, LogItemCard, LogSection } from "./ui";
 
-type View = "today" | "meals" | "saved" | "history" | "targets";
+type View = "today" | "plan" | "meals" | "saved" | "history" | "targets";
 type MealType = EntryInput["mealType"];
 const mealTypes: MealType[] = [
   "breakfast",
@@ -706,7 +707,7 @@ export default function NutritionModule({
         .toLowerCase()
         .includes(query.trim().toLowerCase()),
     allDayEntries = data.entries.filter(
-      (entry) => entry.occurred_at.slice(0, 10) === selectedDate,
+      (entry) => dayKey(new Date(entry.occurred_at)) === selectedDate,
     ),
     dayEntries = allDayEntries.filter(matches),
     daily = nutritionTotals(allDayEntries),
@@ -721,27 +722,28 @@ export default function NutritionModule({
           <p className="eyebrow">NUTRITION</p>
           <h1>Nutrition</h1>
         </div>
-        <button
+        <div className="meal-plan-header-actions"><button className="soft-button" onClick={()=>setView("plan")}>Import Meal Plan</button><button
           className="soft-button"
           onClick={() => setAddingEntry({ meal: "snack", date: selectedDate })}
         >
           <Plus /> Log Food
-        </button>
+        </button></div>
       </header>
       <nav className="nutrition-tabs">
-        {(["today", "meals", "saved", "history", "targets"] as View[]).map(
+        {(["today", "plan", "meals", "saved", "history", "targets"] as View[]).map(
           (value) => (
             <button
               className={view === value ? "active" : ""}
               onClick={() => setView(value)}
               key={value}
             >
-              {formatDisplayLabel(value, { saved: "Saved Meals" })}
+              {formatDisplayLabel(value, { saved: "Saved Meals", plan: "Meal Plan" })}
             </button>
           ),
         )}
       </nav>
       {error && <p className="goal-error">{error}</p>}
+      {view === "plan" && <MealPlan mode="week" selectedDate={selectedDate} onChanged={async()=>setData(await loadNutrition())} onImport={()=>setView("plan")}/>}
       {view === "today" && (
         <>
           <div className="nutrition-date-controls">
@@ -781,6 +783,8 @@ export default function NutritionModule({
               ))}
             </div>
           </section>
+          <MealPlan mode="today" selectedDate={selectedDate} onChanged={async()=>setData(await loadNutrition())} onImport={()=>setView("plan")}/>
+          <section className="meal-plan-panel"><h3>Quick log · recent / saved</h3><div className="meal-plan-actions">{data.items.slice(0,4).map(item=><button key={item.id} onClick={()=>setEditing({...item,id:"",source_item_id:item.id,entry_kind:item.kind,meal_type:"snack",custom_meal:null,occurred_at:new Date(selectedDate+"T12:00:00").toISOString(),notes:null,corrected_at:null,goalIds:[]})}>{item.name}</button>)}{data.entries.filter((e,i,a)=>a.findIndex(x=>x.name===e.name)===i).slice(0,4).map(e=><button key={e.id} onClick={()=>setEditing({...e,id:"",occurred_at:new Date(selectedDate+"T12:00:00").toISOString(),corrected_at:null,goalIds:[]})}>Repeat {e.name}</button>)}</div></section>
           {mealTypes.map((meal) => (
             <MealSection
               meal={meal}
