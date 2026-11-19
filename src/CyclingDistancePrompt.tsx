@@ -9,7 +9,8 @@ function dismissed(){try{return new Set<string>(JSON.parse(sessionStorage.getIte
 function when(item:HealthExercise){return new Intl.DateTimeFormat(undefined,{timeZone:'Asia/Makassar',dateStyle:'medium'}).format(new Date(item.started_at))}
 function description(item:HealthExercise){return `${cyclingDistanceLabel(item.exercise_type,item.exercise_label)} · ${Math.round(Number(item.duration_minutes))} minutes`}
 function DistanceEditor({item,onSaved,compact=false}:{item:HealthExercise;onSaved:()=>Promise<void>;compact?:boolean}){
- const[value,setValue]=useState(item.distance_km?.toString()??''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const[value,setValue]=useState(item.distance_needs_input?'':item.distance_km?.toString()??''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ useEffect(()=>setValue(item.distance_needs_input?'':item.distance_km?.toString()??''),[item.id,item.distance_needs_input,item.distance_km]);
  const save=async()=>{if(!validCyclingDistance(value)){setError('Enter the kilometres shown on the bike.');return}setBusy(true);setError('');try{await saveCyclingDistance(item.id,Number(value));await onSaved()}catch(e){setError((e as Error).message)}finally{setBusy(false)}};
  return <div className={compact?'cycling-distance-inline compact':'cycling-distance-inline'}><label>Distance (km)<input type="number" inputMode="decimal" min="0.001" max="1000" step="0.01" placeholder="Enter distance" value={value} onChange={e=>setValue(e.target.value)} aria-label={`Distance in kilometres for ${item.exercise_label}`}/></label><button className="save-record" disabled={busy||!validCyclingDistance(value)} onClick={()=>void save()}><Save size={17}/>{busy?'Saving…':'Save distance'}</button>{error&&<small role="alert" className="goal-error">{error}</small>}</div>
 }
