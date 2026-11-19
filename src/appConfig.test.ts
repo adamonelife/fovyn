@@ -14,3 +14,11 @@ describe('explicit application configuration',()=>{
     expect(()=>readAppConfig({...valid,VITE_FOVYN_ENVIRONMENT:'preview'})).toThrow('must be alpha or development');
   });
 });
+
+describe('explicit disposable loopback configuration',()=>{
+ const local={...valid,DEV:true,VITE_FOVYN_LOCAL_PREVIEW:'true',VITE_SUPABASE_URL:'http://127.0.0.1:4178/__supabase'};
+ it('permits HTTP only for explicitly flagged local development',()=>expect(readAppConfig(local).supabaseUrl).toBe(local.VITE_SUPABASE_URL));
+ it('rejects an unflagged HTTP backend',()=>expect(()=>readAppConfig({...local,VITE_FOVYN_LOCAL_PREVIEW:'false'})).toThrow('HTTPS'));
+ it('rejects HTTP in a build or Alpha even with the local flag',()=>{expect(()=>readAppConfig({...local,DEV:false})).toThrow('HTTPS');expect(()=>readAppConfig({...local,VITE_FOVYN_ENVIRONMENT:'alpha'})).toThrow('HTTPS');});
+ it('rejects a remote HTTP backend even with the local flag',()=>expect(()=>readAppConfig({...local,VITE_SUPABASE_URL:'http://example.supabase.co'})).toThrow('HTTPS'));
+});

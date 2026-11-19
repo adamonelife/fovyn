@@ -18,7 +18,9 @@ import {
 } from "./homeRepository";
 import { fovynDateKey, watchFovynDay } from "./fovynDate";
 import { FunctionalIcon } from "./functionalIcons";
+import TodayPlanning from "./TodayPlanning";
 import ForestHero from "./ForestHero";
+import { legacyPresentation as productPresentation } from "./adam/presentation";
 const climateLabel = (value: string) => value[0].toUpperCase() + value.slice(1);
 function Onboarding({
   choose,
@@ -214,13 +216,17 @@ function Roundup({
 }
 export default function HomeModule({
   navigate,
+  ownerId,
+  isTest,
   beginOnboarding = navigate,
   openForest,
   openRoutines,
   openTracker,
   openHabit,
 }: {
-  navigate: (page: "Log" | "Goals" | "Account") => void;
+  navigate: (page: "Log" | "Goals" | "Account" | "Plan") => void;
+  ownerId: string;
+  isTest: boolean;
   beginOnboarding?: (page: "Log" | "Goals") => void;
   openForest: (snapshot: Pick<HomeData,"goals"|"currentClearing">) => void;
   openRoutines: () => void;
@@ -322,12 +328,12 @@ export default function HomeModule({
           </button>
         </section>
       )}
-      <ForestHero
+      {productPresentation.forest&&<ForestHero
         goals={data.goals}
         currentClearing={data.currentClearing}
         onViewGoal={() => openForest({goals:data.goals,currentClearing:data.currentClearing})}
         onLog={() => navigate("Log")}
-      />
+      />}
       {data.clearingReviewPending && (
         <section className="clearing-home review">
           <div>
@@ -359,6 +365,7 @@ export default function HomeModule({
           </button>
         </section>
       )}
+      <TodayPlanning ownerId={ownerId} isTest={isTest} today={day!} openPlan={() => navigate("Plan")} />
       <section className="home-section">
         <div className="section-title">
           <div>
@@ -366,7 +373,7 @@ export default function HomeModule({
             <h2>What matters today?</h2>
           </div>
           <span className="today-facts">
-            {complete} done · {remaining} remaining
+            {complete} tracking done · {remaining} tracking remaining
           </span>
         </div>
         {data.routines.length > 0 && (

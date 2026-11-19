@@ -27,6 +27,7 @@ import {
   Flame,
   Settings2,
   CalendarDays,
+  BookOpen,
   Layers3,
   Download,
   Search,
@@ -78,6 +79,10 @@ import "./forest-renderer-fixes.css";
 import "./guidance.css";
 import WorkoutModule from "./WorkoutModule";
 import GoalsModule from "./GoalsModule";
+import PersonalPlanModule from "./PersonalPlanModule";
+import WeeklyModule from "./WeeklyModule";
+import ReadingModule from "./ReadingModule";
+import { legacyPresentation as productPresentation } from "./adam/presentation";
 import SettingsModule from "./SettingsModule";
 import SuperAdminSettings from "./SuperAdminSettings";
 import TrackHub, { type LogEditTarget } from "./TrackHub";
@@ -117,11 +122,14 @@ class ForestErrorBoundary extends React.Component<{children:React.ReactNode;clos
   render(){if(!this.state.error)return this.props.children;return <div className="forest-overview-shade" role="alert"><section className="forest-overview forest-safe-failure"><div><span>MY FOREST</span><h1>Your Forest could not open.</h1><p>Your data is safe. Close this view and try again.</p><button onClick={this.props.close}>Return Home</button><button onClick={()=>location.reload()}>Reload Fovyn</button></div></section></div>;}
 }
 
-type Page = "Home" | "Log" | "Goals" | "History" | "Account";
+type Page = "Home" | "Log" | "Goals" | "Plan" | "Weekly" | "Reading" | "History" | "Account";
 const nav: { name: Page; icon: typeof Home }[] = [
   { name: "Home", icon: Home },
   { name: "Log", icon: Activity },
   { name: "Goals", icon: Target },
+  { name: "Plan", icon: CalendarDays },
+  { name: "Weekly", icon: CalendarDays },
+  { name: "Reading", icon: BookOpen },
   { name: "History", icon: History },
   { name: "Account", icon: UserRound },
 ];
@@ -1746,7 +1754,10 @@ function App() {
   const [logQuery, setLogQuery] = useState("");
   const [logHabitId, setLogHabitId] = useState("");
   const [goalTrackerId, setGoalTrackerId] = useState("");
+  const [planGoalId,setPlanGoalId]=useState<string>();
+  const [planCreateGoal,setPlanCreateGoal]=useState(false);
   const [quickLogSignal, setQuickLogSignal] = useState(0);
+  const [openTraining,setOpenTraining]=useState(0);
   const [lab, setLab] = useState(false);
   const [forest, setForest] = useState(false);
   const [forestSnapshot, setForestSnapshot] = useState<Pick<HomeData,'goals'|'currentClearing'>>();
@@ -1790,6 +1801,7 @@ function App() {
   const openConfiguredLog = (module: string, name: string) => {
     setLogEditTarget(undefined);
     setLogHabitId("");
+    setOpenTraining(module==='training'?openTraining+1:0);
     setLogView(moduleLogView(module));
     setLogQuery(name);
     setPage("Log");
@@ -1821,6 +1833,8 @@ function App() {
   const content =
     page === "Home" ? (
       <HomeModule
+        ownerId={session.user.id}
+        isTest={dataContext === "test"}
         navigate={setPage}
         beginOnboarding={beginOnboarding}
         openForest={(snapshot) => {setForestSnapshot(snapshot);setForest(true)}}
@@ -1846,16 +1860,26 @@ function App() {
         initialQuery={logQuery}
         initialHabitId={logHabitId || undefined}
         quickLogSignal={quickLogSignal}
+        openTrainingSignal={openTraining}
         onFirstSetupComplete={onboarding ? finishOnboarding : undefined}
         onMakeGoal={(trackerId) => { setGoalTrackerId(trackerId); setPage("Goals"); }}
       />
     ) : page === "Goals" ? (
       <GoalsModule
         onFirstSetupComplete={onboarding ? finishOnboarding : undefined}
+        initialGoalId={planGoalId}
+        startCreating={planCreateGoal}
+        onInitialGoalHandled={()=>{setPlanGoalId(undefined);setPlanCreateGoal(false)}}
         initialTrackerId={goalTrackerId}
         onInitialTrackerHandled={() => setGoalTrackerId("")}
         openLog={(module, name) => { setGoalTrackerId(""); openConfiguredLog(module, name); }}
       />
+    ) : page === "Plan" ? (
+      <PersonalPlanModule key={`${session.user.id}:${dataContext}`} ownerId={session.user.id} isTest={dataContext==='test'} openGoal={id=>{setPlanGoalId(id);setPlanCreateGoal(!id);setPage("Goals")}}/>
+    ) : page === "Weekly" ? (
+      <WeeklyModule ownerId={session.user.id} isTest={dataContext==='test'} openTraining={()=>{setLogEditTarget(undefined);setLogView('all');setOpenTraining(n=>n+1);setPage('Log')}} openReading={()=>setPage('Reading')}/>
+    ) : page === "Reading" ? (
+      <ReadingModule ownerId={session.user.id} isTest={dataContext==='test'} openWeekly={()=>setPage('Weekly')}/>
     ) : page === "History" ? (
       <HistoryHub openLog={openHistoryRecord} />
     ) : page === "Account" ? (
@@ -1865,7 +1889,7 @@ function App() {
     );
   return (
     <div className="app">
-      {import.meta.env.VITE_FOVYN_ENVIRONMENT==='development'&&<div className="development-environment-banner">DEVELOPMENT · DEV DATA</div>}
+      {import.meta.env.VITE_FOVYN_ENVIRONMENT==='development'&&<div className="development-environment-banner">{import.meta.env.VITE_FOVYN_LOCAL_PREVIEW==='true'?<>LOCAL DISPOSABLE DATABASE · SYNTHETIC ACCOUNTS · Production unchanged <button onClick={()=>supabase.auth.signOut()}>Sign out of local preview</button></>:'DEVELOPMENT · DEV DATA'}</div>}
       {superAdmin&&dataContext==='test'&&<button className="test-mode-banner" onClick={()=>setPage('Account')}>TEST MODE · TEST DATA</button>}
       <aside className="rail">
         <Mark />
@@ -1875,6 +1899,7 @@ function App() {
               key={n.name}
               onClick={() => {
                 if (n.name === "Log") {
+                  setOpenTraining(0);
                   setLogEditTarget(undefined);
                   setLogQuery("");
                   setLogHabitId("");
@@ -1893,12 +1918,12 @@ function App() {
           <Search />
           <span>Search</span>
         </button>
-        {superAdmin&&<button className="lab-link" onClick={() => setLab(true)}>
+        {superAdmin&&productPresentation.forest&&<button className="lab-link" onClick={() => setLab(true)}>
           <FlaskConical />
           <span>Forest Lab</span>
         </button>}
       </aside>
-      <main><Guidance feature={page.toLowerCase() as "home"|"log"|"goals"|"history"|"account"}>{content}</Guidance></main>
+      <main key={`${session.user.id}:${dataContext}`}><nav className="core-module-navigation" aria-label="Core modules">{([{key:"money",label:"Money"},{key:"nutrition",label:"Nutrition"},{key:"training",label:"Training"},{key:"activity",label:"Activity"},{key:"recovery",label:"Recovery"}] as const).map(item=><button key={item.key} onClick={()=>{setLogEditTarget(undefined);setLogQuery('');setLogHabitId('');setLogView(item.key==='training'?'all':item.key);setPage('Log');if(item.key==='training')setOpenTraining(n=>n+1);else setOpenTraining(0)}}>{item.label}</button>)}</nav>{page==='Plan'||(page==='Goals'&&!productPresentation.forest)?content:<Guidance feature={page.toLowerCase() as "home"|"log"|"goals"|"history"|"account"}>{content}</Guidance>}</main>
       <button
         className="add"
         onClick={() => {
@@ -1919,6 +1944,7 @@ function App() {
             key={n.name}
             onClick={() => {
               if (n.name === "Log") {
+                  setOpenTraining(0);
                 setLogEditTarget(undefined);
                 setLogView("all");
               }
@@ -1934,13 +1960,13 @@ function App() {
       {search && (
         <SearchOverlayLive close={() => setSearch(false)} navigate={setPage} />
       )}{" "}
-      {forest&&forestSnapshot && <ForestErrorBoundary close={() => setForest(false)}><ForestOverview goals={forestSnapshot.goals} currentClearing={forestSnapshot.currentClearing} close={() => setForest(false)} onViewGoals={() => {setForest(false);setPage("Goals")}} onLog={() => {setForest(false);setPage("Log")}} /></ForestErrorBoundary>}{" "}
-      {lab && <React.Suspense fallback={<div className="forest-lazy-loading">Loading Forest Lab…</div>}><ForestLabQA close={() => setLab(false)} /></React.Suspense>}
+      {productPresentation.forest&&forest&&forestSnapshot && <ForestErrorBoundary close={() => setForest(false)}><ForestOverview goals={forestSnapshot.goals} currentClearing={forestSnapshot.currentClearing} close={() => setForest(false)} onViewGoals={() => {setForest(false);setPage("Goals")}} onLog={() => {setForest(false);setPage("Log")}} /></ForestErrorBoundary>}{" "}
+      {productPresentation.forest&&lab && <React.Suspense fallback={<div className="forest-lazy-loading">Loading Forest Lab…</div>}><ForestLabQA close={() => setLab(false)} /></React.Suspense>}
     </div>
   );
 }
 
-const localForestQA=import.meta.env.DEV&&new URLSearchParams(location.search).has('forest-qa');
+const localForestQA=productPresentation.forest&&import.meta.env.DEV&&new URLSearchParams(location.search).has('forest-qa');
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     {localForestQA?<React.Suspense fallback={<div className="forest-lazy-loading">Loading Forest QA…</div>}><ForestLabQA close={()=>history.back()}/></React.Suspense>:<App />}

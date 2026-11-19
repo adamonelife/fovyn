@@ -1,5 +1,7 @@
+import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { Check, HeartPulse, MoreHorizontal, Plus, Timer, X } from "lucide-react";
+import { loadWorkoutWithCache } from "./workoutReadCache";
 import ExerciseLibrary from './ExerciseLibrary';
 import TrainingTemplates from './TrainingTemplates';
 import { formatDisplayLabel } from './displayLabels';
@@ -26,7 +28,6 @@ import {
 import {
   queueWorkout,
   queuedWorkouts,
-  syncQueuedWorkouts,
 } from "./trainingOffline";
 type Item = BuiltExercise & {
   sets: SetPerformance[];
@@ -57,7 +58,7 @@ export default function WorkoutModule({
   close: () => void;
   onSaved: (t: string, v: string) => void;
 }) {
-  const [session, setSession] = useState<unknown>(),
+  const [session, setSession] = useState<Session | null>(),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
     [error, setError] = useState("");
@@ -102,7 +103,7 @@ export default function WorkoutModule({
         </section>
       </div>
     );
-  return <Start close={close} onSaved={onSaved} />;
+  return <Start key={session.user.id} close={close} onSaved={onSaved} />;
 }
 function Start(p: {
   close: () => void;
@@ -118,14 +119,13 @@ function Start(p: {
     }>(),
     [libraryOpen,setLibraryOpen]=useState(false),
     [templatesOpen,setTemplatesOpen]=useState(false),
-    [pending, setPending] = useState(queuedWorkouts().length);
+    [pending, setPending] = useState(0),
+    [queueError, setQueueError] = useState('');
   useEffect(() => {
     listTemplates().then(setTemplates);
-    if (navigator.onLine)
-      syncQueuedWorkouts().then((x) => setPending(x.remaining));
-    const sync=()=>syncQueuedWorkouts().then((x)=>setPending(x.remaining));
-    window.addEventListener("online",sync);
-    return()=>window.removeEventListener("online",sync);
+    let active = true;
+    queuedWorkouts().then(items => { if (active) setPending(items.length); }).catch(error => { if (active) setQueueError(error instanceof Error ? error.message : 'Could not read local workout drafts.'); });
+    return () => { active = false; };
   }, []);
   if (choice) return <Editor {...choice} {...p} />;
   if(libraryOpen)return <ExerciseLibrary close={()=>{setLibraryOpen(false);listTemplates().then(setTemplates)}}/>;
@@ -137,10 +137,10 @@ function Start(p: {
           <X />
         </button>
         <p className="eyebrow">START A WORKOUT</p>
-        <h2>Manual or saved template?</h2>
+        <h2>Manual or saved template?</h2>{queueError && <p role="alert">{queueError}</p>}<p role="status">Automatic offline replay is paused while safe retries are prepared. Existing drafts are preserved on this device.</p>
         {pending > 0 && (
           <p className="sync-note">
-            {pending} workout{pending > 1 ? "s" : ""} waiting to sync
+            {pending} workout{pending > 1 ? "s" : ""} preserved on this device (automatic replay paused)
           </p>
         )}
         <button
@@ -229,36 +229,33 @@ function Editor({
     } catch {
       // Invalid legacy preferences should not prevent a workout opening.
     }
-    const cacheKey=`forbair-workout-cache:${type}:${variant}:${manual}`;
-    const prepared=type==='Recovery'?prepareRecoveryWorkout().then(value=>{setRecovery(value);setRecoveryStageId(value.enrolment?.current_stage_id??value.stages[0].id)}):Promise.resolve(undefined);
-    prepared.then(()=>loadWorkout(type, variant, manual,templateId))
-      .then((d) => {
-        localStorage.setItem(cacheKey,JSON.stringify(d));
+    let active = true;
+    loadWorkoutWithCache({ type, variant, manual, templateId }, async () => {
+      if (type === 'Recovery') {
+        const value = await prepareRecoveryWorkout();
+        if (active) {
+          setRecovery(value);
+          setRecoveryStageId(value.enrolment?.current_stage_id ?? value.stages[0].id);
+        }
+      }
+      return loadWorkout(type, variant, manual, templateId);
+    }, () => active)
+      .then(({ data: d, offline }) => {
+        if (!active) return;
         setLibrary(d.exercises);
         setRules(d.rules);
         setLogs(d.logs);
-        setItems(
-          d.items.map((x) => ({
-            ...x,
-            sets: x.target.map((s) => ({ ...s })),
-            sideSets:x.exercise.unilateral?{left:x.target.map(s=>({...s})),right:x.target.map(s=>({...s}))}:undefined,
-            rpe: "",
-            notes: "",
-          })),
-        );
+        setItems(d.items.map(x => ({
+          ...x,
+          sets: x.target.map(s => ({ ...s })),
+          sideSets: x.exercise.unilateral ? { left: x.target.map(s => ({ ...s })), right: x.target.map(s => ({ ...s })) } : undefined,
+          rpe: '', notes: '',
+        })));
+        if (offline) setError('Offline copy loaded for this account. Automatic workout replay remains paused; drafts stay on this device.');
       })
-      .catch((e) => {
-        try{
-          const d=JSON.parse(localStorage.getItem(cacheKey)||"null");
-          if(!d)throw e;
-          setLibrary(d.exercises);
-          setRules(d.rules);
-          setLogs(d.logs);
-          setItems(d.items.map((x:BuiltExercise)=>({...x,sets:x.target.map((s:SetPerformance)=>({...s})),sideSets:x.exercise.unilateral?{left:x.target.map((s:SetPerformance)=>({...s})),right:x.target.map((s:SetPerformance)=>({...s}))}:undefined,rpe:"",notes:""})));
-          setError("Offline copy loaded. This workout will sync when reconnected.");
-        }catch{setError(e.message)}
-      })
-      .finally(() => setLoading(false));
+      .catch(e => { if (active) setError(e.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
   useEffect(() => {
     if (!rest) return;
@@ -388,8 +385,12 @@ function Editor({
       setSummary({ sets, volume, pbs, offline: false });
     } catch (e) {
       if (!navigator.onLine || e instanceof TypeError) {
-        queueWorkout(payload());
-        setSummary({ sets, volume, pbs, offline: true });
+        try {
+          await queueWorkout(payload());
+          setSummary({ sets, volume, pbs, offline: true });
+        } catch (draftError) {
+          setError(draftError instanceof Error ? draftError.message : 'Could not preserve this workout on the device.');
+        }
       } else setError(e instanceof Error ? e.message : "Unable to save");
     }
   }
@@ -399,8 +400,9 @@ function Editor({
       <div className="workout-full">
         <section className="workout-summary">
           <p className="eyebrow">
-            {summary.offline ? "SAVED ON DEVICE" : "WORKOUT SAVED"}
+            {summary.offline ? "DRAFT PRESERVED ON DEVICE" : "WORKOUT SAVED"}
           </p>
+          {summary.offline && <p role="status">This account’s draft is stored locally. Automatic replay is paused; it has not been confirmed saved to the database.</p>}
           <h1>
             {templateName??`${type} ${variant}`} complete
           </h1>

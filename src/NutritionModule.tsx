@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Apple, Archive, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import {
   archiveItem,
@@ -170,6 +170,7 @@ function EntryEditor({
     [goalIds, setGoalIds] = useState(entry?.goalIds ?? []),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const saving = useRef(false);
   const choose = (id: string) => {
     setSource(id);
     const item = data.items.find((candidate) => candidate.id === id);
@@ -188,6 +189,8 @@ function EntryEditor({
   };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving.current) return;
+    saving.current = true;
     setBusy(true);
     try {
       await saveEntry(
@@ -209,6 +212,7 @@ function EntryEditor({
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to save");
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   };
@@ -375,7 +379,9 @@ function ItemEditor({
     [healthy, setHealthy] = useState<"" | "yes" | "no">(
       item?.healthy == null ? "" : item.healthy ? "yes" : "no",
     ),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const saving = useRef(false);
   return (
     <div className="sheet-shade" onMouseDown={close}>
       <form
@@ -383,6 +389,9 @@ function ItemEditor({
         onMouseDown={(event) => event.stopPropagation()}
         onSubmit={async (event) => {
           event.preventDefault();
+          if (saving.current) return;
+          saving.current = true;
+          setBusy(true);
           try {
             await saveItem(
               {
@@ -398,6 +407,9 @@ function ItemEditor({
             setError(
               reason instanceof Error ? reason.message : "Unable to save",
             );
+          } finally {
+            saving.current = false;
+            setBusy(false);
           }
         }}
       >
@@ -437,8 +449,8 @@ function ItemEditor({
           </select>
         </label>
         {error && <p className="goal-error">{error}</p>}
-        <button className="save-record" disabled={!name.trim()}>
-          {item ? "Save Changes" : "Save"}
+        <button className="save-record" disabled={busy || !name.trim()}>
+          {busy ? "Saving…" : item ? "Save Changes" : "Save"}
         </button>
       </form>
     </div>

@@ -21,6 +21,7 @@ export default function TrackHub({
   onFirstSetupComplete,
   initialView = "all",
   quickLogSignal = 0,
+  openTrainingSignal = 0,
   editTarget,
   initialQuery = "",
   initialHabitId,
@@ -29,6 +30,7 @@ export default function TrackHub({
   onFirstSetupComplete?: () => Promise<void> | void;
   initialView?: LogView;
   quickLogSignal?: number;
+  openTrainingSignal?: number;
   editTarget?: LogEditTarget;
   initialQuery?: string;
   initialHabitId?: string;
@@ -37,7 +39,8 @@ export default function TrackHub({
   const [view, setView] = useState<LogView>(
     onFirstSetupComplete ? "manage" : (editTarget?.view ?? initialView),
   );
-  const [workout, setWorkout] = useState(false);
+  const [workout, setWorkout] = useState(openTrainingSignal>0);
+  useEffect(()=>{if(openTrainingSignal>0)setWorkout(true)},[openTrainingSignal]);
   const [query, setQuery] = useState(initialQuery);
   useEffect(() => {
     if (quickLogSignal > 0) {

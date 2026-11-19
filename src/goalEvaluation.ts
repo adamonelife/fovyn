@@ -17,3 +17,17 @@ export function anchoredPeriod(start:string,occurrence:string,days:number){
   const cycle=Math.max(0,Math.floor((occursAt-startAt)/day/days)),periodStart=new Date(startAt+cycle*days*day),periodEnd=new Date(startAt+(cycle*days+days-1)*day);
   return{start:periodStart.toISOString().slice(0,10),end:periodEnd.toISOString().slice(0,10)};
 }
+
+// Local specification of finite-goal bounds. This is not a replacement for the
+// hosted SQL function and does not execute/replay historical evaluations.
+export function boundedEvaluationPeriod(start: string, occurrence: string, days: number, endsOn: string | null) {
+  for (const date of [start, occurrence, ...(endsOn ? [endsOn] : [])]) {
+    const parsed = new Date(`${date}T12:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) throw new Error('Invalid goal date.');
+  }
+  if (!Number.isInteger(days) || days < 1) throw new Error('Period length must be a positive integer.');
+  if (occurrence < start || (endsOn !== null && endsOn < start)) return null;
+  const effective = endsOn !== null && occurrence > endsOn ? endsOn : occurrence;
+  const bounds = anchoredPeriod(start, effective, days);
+  return { start: bounds.start, end: endsOn !== null && bounds.end > endsOn ? endsOn : bounds.end };
+}

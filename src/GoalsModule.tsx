@@ -9,6 +9,7 @@ import {fovynDateKey,shiftDateKey} from './fovynDate';
 import {LogDatePicker} from './ui';
 import TreeThumbnail from './TreeThumbnail';
 import TreeGuide from './TreeGuide';
+import {legacyPresentation as productPresentation} from './adam/presentation';
 import {goalTreeIdentity,treeLevelLabel} from './forestGoalState';
 
 type Options={areas:AreaRow[];units:UnitRow[];subcategories:SubcategoryRow[];trackers:GoalTracker[];timezone:string};
@@ -59,7 +60,7 @@ function Editor({options,goal,initialTrackerId='',first=false,close,saved}:{opti
 <button className="sheet-close" onClick={close} aria-label="Close">
 <X/>
 </button>
-<p className="eyebrow">{goal?'EDIT GOAL':'+ PLANT GOAL'}</p>
+<p className="eyebrow">{goal?'EDIT GOAL':'+ ADD GOAL'}</p>
 <h2>{goal?'Edit Goal':'What would you like to grow?'}</h2>
 <div className="goal-form-grid">
 <label className="span-2">Goal name<input autoFocus value={title} onChange={e=>setTitle(e.target.value)}/>
@@ -204,14 +205,14 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
   const act=async(fn:()=>Promise<unknown>)=>{setBusy(true);setError('');try{await fn();changed();close();}catch(e){setError(e instanceof Error?e.message:'Unable to update Goal')}finally{setBusy(false)}};
   if(editing==='details')return <Editor options={options} goal={goal} close={()=>setEditing(null)} saved={()=>{setEditing(null);changed();close()}}/>;
   if(editing==='prune')return <PruneEditor options={options} goal={goal} close={()=>setEditing(null)} saved={()=>{setEditing(null);changed();close()}}/>;
-  if(guideOpen)return <TreeGuide goal={{title:goal.title,tree_stage:goal.tree_stage,tree_asset_key:goal.tree_asset_key,tree_species:goal.tree_species}} close={()=>setGuideOpen(false)}/>;
+  if(productPresentation.forest&&guideOpen)return <TreeGuide goal={{title:goal.title,tree_stage:goal.tree_stage,tree_asset_key:goal.tree_asset_key,tree_species:goal.tree_species}} close={()=>setGuideOpen(false)}/>;
   return <div className="sheet-shade" onMouseDown={close}>
 <section className="goal-detail-v1" onMouseDown={e=>e.stopPropagation()}>
 <button className="sheet-close" onClick={close} aria-label="Close">
 <X/>
 </button>
 <p className="eyebrow">{formatDisplayLabel(goal.area_key)} · {formatDisplayLabel(goal.status)} Goal</p>
-<div className="goal-tree-identity"><TreeThumbnail stage={goal.tree_stage} assetKey={goal.tree_asset_key} species={goal.tree_species}/><div><span>YOUR TREE</span><h1>{goal.title}</h1><button className="goal-tree-guide-link" onClick={()=>setGuideOpen(true)}>{treeLevelLabel(goal.tree_stage)} <ChevronRight/></button><small>{formatDisplayLabel(goal.tree_health)} · {formatDisplayLabel(goal.area_key)}</small></div></div>{goal.description&&<p>{goal.description}</p>}{goal.tracker&&<section className="goal-tracked-by"><span>Tracked by</span><b>{goal.tracker.name}</b>{openLog&&<button onClick={()=>openLog(goal.tracker!.module,goal.tracker!.name)}>Log {goal.tracker.name}</button>}</section>}<div className="goal-live-progress">
+<div className="goal-tree-identity">{productPresentation.forest&&<TreeThumbnail stage={goal.tree_stage} assetKey={goal.tree_asset_key} species={goal.tree_species}/>}<div><h1>{goal.title}</h1>{productPresentation.forest&&<button className="goal-tree-guide-link" onClick={()=>setGuideOpen(true)}>{treeLevelLabel(goal.tree_stage)} <ChevronRight/></button>}<small>{formatDisplayLabel(goal.area_key)}</small></div></div>{goal.description&&<p>{goal.description}</p>}{goal.tracker&&<section className="goal-tracked-by"><span>Tracked by</span><b>{goal.tracker.name}</b>{openLog&&<button onClick={()=>openLog(goal.tracker!.module,goal.tracker!.name)}>Log {goal.tracker.name}</button>}</section>}<div className="goal-live-progress">
 <div>
 <b>{Math.round(progress.percent)}%</b>
 <span>Current progress</span>
@@ -258,8 +259,8 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
 <small>{rule.effective_to?'Previous rule':'Current rule'}</small>
 </span>
 <time>{rule.effective_from} → {rule.effective_to??'now'}</time>
-</div>)}</section>}{goal.events.length>0&&<section className="goal-record-list growth-rings">
-<h3>Growth Rings</h3>{goal.events.map(event=>
+</div>)}</section>}{goal.events.some(event=>productPresentation.forest||event.event_type!=='tree_grew')&&<section className="goal-record-list growth-rings">
+<h3>{productPresentation.forest?'Growth Rings':'Goal history'}</h3>{goal.events.filter(event=>productPresentation.forest||event.event_type!=='tree_grew').map(event=>
 <div key={event.id}>
 {event.event_type==='tree_grew'?<TreeThumbnail className="growth-ring-tree" stage={Number(event.details.tree_stage??goal.tree_stage)} species={goalTreeIdentity(Number(event.details.tree_stage??goal.tree_stage)).species}/>:null}
 <span>
@@ -277,35 +278,37 @@ function Detail({goal,options,close,changed,openLog}:{goal:GoalBundle;options:Op
 </div>;
 }
 
-export default function GoalsModule({onFirstSetupComplete,initialTrackerId='',onInitialTrackerHandled,openLog}:{onFirstSetupComplete?:()=>Promise<void>|void;initialTrackerId?:string;onInitialTrackerHandled?:()=>void;openLog?:(module:string,name:string)=>void}={}){
-  const[sessionChecked,setSessionChecked]=useState(false),[signedIn,setSignedIn]=useState(false),[goals,setGoals]=useState<GoalBundle[]>([]),[options,setOptions]=useState<Options>({areas:[],units:[],subcategories:[],trackers:[],timezone:'UTC'}),[loading,setLoading]=useState(true),[error,setError]=useState(''),[creating,setCreating]=useState(Boolean(initialTrackerId)),[selected,setSelected]=useState<GoalBundle|null>(null),[filter,setFilter]=useState<'primary'|'secondary'|'dormant'|'completed'|'ended'>('primary'),[view,setView]=useState<'goals'|'groves'>('goals');
+export default function GoalsModule({onFirstSetupComplete,initialTrackerId='',initialGoalId,startCreating=false,onInitialGoalHandled,onInitialTrackerHandled,openLog}:{onFirstSetupComplete?:()=>Promise<void>|void;initialTrackerId?:string;initialGoalId?:string;startCreating?:boolean;onInitialGoalHandled?:()=>void;onInitialTrackerHandled?:()=>void;openLog?:(module:string,name:string)=>void}={}){
+  const[sessionChecked,setSessionChecked]=useState(false),[signedIn,setSignedIn]=useState(false),[goals,setGoals]=useState<GoalBundle[]>([]),[options,setOptions]=useState<Options>({areas:[],units:[],subcategories:[],trackers:[],timezone:'UTC'}),[loading,setLoading]=useState(true),[error,setError]=useState(''),[creating,setCreating]=useState(Boolean(initialTrackerId)||startCreating),[selected,setSelected]=useState<GoalBundle|null>(null),[filter,setFilter]=useState<'primary'|'secondary'|'dormant'|'completed'|'ended'>('primary'),[view,setView]=useState<'goals'|'groves'>('goals');
   const load=async()=>{setLoading(true);setError('');try{const[o,g]=await Promise.all([loadGoalOptions(),listGoals()]);setOptions(o);setGoals(g);setSignedIn(true);}catch(e){setError(e instanceof Error?e.message:'Unable to load Goals')}finally{setLoading(false);setSessionChecked(true)}};
   useEffect(()=>{supabase.auth.getSession().then(x=>{if(x.data.session)load();else{setSessionChecked(true);setLoading(false)}});const{data}=supabase.auth.onAuthStateChange((_e,s)=>{setSignedIn(Boolean(s));if(s)load()});return()=>data.subscription.unsubscribe();},[]);
+  useEffect(()=>{if(initialGoalId&&goals.length){const goal=goals.find(g=>g.id===initialGoalId);if(goal){setSelected(goal);onInitialGoalHandled?.();}}},[initialGoalId,goals]);
+  useEffect(()=>{if(startCreating)onInitialGoalHandled?.();},[startCreating]);
   const visible=useMemo(()=>goals.filter(g=>filter==='primary'||filter==='secondary'?g.status==='active'&&g.presentation_priority===filter:g.status===filter),[goals,filter]);
   if(!sessionChecked||loading)return <div className="page-wrap goals-loading">Loading Goals…</div>;
-  if(!signedIn)return <div className="page-wrap">
+  if(!signedIn)return <div className={productPresentation.forest?"page-wrap":"page-wrap goals-without-forest"}>
 <SignIn onDone={load}/>
 </div>;
-  return <div className="page-wrap">
+  return <div className={productPresentation.forest?"page-wrap":"page-wrap goals-without-forest"}>
 <header className="page-head">
 <div>
 <p className="eyebrow">GOALS</p>
-<h1>What you’re growing.</h1>
+<h1>Your goals.</h1>
 </div>{view==='goals'&&<button className="soft-button" onClick={()=>setCreating(true)}>
-<Plus size={17}/> Plant Goal</button>}</header>{error&&<p className="goal-error">{error}</p>}<div className="goals-view-switch">
+<Plus size={17}/> Add Goal</button>}</header>{error&&<p className="goal-error">{error}</p>}<div className="goals-view-switch">
 <button className={view==='goals'?'active':''} onClick={()=>setView('goals')}>Goals</button>
 <button className={view==='groves'?'active':''} onClick={()=>setView('groves')}>Groves</button>
 </div>{view==='groves'?<GrovesPanel goals={goals}/>:<>
 <div className="goal-tabs goal-tabs-primary">{(['primary','secondary'] as const).map(x=>
 <button className={filter===x?'active':''} onClick={()=>setFilter(x)} key={x}>{formatDisplayLabel(x)}</button>)}</div>
 <div className="goal-tabs goal-tabs-secondary">{(['dormant','completed','ended'] as const).map(x=>
-<button className={filter===x?'active':''} onClick={()=>setFilter(x)} key={x}>{formatDisplayLabel(x,{dormant:'Dormant Woods'})}</button>)}</div>
+<button className={filter===x?'active':''} onClick={()=>setFilter(x)} key={x}>{formatDisplayLabel(x,{dormant:productPresentation.forest?'Dormant Woods':'Dormant Goals'})}</button>)}</div>
 <div className="goals-list">{visible.map(goal=>{const unit=options.units.find(x=>x.key===goal.rule?.unit_key)?.symbol??goal.rule?.custom_unit??'';const progress=goal.rule?goalProgress(goal.rule,goal.records,new Date(),1,goal.starts_on,goal.ends_on):{actual:0,percent:0};return <article className="goal-card" key={goal.id} onClick={()=>setSelected(goal)}>
-<TreeThumbnail stage={goal.tree_stage} assetKey={goal.tree_asset_key} species={goal.tree_species}/>
+{productPresentation.forest&&<TreeThumbnail stage={goal.tree_stage} assetKey={goal.tree_asset_key} species={goal.tree_species}/>}
 <div className="goal-info">
 <span>{options.areas.find(x=>x.key===goal.area_key)?.name??formatDisplayLabel(goal.area_key)} · {formatDisplayLabel(goal.negotiability)}</span>
 <h2>{goal.title}</h2>
-<strong className="goal-card-tree-label">{treeLevelLabel(goal.tree_stage)}</strong>
+{productPresentation.forest&&<strong className="goal-card-tree-label">{treeLevelLabel(goal.tree_stage)}</strong>}
 <p>{goal.rule?targetLabel(goal.rule,unit):'No active rule'}</p>
 <div className="goal-metrics">
 <span>
@@ -324,7 +327,7 @@ export default function GoalsModule({onFirstSetupComplete,initialTrackerId='',on
 </button>
 </article>})}{!visible.length&&<div className="empty-state">
 <Leaf/>
-<h2>No {formatDisplayLabel(filter,{dormant:'Dormant Woods'})} Goals</h2>
+<h2>No {formatDisplayLabel(filter,{dormant:productPresentation.forest?'Dormant Woods':'Dormant Goals'})} Goals</h2>
 <p>{filter==='primary'?'Choose “Show on Home” when planting or editing a Goal.':'Nothing is stored here yet.'}</p>
 </div>}</div>
 </>}{creating&&<Editor options={options} initialTrackerId={initialTrackerId} first={!goals.length} close={()=>{setCreating(false);onInitialTrackerHandled?.()}} saved={async()=>{const first=!goals.length;setCreating(false);onInitialTrackerHandled?.();if(first&&onFirstSetupComplete)await onFirstSetupComplete();else await load()}}/>}{selected&&<Detail goal={selected} options={options} close={()=>setSelected(null)} changed={load} openLog={openLog}/>}</div>;

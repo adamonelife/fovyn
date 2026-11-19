@@ -30,7 +30,8 @@ export function readAppConfig(env: PublicEnvironment): AppConfig {
   } catch {
     throw new Error("Fovyn configuration error: VITE_SUPABASE_URL must be a valid URL.");
   }
-  if (parsedUrl.protocol !== "https:") {
+  const localReview=env.DEV===true&&env.VITE_FOVYN_LOCAL_PREVIEW==='true'&&environment==='development'&&['127.0.0.1','localhost'].includes(parsedUrl.hostname)&&parsedUrl.protocol==='http:';
+  if (parsedUrl.protocol !== "https:"&&!localReview) {
     throw new Error("Fovyn configuration error: VITE_SUPABASE_URL must use HTTPS.");
   }
   return {

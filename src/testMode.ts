@@ -16,4 +16,4 @@ export async function isSuperAdmin(){
   if(typeof row==='boolean')return row;
   return Boolean((row as {super_admin?:boolean}|null)?.super_admin);
 }
-export async function clearTestData(domain:'all'|'goals'|'training'|'nutrition'|'money'|'logs'='all'){const{error}=await supabase.rpc('clear_my_test_data',{p_domain:domain});if(error)throw new Error('Test data could not be cleared. No real data was changed.')}
+export async function clearTestData(domain:'all'|'goals'|'training'|'nutrition'|'money'|'logs'|'planning'='all'){const{error}=await supabase.rpc('clear_my_test_data',{p_domain:domain});if(error)throw new Error('Test data could not be cleared. No real data was changed.')}
