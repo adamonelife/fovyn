@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   web:
     runs-on: ubuntu-latest
@@ -38,3 +40,16 @@ jobs:
           name: fovyn-health-debug
           path: fovyn-health-debug.apk
           if-no-files-found: error
+      - name: Publish direct test APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mv fovyn-health-debug.apk fovyn-health-v1.0.1-test.apk
+          if gh release view fovyn-health-v1.0.1-test >/dev/null 2>&1; then
+            gh release upload fovyn-health-v1.0.1-test fovyn-health-v1.0.1-test.apk --clobber
+          else
+            gh release create fovyn-health-v1.0.1-test fovyn-health-v1.0.1-test.apk \
+              --prerelease \
+              --title "Fovyn Health v1.0.1 test" \
+              --notes "Test APK with corrected Health Connect permission registration and diagnostics."
+          fi
