@@ -22,14 +22,7 @@ import java.time.ZoneId
 class HealthReader(private val context:Context){
     private val client=HealthConnectClient.getOrCreate(context)
     private val zone=ZoneId.of("Asia/Makassar")
-    val permissions=setOf(
-        HealthPermission.getReadPermission(StepsRecord::class),
-        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
-        HealthPermission.getReadPermission(ExerciseSessionRecord::class),
-        HealthPermission.getReadPermission(SleepSessionRecord::class),
-        HealthPermission.getReadPermission(HeartRateRecord::class),
-        HealthPermission.getReadPermission(DistanceRecord::class)
-    )
+    val permissions=requiredPermissions
     suspend fun granted()=client.permissionController.getGrantedPermissions()
     suspend fun snapshot(deviceId:String):HealthSnapshot{
         val granted=granted();if(!granted.containsAll(permissions))throw IllegalStateException("Grant all requested Health Connect permissions first")
@@ -63,4 +56,14 @@ class HealthReader(private val context:Context){
     }
     private fun exerciseLabel(type:Int)=when(type){ExerciseSessionRecord.EXERCISE_TYPE_BIKING->"Cycling";ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY->"Stationary cycling";ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING->"Strength training";ExerciseSessionRecord.EXERCISE_TYPE_WALKING->"Walking";ExerciseSessionRecord.EXERCISE_TYPE_RUNNING->"Running";else->"Exercise $type"}
     private fun stageName(type:Int)=when(type){SleepSessionRecord.STAGE_TYPE_AWAKE->"awake";SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED->"awake_in_bed";SleepSessionRecord.STAGE_TYPE_LIGHT->"light";SleepSessionRecord.STAGE_TYPE_DEEP->"deep";SleepSessionRecord.STAGE_TYPE_REM->"rem";SleepSessionRecord.STAGE_TYPE_SLEEPING->"sleeping";SleepSessionRecord.STAGE_TYPE_OUT_OF_BED->"out_of_bed";else->"unknown"}
+    companion object {
+        val requiredPermissions=setOf(
+            HealthPermission.getReadPermission(StepsRecord::class),
+            HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+            HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+            HealthPermission.getReadPermission(SleepSessionRecord::class),
+            HealthPermission.getReadPermission(HeartRateRecord::class),
+            HealthPermission.getReadPermission(DistanceRecord::class)
+        )
+    }
 }

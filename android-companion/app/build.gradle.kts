@@ -10,8 +10,8 @@ android {
         applicationId="com.fovyn.health"
         minSdk=28
         targetSdk=35
-        versionCode=1
-        versionName="1.0.0-test"
+        versionCode=2
+        versionName="1.0.1-test"
         testInstrumentationRunner="androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String","SUPABASE_URL","\"https://ukvrfejyyhgnzljquxvt.supabase.co\"")
         buildConfigField("String","SUPABASE_PUBLISHABLE_KEY","\"sb_publishable_dl9JaUQp-U1dmuaGY1qu2A_oUHsatPt\"")
