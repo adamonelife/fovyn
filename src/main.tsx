@@ -98,6 +98,8 @@ import AuthVerification from "./AuthVerification";
 import Guidance from "./Guidance";
 import ForestOverview from "./ForestOverview";
 import { supabase } from "./supabase";
+import { loadHealthSettings, requestHealthSync } from "./healthRepository";
+import { healthSyncFresh } from "./healthDomain";
 import { dataContextEvent, getDataContext, isSuperAdmin, resetDataContext, type DataContext } from "./testMode";
 import { completeOnboarding, type HomeData } from "./homeRepository";
 import {
@@ -1780,6 +1782,21 @@ function App() {
     return () => {data.subscription.unsubscribe();window.removeEventListener(dataContextEvent,contextChanged)};
   }, []);
   useEffect(()=>{if(session)isSuperAdmin().then(setSuperAdmin).catch(()=>setSuperAdmin(false))},[session]);
+  useEffect(()=>{
+    if(!session||dataContext==='test')return;
+    let active=true;
+    const refresh=async(reason:"app_open"|"app_foreground")=>{
+      try{
+        const settings=await loadHealthSettings(),primary=settings.connections.find(x=>x.is_primary)??settings.connections[0];
+        if(active&&primary&&!healthSyncFresh(primary.last_successful_sync_at)&&settings.request?.status!=='pending')await requestHealthSync(reason);
+      }catch(error){console.warn("Health sync status refresh failed",error)}
+    };
+    void refresh("app_open");
+    const visible=()=>{if(document.visibilityState==='visible')void refresh("app_foreground")};
+    window.addEventListener("focus",visible);
+    document.addEventListener("visibilitychange",visible);
+    return()=>{active=false;window.removeEventListener("focus",visible);document.removeEventListener("visibilitychange",visible)};
+  },[session?.user?.id,dataContext]);
   const authResultRoute=location.pathname==='/auth/callback'||location.pathname==='/auth/success';
   const authPreviewSuccess=import.meta.env.DEV&&new URLSearchParams(location.search).get('auth-preview')==='success';
   if(authResultRoute)return <AuthVerification session={authPreviewSuccess?{preview:true}:session} continueToFovyn={()=>{history.replaceState({},'', '/');if(!session)location.reload();else setPage('Home')}}/>;
