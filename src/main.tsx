@@ -100,7 +100,6 @@ import ForestOverview from "./ForestOverview";
 import { supabase } from "./supabase";
 import { loadHealthSettings, requestHealthSync } from "./healthRepository";
 import CyclingDistancePrompt from "./CyclingDistancePrompt";
-import { healthSyncFresh } from "./healthDomain";
 import { dataContextEvent, getDataContext, isSuperAdmin, resetDataContext, type DataContext } from "./testMode";
 import { completeOnboarding, type HomeData } from "./homeRepository";
 import {
@@ -1789,7 +1788,7 @@ function App() {
     const refresh=async(reason:"app_open"|"app_foreground")=>{
       try{
         const settings=await loadHealthSettings(),primary=settings.connections.find(x=>x.is_primary)??settings.connections[0];
-        if(active&&primary&&!healthSyncFresh(primary.last_successful_sync_at)&&settings.request?.status!=='pending')await requestHealthSync(reason);
+        if(active&&primary&&settings.request?.status!=='pending')await requestHealthSync(reason);
       }catch(error){console.warn("Health sync status refresh failed",error)}
     };
     void refresh("app_open");
