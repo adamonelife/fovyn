@@ -14,8 +14,8 @@ android {
         applicationId="com.fovyn.health"
         minSdk=28
         targetSdk=35
-        versionCode=providers.gradleProperty("fovynVersionCode").orNull?.toInt()?:4
-        versionName=providers.gradleProperty("fovynVersionName").orNull?:"1.2.0"
+        versionCode=providers.gradleProperty("fovynVersionCode").orNull?.toInt()?:5
+        versionName=providers.gradleProperty("fovynVersionName").orNull?:"1.3.0"
         testInstrumentationRunner="androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String","SUPABASE_URL","\"https://ukvrfejyyhgnzljquxvt.supabase.co\"")
         buildConfigField("String","SUPABASE_PUBLISHABLE_KEY","\"sb_publishable_dl9JaUQp-U1dmuaGY1qu2A_oUHsatPt\"")
@@ -52,4 +52,3 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
 }
-
