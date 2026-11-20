@@ -20,3 +20,18 @@ export function healthSyncLabel(lastSync:string|null,status:string,requestStatus
  return 'Current';
 }
 
+
+export function healthCalorieSummary(days:Array<{active_calories:number|string;total_calories?:number|string|null}>,exercises:Array<{active_calories?:number|string|null;workout_calories?:number|string|null}>){
+ return{
+  active:days.reduce((n,d)=>n+Number(d.active_calories||0),0),
+  workoutTotal:exercises.reduce((n,e)=>n+Number(e.workout_calories||0),0),
+  workoutActive:exercises.reduce((n,e)=>n+Number(e.active_calories||0),0),
+  totalEnergy:days.some(d=>d.total_calories!=null)?days.reduce((n,d)=>n+Number(d.total_calories||0),0):null
+ };
+}
+export function exerciseDurationSummary(exercises:Array<{duration_minutes:number|string;active_duration_minutes?:number|string|null}>){
+ return{
+  active:exercises.reduce((n,e)=>n+Number(e.active_duration_minutes??e.duration_minutes),0),
+  elapsed:exercises.reduce((n,e)=>n+Number(e.duration_minutes),0)
+ };
+}
