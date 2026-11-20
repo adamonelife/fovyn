@@ -53,3 +53,5 @@
 .exercise-duration-editor input{width:100%;min-height:46px;border:1px solid var(--line);border-radius:13px;background:var(--surface-strong);color:var(--text);padding:0 12px;font:inherit}
 .exercise-duration-editor button{min-height:46px}
 @media(max-width:700px){.exercise-duration-review{padding:12px}.exercise-duration-editor{align-items:stretch;flex-direction:column}.exercise-duration-editor button{width:100%;justify-content:center}}
+
+.cycling-credit-note{margin:0 0 12px;color:var(--muted);font-size:.85rem;line-height:1.45}
