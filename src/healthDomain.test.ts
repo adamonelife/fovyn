@@ -1,8 +1,9 @@
 import{describe,it,expect}from'vitest';
-import{cyclingEquivalentSteps,combinedActivityEquivalent,exerciseDurationSummary,healthCalorieSummary,healthSyncFresh,healthSyncLabel,sleepDate,targetProgress}from'./healthDomain';
+import{cyclingDistanceEquivalentSteps,cyclingEquivalentSteps,combinedActivityEquivalent,exerciseDurationSummary,healthCalorieSummary,healthSyncFresh,healthSyncLabel,sleepDate,targetProgress}from'./healthDomain';
 describe('health metrics',()=>{
  it('keeps measured and estimated steps separate',()=>{expect(cyclingEquivalentSteps(60,null)).toBe(4200);expect(combinedActivityEquivalent(8000,4200)).toBe(12200);expect(8000).toBe(8000)});
- it('uses conservative versioned intensity bands and caps extreme durations',()=>{expect(cyclingEquivalentSteps(60,240)).toBe(4200);expect(cyclingEquivalentSteps(60,360)).toBe(5100);expect(cyclingEquivalentSteps(60,600)).toBe(6000);expect(cyclingEquivalentSteps(600,6000)).toBe(18000)});
+ it('uses the personal distance conversion when stationary-bike distance is known',()=>{expect(cyclingDistanceEquivalentSteps(1)).toBe(833);expect(cyclingDistanceEquivalentSteps(3)).toBe(2500);expect(cyclingDistanceEquivalentSteps(5.67)).toBe(4725);expect(cyclingDistanceEquivalentSteps(6)).toBe(5000);expect(cyclingDistanceEquivalentSteps(10)).toBe(8333);expect(cyclingDistanceEquivalentSteps(12)).toBe(10000)});
+ it('retains the conservative duration fallback for missing distance',()=>{expect(cyclingEquivalentSteps(60,240)).toBe(4200);expect(cyclingEquivalentSteps(60,360)).toBe(5100);expect(cyclingEquivalentSteps(60,600)).toBe(6000);expect(cyclingEquivalentSteps(600,6000)).toBe(18000)});
  it('keeps measured active energy separate from total workout energy',()=>{const s=healthCalorieSummary([{active_calories:94.45},{active_calories:105.06}],[{active_calories:24.97,workout_calories:405},{active_calories:35.49,workout_calories:109.45},{active_calories:null,workout_calories:335.25}]);expect(s.active).toBeCloseTo(199.51);expect(s.workoutActive).toBeCloseTo(60.46);expect(s.workoutTotal).toBeCloseTo(849.7);expect(s.active+s.workoutTotal).not.toBeCloseTo(s.active)});
  it('reports total energy only when supplied',()=>{expect(healthCalorieSummary([{active_calories:100}],[]).totalEnergy).toBeNull();expect(healthCalorieSummary([{active_calories:100,total_calories:1971}],[]).totalEnergy).toBe(1971)});
  it('uses corrected active duration while preserving elapsed time',()=>{const s=exerciseDurationSummary([{duration_minutes:50.68},{duration_minutes:89.53,active_duration_minutes:13.083},{duration_minutes:45.31}]);expect(s.elapsed).toBeCloseTo(185.52);expect(s.active).toBeCloseTo(109.073)});
@@ -10,4 +11,3 @@ describe('health metrics',()=>{
  it('shows over-target progress without losing the achieved state',()=>{expect(targetProgress(12000,10000)).toMatchObject({done:true});expect(targetProgress(15000,10000,13000).width).toBe(100)});
  it('distinguishes pending, current and stale sync states',()=>{const now=new Date('2026-11-19T06:00:00Z').getTime();expect(healthSyncFresh('2026-11-19T05:30:00Z',now)).toBe(true);expect(healthSyncFresh('2026-11-19T05:00:00Z',now)).toBe(false);expect(healthSyncLabel('2026-11-19T05:30:00Z','no_changes',null,now)).toContain('no new data');expect(healthSyncLabel('2026-11-19T05:30:00Z','success','pending',now)).toContain('waiting')});
 });
-
