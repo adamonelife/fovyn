@@ -1,8 +1,13 @@
 export const CYCLING_FORMULA_VERSION='cycle-duration-intensity-v1';
+export const CYCLING_DISTANCE_FORMULA_VERSION='cycle-distance-v2';
 export function cyclingEquivalentSteps(durationMinutes:number,activeCalories:number|null){
  if(!Number.isFinite(durationMinutes)||durationMinutes<=0)return 0;
  const minutes=Math.min(durationMinutes,180),rate=activeCalories==null?70:activeCalories/Math.max(durationMinutes,1)>=8?100:activeCalories/durationMinutes>=5?85:70;
  return Math.round(minutes*rate);
+}
+export function cyclingDistanceEquivalentSteps(distanceKm:number){
+ if(!Number.isFinite(distanceKm)||distanceKm<=0)return 0;
+ return Math.round(distanceKm*5000/6);
 }
 export function combinedActivityEquivalent(actualSteps:number,cyclingSteps:number){return Math.max(0,Math.round(actualSteps))+Math.max(0,Math.round(cyclingSteps))}
 export function hours(minutes:number){return Math.round(minutes/6)/10}
@@ -19,8 +24,6 @@ export function healthSyncLabel(lastSync:string|null,status:string,requestStatus
  if(status==='no_changes')return 'Current — no new data';
  return 'Current';
 }
-
-
 export function healthCalorieSummary(days:Array<{active_calories:number|string;total_calories?:number|string|null}>,exercises:Array<{active_calories?:number|string|null;workout_calories?:number|string|null}>){
  return{
   active:days.reduce((n,d)=>n+Number(d.active_calories||0),0),
