@@ -41,3 +41,15 @@
 .cycling-distance-weekly{display:grid;gap:12px;margin:14px 0 20px}.cycling-distance-weekly>header{display:flex;align-items:flex-start;gap:10px;border:1px solid #dccb91;border-radius:15px;background:#fffaf0;padding:14px}.cycling-distance-weekly>header svg{color:#8b711d}.cycling-distance-weekly h2,.cycling-distance-weekly p{margin:0}.cycling-distance-weekly header p{margin-top:3px;color:var(--muted);font-size:13px}
 .cycling-distance-list,.cycling-distance-history{display:grid;gap:10px}.cycling-distance-list article,.cycling-distance-history article{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,420px);align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:13px}.cycling-distance-list article>div:first-child,.cycling-distance-history article>div:first-child{display:grid;gap:3px}.cycling-distance-history{border:1px solid var(--line);border-radius:14px;background:#f8faf6;padding:12px}.cycling-distance-history summary{cursor:pointer;font-weight:700;color:var(--green)}.cycling-distance-history article{margin-top:10px}.cycling-distance-conflict{color:#8a5b16!important}
 @media(max-width:700px){.cycling-distance-prompt{left:10px;right:10px;bottom:82px;width:auto}.cycling-distance-inline,.cycling-distance-list article,.cycling-distance-history article{display:grid;grid-template-columns:1fr}.cycling-distance-inline button{width:100%}.cycling-distance-weekly>header{align-items:flex-start}}
+
+.exercise-duration-review{margin:12px 0;border:1px solid var(--line);border-radius:18px;background:var(--surface);padding:14px;overflow:hidden}
+.exercise-duration-review summary{display:flex;align-items:center;gap:8px;min-height:44px;font-weight:800;cursor:pointer}
+.exercise-duration-review>p{margin:6px 0 14px;color:var(--muted);font-size:.9rem;line-height:1.45}
+.exercise-duration-row{display:grid;gap:10px;padding:14px 0;border-top:1px solid var(--line)}
+.exercise-duration-row>div:first-child{display:grid;gap:4px}
+.exercise-duration-row small{color:var(--muted);line-height:1.35}
+.exercise-duration-editor{display:flex;align-items:end;gap:10px}
+.exercise-duration-editor label{display:grid;gap:5px;flex:1;font-size:.78rem;font-weight:750;color:var(--muted)}
+.exercise-duration-editor input{width:100%;min-height:46px;border:1px solid var(--line);border-radius:13px;background:var(--surface-strong);color:var(--text);padding:0 12px;font:inherit}
+.exercise-duration-editor button{min-height:46px}
+@media(max-width:700px){.exercise-duration-review{padding:12px}.exercise-duration-editor{align-items:stretch;flex-direction:column}.exercise-duration-editor button{width:100%;justify-content:center}}
