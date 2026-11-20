@@ -38,8 +38,8 @@ class HealthReader(private val context:Context){
         val days=(0L..13L).map{first.plusDays(it)}.map{day->
             val from=day.atStartOfDay(zone).toInstant()
             val to=day.plusDays(1).atStartOfDay(zone).toInstant()
-            val a=client.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL,ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),TimeRangeFilter.between(from,to)))
-            DaySummary(day.toString(),a[StepsRecord.COUNT_TOTAL]?:0,a[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories?:0.0)
+            val a=client.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL,ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL,TotalCaloriesBurnedRecord.ENERGY_TOTAL),TimeRangeFilter.between(from,to)))
+            DaySummary(day.toString(),a[StepsRecord.COUNT_TOTAL]?:0,a[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories?:0.0,a[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories)
         }
         val exercises=readExercises(start,end)
         val sleep=readSleep(start.minus(Duration.ofDays(1)),end)
@@ -52,7 +52,15 @@ class HealthReader(private val context:Context){
     private suspend fun readExercises(start:Instant,end:Instant):List<ExerciseSummary>{
         val all=mutableListOf<ExerciseSessionRecord>();var token:String?=null
         do{val r=client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class,TimeRangeFilter.between(start,end),pageToken=token));all+=r.records;token=r.pageToken?.takeIf{it.isNotEmpty()}}while(token!=null)
-        return all.map{e->val a=client.aggregate(AggregateRequest(setOf(DistanceRecord.DISTANCE_TOTAL,ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL,TotalCaloriesBurnedRecord.ENERGY_TOTAL,HeartRateRecord.BPM_AVG),TimeRangeFilter.between(e.startTime,e.endTime)));val cycling=e.exerciseType==ExerciseSessionRecord.EXERCISE_TYPE_BIKING||e.exerciseType==ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY;ExerciseSummary(e.metadata.id,e.metadata.dataOrigin.packageName,e.exerciseType,exerciseLabel(e.exerciseType),e.title,e.startTime.toString(),e.endTime.toString(),Duration.between(e.startTime,e.endTime).toMillis()/60000.0,a[DistanceRecord.DISTANCE_TOTAL]?.inKilometers,a[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories,a[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories,a[HeartRateRecord.BPM_AVG]?.toDouble(),cycling,e.metadata.lastModifiedTime.toString())}
+        return all.map{e->
+            val a=client.aggregate(AggregateRequest(setOf(DistanceRecord.DISTANCE_TOTAL,ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL,TotalCaloriesBurnedRecord.ENERGY_TOTAL,HeartRateRecord.BPM_AVG),TimeRangeFilter.between(e.startTime,e.endTime)))
+            val elapsed=Duration.between(e.startTime,e.endTime).toMillis()/60000.0
+            val paused=e.segments.filter{it.segmentType==androidx.health.connect.client.records.ExerciseSegment.EXERCISE_SEGMENT_TYPE_PAUSE}.sumOf{Duration.between(it.startTime,it.endTime).toMillis()/60000.0}
+            val active=activeDurationMinutes(elapsed,paused)
+            val activeSource=if(paused>0)"health_connect" else "elapsed"
+            val cycling=e.exerciseType==ExerciseSessionRecord.EXERCISE_TYPE_BIKING||e.exerciseType==ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY
+            ExerciseSummary(e.metadata.id,e.metadata.dataOrigin.packageName,e.exerciseType,exerciseLabel(e.exerciseType),e.title,e.startTime.toString(),e.endTime.toString(),elapsed,active,activeSource,a[DistanceRecord.DISTANCE_TOTAL]?.inKilometers,a[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories,a[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories,a[HeartRateRecord.BPM_AVG]?.toDouble(),cycling,e.metadata.lastModifiedTime.toString())
+        }
     }
     private suspend fun readSleep(start:Instant,end:Instant):List<SleepSummary>{
         val all=mutableListOf<SleepSessionRecord>();var token:String?=null
@@ -62,6 +70,8 @@ class HealthReader(private val context:Context){
     private fun exerciseLabel(type:Int)=when(type){ExerciseSessionRecord.EXERCISE_TYPE_BIKING->"Cycling";ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY->"Stationary cycling";ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING->"Strength training";ExerciseSessionRecord.EXERCISE_TYPE_WALKING->"Walking";ExerciseSessionRecord.EXERCISE_TYPE_RUNNING->"Running";else->"Exercise $type"}
     private fun stageName(type:Int)=when(type){SleepSessionRecord.STAGE_TYPE_AWAKE->"awake";SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED->"awake_in_bed";SleepSessionRecord.STAGE_TYPE_LIGHT->"light";SleepSessionRecord.STAGE_TYPE_DEEP->"deep";SleepSessionRecord.STAGE_TYPE_REM->"rem";SleepSessionRecord.STAGE_TYPE_SLEEPING->"sleeping";SleepSessionRecord.STAGE_TYPE_OUT_OF_BED->"out_of_bed";else->"unknown"}
     companion object {
+        fun activeDurationMinutes(elapsedMinutes:Double,pausedMinutes:Double)=
+            (elapsedMinutes-pausedMinutes.coerceAtLeast(0.0)).coerceIn(0.01,elapsedMinutes.coerceAtLeast(0.01))
         val basePermissions=setOf(
             HealthPermission.getReadPermission(StepsRecord::class),
             HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
