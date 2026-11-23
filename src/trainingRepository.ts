@@ -63,6 +63,7 @@ export async function loadWorkout(
   variant: string,
   manual = false,
   templateId?:string,
+  gymId?:string,
 ) {
   const owner = await requireOwner();
   const [ex, ru, se] = await Promise.all([
@@ -102,7 +103,10 @@ export async function loadWorkout(
     availableWeights:(r.available_weights??[]).map(Number),
     weightConvention:r.weight_convention,
     resistanceType:r.resistance_type,
-    unilateral:Boolean(r.source_payload?.unilateral),
+    unilateral:Boolean(r.unilateral ?? r.source_payload?.unilateral),
+    movementFamilyId:r.movement_family_id,
+    variationLabel:r.variation_label??r.name,
+    aliases:r.aliases??[],
   }));
   const idToKey = new Map((ex.data ?? []).map((r) => [r.id, r.exercise_key]));
   const rules: ExerciseRule[] = (ru.data ?? []).map((r) => ({
@@ -170,21 +174,21 @@ export async function loadWorkout(
     .eq("template_id", template.data.id)
     .order("position");
   fail("Template exercises", slots.error);
-  const mapped: TemplateSlot[] = (slots.data ?? []).map((r) => ({
-    workoutType: type,
-    variant,
-    order: r.position,
-    slotName: r.slot_name,
-    group: r.muscle_group,
-    defaultExerciseId: idToKey.get(r.default_exercise_id) ?? "",
-    required: r.required,
-  }));
-  return {
-    exercises,
-    rules,
-    logs,
-    items: buildWorkout(type, variant, mapped, exercises, logs, rules),
-  };
+  const [preferences,availability]=gymId?await Promise.all([
+    supabase!.from('training_gym_template_preferences').select('template_slot_id,exercise_id').eq('owner_id',owner).eq('gym_id',gymId).eq('template_id',template.data.id),
+    supabase!.from('training_gym_exercises').select('exercise_id,is_available,is_preferred').eq('owner_id',owner).eq('gym_id',gymId)
+  ]):[{data:[],error:null},{data:[],error:null}] as any;
+  fail('Gym workout preferences',preferences.error);fail('Gym exercise availability',availability.error);
+  const preferredBySlot=new Map((preferences.data??[]).map((x:any)=>[x.template_slot_id,x.exercise_id]));
+  const gymByExercise=new Map((availability.data??[]).map((x:any)=>[x.exercise_id,x]));
+  exercises.forEach((exercise:any)=>{const meta=gymByExercise.get(exercise.profileId);exercise.gymAvailable=meta?.is_available===true;exercise.gymPreferred=meta?.is_preferred===true});
+  const mapped: TemplateSlot[] = (slots.data ?? []).map((r:any) => {
+    const selected=preferredBySlot.get(r.id)??r.default_exercise_id;
+    const exercise=exercises.find((x:any)=>x.profileId===selected);
+    if(exercise){exercise.templateSlotId=r.id;exercise.originalExerciseId=idToKey.get(r.default_exercise_id)??''}
+    return {workoutType:type,variant,order:r.position,slotName:r.slot_name,group:r.muscle_group,defaultExerciseId:idToKey.get(selected)??idToKey.get(r.default_exercise_id)??'',required:r.required};
+  });
+  return {exercises,rules,logs,items:buildWorkout(type,variant,mapped,exercises,logs,rules)};
 }
 
 export type WorkoutSave = {
@@ -202,6 +206,7 @@ export type WorkoutSave = {
   recoveryStageId?:string;
   recoveryResponse?:{symptomResponse?:'better'|'no_change'|'slightly_worse'|'significantly_worse';painBefore?:number;painAfter?:number;stiffnessBefore?:number;stiffnessAfter?:number;delayedResponse?:'fine_later'|'mild_delayed'|'significant_delayed';delayedPain?:number;delayedStiffness?:number;notes?:string};
   templateId?:string;
+  gymId?:string;
   items: Array<{
     exerciseId: string;
     exerciseName: string;
@@ -209,6 +214,8 @@ export type WorkoutSave = {
     sets: SetPerformance[];
     rpe?: number;
     notes?: string;
+    originalExerciseId?:string;
+    substitutionSource?:'session'|'gym_preference';
     sides?:Array<{side:'left'|'right';setNumber:number;load?:number;reps?:number;durationSeconds?:number;rpe?:number}>;
   }>;
 };
@@ -242,6 +249,7 @@ export async function saveWorkout(payload: WorkoutSave) {
       notes: payload.notes ?? "",
       session_type:payload.sessionType??'normal',
       template_id:payload.templateId??null,
+      gym_id:payload.gymId??null,
       recovery_enrolment_id:payload.recoveryEnrolmentId??null,
       recovery_stage_id:payload.recoveryStageId??null,
       source_payload: { source: "unified_forbair_v1" },
@@ -264,6 +272,8 @@ export async function saveWorkout(payload: WorkoutSave) {
           position: i + 1,
           slot_name: item.slotName,
           exercise_name_snapshot: item.exerciseName,
+          original_exercise_id:item.originalExerciseId?byKey.get(item.originalExerciseId)??null:null,
+          substitution_source:item.substitutionSource??null,
           rpe: item.rpe ?? null,
           notes: item.notes ?? "",
           source_payload: { source: "unified_forbair_v1" },
