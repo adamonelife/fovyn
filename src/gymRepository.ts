@@ -35,3 +35,17 @@ export async function quickCreateExercise(input:{name:string;familyId:string;equ
 }
 export function exerciseSearchText(e:any){return[e.exerciseName,e.variationLabel,e.familyName,e.equipment,...(e.aliases??[])].filter(Boolean).join(' ').toLowerCase()}
 export function rankExercise(e:any,context:{gymId?:string;familyId?:string;query?:string}){let score=0;if(context.familyId&&e.movementFamilyId===context.familyId)score+=100;if(e.gymAvailable)score+=40;if(e.gymPreferred)score+=20;if(context.query&&exerciseSearchText(e).includes(context.query.toLowerCase()))score+=10;return score}
+
+export type VariationOption={id:string;movementFamilyId:string;key:string;label:string;equipment:string|null;resistanceType:string|null;unilateral:boolean;weightConvention:string|null;sortOrder:number};
+export async function loadVariationOptions(familyId:string){const user=await owner();const r=await supabase!.from('training_movement_variation_options').select('*').eq('owner_id',user).eq('movement_family_id',familyId).is('archived_at',null).order('sort_order');fail('Movement variations',r.error);return(r.data??[]).map(x=>({id:x.id,movementFamilyId:x.movement_family_id,key:x.variation_key,label:x.label,equipment:x.equipment,resistanceType:x.resistance_type,unilateral:x.unilateral,weightConvention:x.weight_convention,sortOrder:x.sort_order}) as VariationOption)}
+export async function createMovementVariation(input:{family:MovementFamily;option?:VariationOption;customLabel?:string;gymId?:string;aliases?:string[]}){
+ const user=await owner(),label=(input.option?.label??input.customLabel??'').trim();if(!label)throw new Error('Choose or name a variation.');
+ const existing=await supabase!.from('training_exercises').select('id,exercise_key,name,variation_label,equipment,unilateral').eq('owner_id',user).eq('movement_family_id',input.family.id).eq('active',true);
+ fail('Existing variations',existing.error);
+ const match=(existing.data??[]).find(x=>(x.variation_label??'').toLowerCase()===label.toLowerCase()||Boolean(input.option&&x.equipment===input.option.equipment&&Boolean(x.unilateral)===input.option.unilateral&&(x.name??'').toLowerCase().includes(label.split(' — ')[0].toLowerCase())));
+ if(match){if(input.gymId)await setGymExercise(input.gymId,match.id,true,false);return match}
+ const name=label==='Standard'?input.family.name:`${input.family.name} — ${label}`,key='user_'+crypto.randomUUID().replaceAll('-','');
+ const aliases=[...(input.aliases??[]),name,`${label} ${input.family.name}`].map(x=>x.trim()).filter(Boolean);
+ const r=await supabase!.from('training_exercises').insert({owner_id:user,exercise_key:key,name,exercise_alias:aliases[0]??name,aliases:[...new Set(aliases)],movement_family_id:input.family.id,variation_label:label,movement_family_status:'confirmed',equipment:input.option?.equipment??null,muscle_group:(input.family.primaryMuscleGroup||'other').toLowerCase(),unilateral:input.option?.unilateral??false,resistance_type:input.option?.resistanceType??'other',weight_convention:input.option?.weightConvention??'total_weight',source_payload:{source:'movement_first_v110',movement_family:input.family.name,variation:label},active:true,default_sets:3,measurement_type:'Reps',progression_type:'DOUBLE_PROGRESSION',increment_kg:2.5}).select().single();
+ fail('Create exercise variation',r.error);if(input.gymId)await setGymExercise(input.gymId,r.data.id,true,false);return r.data;
+}
