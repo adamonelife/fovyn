@@ -1,0 +1,4 @@
+create table if not exists public.training_reference_exercises(id uuid primary key default gen_random_uuid(),source_key text not null,source_exercise_id text not null,name text not null,equipment text,primary_muscle_group text,aliases text[] not null default '{}',movement_family_hint text,source_license text not null,source_url text not null,payload jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),unique(source_key,source_exercise_id));
+alter table public.training_reference_exercises enable row level security;
+create policy training_reference_exercises_authenticated_read on public.training_reference_exercises for select to authenticated using(true);
+comment on table public.training_reference_exercises is 'Separate licensed reference catalogue; entries are never added to a user library without explicit selection.';
