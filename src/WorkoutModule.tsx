@@ -4,6 +4,8 @@ import { Check, HeartPulse, MoreHorizontal, Plus, Timer, X } from "lucide-react"
 import { loadWorkoutWithCache } from "./workoutReadCache";
 import ExerciseLibrary from './ExerciseLibrary';
 import TrainingTemplates from './TrainingTemplates';
+import GymManager from './GymManager';
+import {loadGymContext,quickCreateExercise,rankExercise,saveGymTemplatePreference,selectGym,type GymProfile,type MovementFamily} from './gymRepository';
 import { formatDisplayLabel } from './displayLabels';
 import { supabase } from "./supabase";
 import {prepareRecoveryWorkout,recoveryPrescriptionSetCount,type RecoveryProgrammeData} from './recoveryProgrammeRepository';
@@ -116,19 +118,26 @@ function Start(p: {
       manual: boolean;
       templateId?:string;
       templateName?:string;
+      gymId?:string;
+      gymName?:string;
     }>(),
     [libraryOpen,setLibraryOpen]=useState(false),
+    [gymManagerOpen,setGymManagerOpen]=useState(false),
+    [gyms,setGyms]=useState<GymProfile[]>([]),
+    [gymId,setGymId]=useState(''),
     [templatesOpen,setTemplatesOpen]=useState(false),
     [pending, setPending] = useState(0),
     [queueError, setQueueError] = useState('');
   useEffect(() => {
     listTemplates().then(setTemplates);
+    loadGymContext().then(x=>{setGyms(x.gyms);setGymId(x.selectedGymId??x.gyms[0]?.id??'')}).catch(e=>setQueueError(e.message));
     let active = true;
     queuedWorkouts().then(items => { if (active) setPending(items.length); }).catch(error => { if (active) setQueueError(error instanceof Error ? error.message : 'Could not read local workout drafts.'); });
     return () => { active = false; };
   }, []);
   if (choice) return <Editor {...choice} {...p} />;
   if(libraryOpen)return <ExerciseLibrary close={()=>{setLibraryOpen(false);listTemplates().then(setTemplates)}}/>;
+  if(gymManagerOpen)return <GymManager close={()=>{setGymManagerOpen(false);loadGymContext().then(x=>{setGyms(x.gyms);setGymId(x.selectedGymId??x.gyms[0]?.id??'')})}}/>;
   if(templatesOpen)return <TrainingTemplates close={()=>{setTemplatesOpen(false);listTemplates().then(setTemplates)}} onStart={template=>setChoice({type:template.type,variant:template.variant,manual:false,templateId:template.id,templateName:template.name})}/>;
   return (
     <div className="sheet-shade">
@@ -137,7 +146,7 @@ function Start(p: {
           <X />
         </button>
         <p className="eyebrow">START A WORKOUT</p>
-        <h2>Manual or saved template?</h2>{queueError && <p role="alert">{queueError}</p>}<p role="status">Automatic offline replay is paused while safe retries are prepared. Existing drafts are preserved on this device.</p>
+        <h2>Manual or saved template?</h2><div className="gym-selector"><label>Where are you training today?<select value={gymId} onChange={async e=>{setGymId(e.target.value);await selectGym(e.target.value)}}>{gyms.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label><button className="exercise-library-link" onClick={()=>setGymManagerOpen(true)}>Manage gyms</button></div>{queueError && <p role="alert">{queueError}</p>}<p role="status">Automatic offline replay is paused while safe retries are prepared. Existing drafts are preserved on this device.</p>
         {pending > 0 && (
           <p className="sync-note">
             {pending} workout{pending > 1 ? "s" : ""} preserved on this device (automatic replay paused)
@@ -146,12 +155,12 @@ function Start(p: {
         <button
           className="manual-workout"
           onClick={() =>
-            setChoice({ type: "Manual", variant: "Custom", manual: true })
+            setChoice({ type: "Manual", variant: "Custom", manual: true, gymId, gymName:gyms.find(g=>g.id===gymId)?.name })
           }
         >
           <Plus /> Manual workout
         </button>
-        <button className="manual-workout" onClick={()=>setChoice({type:'Recovery',variant:'Programme',manual:true})}><HeartPulse/> Recovery workout</button>
+        <button className="manual-workout" onClick={()=>setChoice({type:'Recovery',variant:'Programme',manual:true,gymId,gymName:gyms.find(g=>g.id===gymId)?.name})}><HeartPulse/> Recovery workout</button>
         <button className="exercise-library-link" onClick={()=>setLibraryOpen(true)}>Exercise Library</button>
         <button className="exercise-library-link" onClick={()=>setTemplatesOpen(true)}>Manage Templates</button>
         <p className="choice-label">SAVED TEMPLATES</p>
@@ -159,7 +168,7 @@ function Start(p: {
           {templates.map((t) => (
             <button
               key={t.id}
-              onClick={() => setChoice({type:t.type,variant:t.variant,manual:false,templateId:t.id,templateName:t.name})}
+              onClick={() => setChoice({type:t.type,variant:t.variant,manual:false,templateId:t.id,templateName:t.name,gymId,gymName:gyms.find(g=>g.id===gymId)?.name})}
             >
               <span>{t.exerciseCount} exercise{t.exerciseCount===1?'':'s'}</span>
               <b>{t.name}</b>
@@ -177,6 +186,8 @@ function Editor({
   manual,
   templateId,
   templateName,
+  gymId,
+  gymName,
   close,
   onSaved,
 }: {
@@ -185,11 +196,21 @@ function Editor({
   manual: boolean;
   templateId?:string;
   templateName?:string;
+  gymId?:string;
+  gymName?:string;
   close: () => void;
   onSaved: (t: string, v: string) => void;
 }) {
   const [items, setItems] = useState<Item[]>([]),
     [library, setLibrary] = useState<Exercise[]>([]),
+    [families,setFamilies]=useState<MovementFamily[]>([]),
+    [exerciseSearch,setExerciseSearch]=useState(''),
+    [quickAdd,setQuickAdd]=useState(false),
+    [quickName,setQuickName]=useState(''),
+    [quickFamily,setQuickFamily]=useState(''),
+    [quickEquipment,setQuickEquipment]=useState('Machine'),
+    [quickUnilateral,setQuickUnilateral]=useState(false),
+    [savePreference,setSavePreference]=useState(false),
     [rules, setRules] = useState<ExerciseRule[]>([]),
     [logs, setLogs] = useState<LoggedExercise[]>([]),
     [loading, setLoading] = useState(true),
@@ -230,7 +251,8 @@ function Editor({
       // Invalid legacy preferences should not prevent a workout opening.
     }
     let active = true;
-    loadWorkoutWithCache({ type, variant, manual, templateId }, async () => {
+    loadGymContext().then(x=>setFamilies(x.families)).catch(()=>{});
+    loadWorkoutWithCache({ type, variant, manual, templateId, gymId }, async () => {
       if (type === 'Recovery') {
         const value = await prepareRecoveryWorkout();
         if (active) {
@@ -238,7 +260,7 @@ function Editor({
           setRecoveryStageId(value.enrolment?.current_stage_id ?? value.stages[0].id);
         }
       }
-      return loadWorkout(type, variant, manual, templateId);
+      return loadWorkout(type, variant, manual, templateId, gymId);
     }, () => active)
       .then(({ data: d, offline }) => {
         if (!active) return;
@@ -298,6 +320,7 @@ function Editor({
       rpe: "",
       notes: "",
     };
+    if(replace!==null&&savePreference&&gymId&&templateId&&e.profileId&&items[replace].exercise.templateSlotId){saveGymTemplatePreference({gymId,templateId,slotId:items[replace].exercise.templateSlotId!,exerciseProfileId:e.profileId}).catch(reason=>setError(reason instanceof Error?reason.message:'Unable to save gym preference'))}
     setItems(
       replace === null
         ? [...items, x]
@@ -338,6 +361,7 @@ function Editor({
     notes,
     sessionType,
     templateId,
+    gymId,
     recoveryEnrolmentId:recovery?.enrolment?.id,
     recoveryStageId:recoveryStageId||undefined,
     recoveryResponse:type==='Recovery'?{symptomResponse,painBefore:painBefore===''?undefined:Number(painBefore),painAfter:painAfter===''?undefined:Number(painAfter),stiffnessBefore:stiffnessBefore===''?undefined:Number(stiffnessBefore),stiffnessAfter:stiffnessAfter===''?undefined:Number(stiffnessAfter),delayedResponse,delayedPain:delayedPain===''?undefined:Number(delayedPain),delayedStiffness:delayedStiffness===''?undefined:Number(delayedStiffness),notes}:undefined,
@@ -348,6 +372,8 @@ function Editor({
       sets: x.sideSets?[]:x.sets,
       rpe: Number(x.rpe) || undefined,
       notes: x.notes,
+      originalExerciseId:x.exercise.originalExerciseId,
+      substitutionSource:x.exercise.originalExerciseId&&x.exercise.originalExerciseId!==x.exercise.exerciseId?(savePreference?'gym_preference':'session'):undefined,
       sides:x.sideSets?(['left','right'] as const).flatMap(side=>x.sideSets![side].map((set,index)=>({side,setNumber:index+1,load:set.kg===''?undefined:Number(set.kg),reps:x.exercise.trackingType==='Reps'?(set.value??undefined):undefined,durationSeconds:x.exercise.trackingType==='Seconds'?(set.value??undefined):x.exercise.trackingType==='Minutes'&&set.value!=null?set.value*60:undefined,rpe:Number(x.rpe)||undefined}))):undefined,
     })),
   });
@@ -437,7 +463,7 @@ function Editor({
     <div className="workout-full">
       <header>
         <div>
-          <p className="eyebrow">{manual ? "MANUAL" : "RECOMMENDED"} WORKOUT</p>
+          <p className="eyebrow">{manual ? "MANUAL" : "RECOMMENDED"} WORKOUT{gymName?` · ${gymName.toUpperCase()}`:''}</p>
           <h1>
             {templateName??`${type} ${variant}`}
           </h1>
@@ -617,18 +643,10 @@ function Editor({
                 <X />
               </button>
             </header>
-            {library
-              .filter(
-                (e) => replace === null || e.group === items[replace]?.group,
-              )
-              .map((e) => (
-                <button key={e.exerciseId} onClick={() => choose(e)}>
-                  <b>{e.exerciseName}</b>
-                  <small>
-                    {formatDisplayLabel(e.group)} · {formatDisplayLabel(e.resistanceType??e.equipment??'other')}
-                  </small>
-                </button>
-              ))}
+            <input className="exercise-search" value={exerciseSearch} onChange={e=>setExerciseSearch(e.target.value)} placeholder="Search movement, alias or equipment" autoFocus/>
+            {replace!==null&&<label className="save-gym-preference"><input type="checkbox" checked={savePreference} onChange={e=>setSavePreference(e.target.checked)}/> Always use this variation at {gymName??'this gym'}</label>}
+            {library.filter(e=>!exerciseSearch||[e.exerciseName,e.variationLabel,e.familyName,e.equipment,...(e.aliases??[])].join(' ').toLowerCase().includes(exerciseSearch.toLowerCase())).filter(e=>replace===null||!items[replace]?.exercise.movementFamilyId||e.movementFamilyId===items[replace].exercise.movementFamilyId).sort((a,b)=>rankExercise(b,{gymId,familyId:replace===null?undefined:items[replace]?.exercise.movementFamilyId??undefined,query:exerciseSearch})-rankExercise(a,{gymId,familyId:replace===null?undefined:items[replace]?.exercise.movementFamilyId??undefined,query:exerciseSearch})).map(e=><button key={e.exerciseId} onClick={()=>choose(e)}><b>{e.exerciseName}</b><small>{e.gymAvailable?'Available here · ':''}{e.familyName??formatDisplayLabel(e.group)} · {formatDisplayLabel(e.resistanceType??e.equipment??'other')}</small></button>)}
+            {!quickAdd?<button className="quick-add-trigger" onClick={()=>{setQuickAdd(true);setQuickName(exerciseSearch)}}><Plus/> Quick add exercise</button>:<div className="quick-exercise-form"><input value={quickName} onChange={e=>setQuickName(e.target.value)} placeholder="Variation name"/><select value={quickFamily} onChange={e=>setQuickFamily(e.target.value)}><option value="">Movement family</option>{families.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</select><input value={quickEquipment} onChange={e=>setQuickEquipment(e.target.value)} placeholder="Equipment"/><label><input type="checkbox" checked={quickUnilateral} onChange={e=>setQuickUnilateral(e.target.checked)}/> Unilateral / left-right</label><button disabled={!quickName.trim()||!quickFamily} onClick={async()=>{try{const family=families.find(f=>f.id===quickFamily)!;const row=await quickCreateExercise({name:quickName,familyId:quickFamily,equipment:quickEquipment,muscleGroup:family.primaryMuscleGroup,unilateral:quickUnilateral,aliases:[exerciseSearch].filter(Boolean),gymId});const fresh=await loadWorkout(type,variant,true,undefined,gymId);setLibrary(fresh.exercises);const made=fresh.exercises.find(x=>x.profileId===row.id);if(made)choose(made)}catch(reason){setError(reason instanceof Error?reason.message:'Unable to create exercise')}}}>Create & add</button></div>}
           </section>
         </div>
       )}
