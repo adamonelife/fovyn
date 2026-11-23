@@ -1,0 +1,5 @@
+alter table public.training_exercises add column if not exists exercise_tags text[] not null default '{}';
+create table if not exists public.training_exercise_cleanup_v19_backup(owner_id uuid not null references auth.users(id) on delete cascade,exercise_id uuid not null references public.training_exercises(id) on delete cascade,backed_up_at timestamptz not null default now(),snapshot jsonb not null,primary key(owner_id,exercise_id));
+alter table public.training_exercise_cleanup_v19_backup enable row level security;
+create policy training_exercise_cleanup_v19_backup_owner_read on public.training_exercise_cleanup_v19_backup for select using(owner_id=auth.uid());
+insert into public.training_exercise_cleanup_v19_backup(owner_id,exercise_id,snapshot) select owner_id,id,to_jsonb(e) from public.training_exercises e where movement_family_status='review_required' on conflict(owner_id,exercise_id) do nothing;
