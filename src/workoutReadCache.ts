@@ -4,11 +4,11 @@ import { getDataContext } from './testMode';
 import type { loadWorkout } from './trainingRepository';
 
 type WorkoutData = Awaited<ReturnType<typeof loadWorkout>>;
-export type WorkoutSelection = { type: string; variant: string; manual: boolean; templateId?: string };
+export type WorkoutSelection = { type: string; variant: string; manual: boolean; templateId?: string; gymId?: string };
 export type WorkoutCacheScope = { ownerId: string; context: string; project: string; environment: string };
 
 export function workoutReadCacheKey(scope: WorkoutCacheScope, selection: WorkoutSelection) {
-  return `fovyn-workout-read-v2:${JSON.stringify([scope.project, scope.environment, scope.ownerId, scope.context, selection.type, selection.variant, selection.manual, selection.templateId ?? null])}`;
+  return `fovyn-workout-read-v2:${JSON.stringify([scope.project, scope.environment, scope.ownerId, scope.context, selection.type, selection.variant, selection.manual, selection.templateId ?? null, selection.gymId ?? null])}`;
 }
 
 async function currentScope(): Promise<WorkoutCacheScope> {
